@@ -232,13 +232,6 @@ const GameTable: React.FC = () => {
                         </div>
                     )}
 
-                    {/* Game Phase Display */}
-                    <div className="game-info">
-                        <div className="text-xs text-white/80 mb-1">Phase</div>
-                        <div className="text-sm font-bold text-white capitalize">
-                            {currentGame.phase}
-                        </div>
-                    </div>
                 </div>
             </div>
 

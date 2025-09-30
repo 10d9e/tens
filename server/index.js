@@ -450,6 +450,10 @@ io.on('connection', (socket) => {
             const winnerPlayer = game.players.find(p => p.id === winner.playerId);
             console.log(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
+            // Add delay to let players see the final card before completing trick
+            console.log('Pausing 1.5 seconds to show final card...');
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
             // Emit trick completed event with the completed trick
             io.to(`table-${game.tableId}`).emit('trick_completed', { game });
             // Clear the trick immediately
@@ -476,15 +480,22 @@ io.on('connection', (socket) => {
                     });
                 }
 
-                // Reset for new round
+                // Reset for new round - clear all bid-related state
                 game.phase = 'bidding';
                 game.currentBid = null;
                 game.trumpSuit = null;
                 game.currentTrick = { cards: [], winner: null, points: 0 };
+                game.lastTrick = null; // Clear last trick for new round
                 game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                 game.dealer = game.currentPlayer;
 
+                console.log('Round reset complete - all bid parameters cleared for new round');
+
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
+
+                // Pause for 1 second to let players see the final trick
+                console.log('Pausing for 1 second before starting new round...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
                 // Start bot turn handling for new bidding phase if current player is a bot
                 if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
@@ -747,6 +758,10 @@ async function handleBotTurn(game) {
                 // Log trick details for debugging
                 const winnerPlayer = game.players.find(p => p.id === winner.playerId);
                 console.log(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
+
+                // Add delay to let players see the final card before completing trick
+                console.log('Pausing 1.5 seconds to show final card...');
+                await new Promise(resolve => setTimeout(resolve, 1500));
 
                 // Emit trick completed event with the completed trick
                 io.to(`table-${game.tableId}`).emit('trick_completed', { game });

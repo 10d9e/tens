@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Suit } from '../types/game';
 
@@ -19,10 +19,17 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
 }) => {
     const [selectedPoints, setSelectedPoints] = useState<number>(0);
     const [selectedSuit, setSelectedSuit] = useState<Suit | null>(null);
-    const [showSuitSelection, setShowSuitSelection] = useState(false);
 
-    const bidOptions = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100];
     const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
+
+    // Initialize selected points to the minimum valid bid
+    useEffect(() => {
+        if (isOpen) {
+            const minBid = Math.max(10, currentBid + 5);
+            setSelectedPoints(minBid);
+            setSelectedSuit(null);
+        }
+    }, [isOpen, currentBid]);
 
     const getSuitSymbol = (suit: Suit) => {
         switch (suit) {
@@ -51,18 +58,26 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
 
     const handleBidSubmit = () => {
         if (selectedPoints > currentBid) {
+            // For bids >= 30, require a trump suit selection
             if (selectedPoints >= 30 && !selectedSuit) {
-                setShowSuitSelection(true);
-            } else {
-                onBid(selectedPoints, selectedSuit || undefined);
-                onClose();
+                return; // Don't submit if no suit selected for high bids
             }
+            onBid(selectedPoints, selectedSuit || undefined);
+            onClose();
         }
     };
 
     const handlePass = () => {
         onBid(0);
         onClose();
+    };
+
+    const handleSliderChange = (value: number) => {
+        setSelectedPoints(value);
+        // Clear suit selection when changing bid amount
+        if (value < 30) {
+            setSelectedSuit(null);
+        }
     };
 
     if (!isOpen) return null;
@@ -77,7 +92,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                 onClick={onClose}
             >
                 <motion.div
-                    className="bid-interface"
+                    className="bid-interface combined"
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
@@ -93,41 +108,35 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                         )}
                     </div>
 
-                    {!showSuitSelection ? (
-                        <>
-                            <div className="bid-options">
-                                {bidOptions.map(points => (
-                                    <button
-                                        key={points}
-                                        className={`bid-option ${selectedPoints === points ? 'selected' : ''} ${points <= currentBid ? 'opacity-50 cursor-not-allowed' : ''
-                                            }`}
-                                        onClick={() => points > currentBid && setSelectedPoints(points)}
-                                        disabled={points <= currentBid}
-                                    >
-                                        {points}
-                                    </button>
-                                ))}
+                    {/* Bid Amount Slider */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-white mb-2">
+                            Bid Amount: {selectedPoints} points
+                        </label>
+                        <div className="slider-container">
+                            <input
+                                type="range"
+                                min="10"
+                                max="100"
+                                step="5"
+                                value={selectedPoints}
+                                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                                className="bid-slider"
+                                disabled={selectedPoints <= currentBid}
+                            />
+                            <div className="slider-labels">
+                                <span>10</span>
+                                <span>100</span>
                             </div>
+                        </div>
+                    </div>
 
-                            <div className="flex gap-2 justify-center mt-4">
-                                <button
-                                    className="control-button"
-                                    onClick={handlePass}
-                                >
-                                    Pass
-                                </button>
-                                <button
-                                    className="control-button primary"
-                                    onClick={handleBidSubmit}
-                                    disabled={selectedPoints <= currentBid}
-                                >
-                                    Bid {selectedPoints}
-                                </button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <h4 className="text-center mb-4">Select Trump Suit</h4>
+                    {/* Trump Suit Selection - Only show for bids >= 30 */}
+                    {selectedPoints >= 30 && (
+                        <div className="mb-6">
+                            <label className="block text-sm font-medium text-white mb-3">
+                                Select Trump Suit (Required for bids ≥ 30)
+                            </label>
                             <div className="suit-options">
                                 {suits.map(suit => (
                                     <button
@@ -139,27 +148,28 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                                     </button>
                                 ))}
                             </div>
-
-                            <div className="flex gap-2 justify-center mt-4">
-                                <button
-                                    className="control-button"
-                                    onClick={() => setShowSuitSelection(false)}
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    className="control-button primary"
-                                    onClick={() => {
-                                        onBid(selectedPoints, selectedSuit!);
-                                        onClose();
-                                    }}
-                                    disabled={!selectedSuit}
-                                >
-                                    Bid {selectedPoints} - {getSuitSymbol(selectedSuit!)}
-                                </button>
-                            </div>
-                        </>
+                        </div>
                     )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 justify-center">
+                        <button
+                            className="control-button"
+                            onClick={handlePass}
+                        >
+                            Pass
+                        </button>
+                        <button
+                            className="control-button primary"
+                            onClick={handleBidSubmit}
+                            disabled={selectedPoints <= currentBid || (selectedPoints >= 30 && !selectedSuit)}
+                        >
+                            {selectedPoints >= 30 && selectedSuit
+                                ? `Bid ${selectedPoints} - ${getSuitSymbol(selectedSuit)}`
+                                : `Bid ${selectedPoints}`
+                            }
+                        </button>
+                    </div>
                 </motion.div>
             </motion.div>
         </AnimatePresence>

@@ -93,13 +93,7 @@ const Card: React.FC<CardProps> = ({
                 )}
             </div>
 
-            {/* Unplayable overlay */}
-            {!isPlayable && (
-                <div
-                    className="absolute inset-0 bg-red-500/80 rounded-lg z-50"
-                    style={{ backgroundColor: 'rgba(255, 0, 0, 0.8)' }}
-                ></div>
-            )}
+
         </motion.div>
     );
 };

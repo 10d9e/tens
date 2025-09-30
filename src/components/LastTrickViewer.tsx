@@ -20,12 +20,13 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
         return player ? player.position : 0;
     };
 
-    const getCardPosition = (index: number, playerPosition: number) => {
+    const getCardPosition = (playerPosition: number) => {
+        // Create proper diamond layout for NESW positions with more spacing
         const positions = [
-            { x: -40, y: -20 }, // North
-            { x: 40, y: -20 },  // East
-            { x: -40, y: 20 },  // South
-            { x: 40, y: 20 }    // West
+            { x: 0, y: -35 },   // North (position 0)
+            { x: 35, y: 0 },    // East (position 1) 
+            { x: 0, y: 35 },    // South (position 2)
+            { x: -35, y: 0 }    // West (position 3)
         ];
 
         return positions[playerPosition] || { x: 0, y: 0 };
@@ -35,18 +36,18 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
 
     return (
         <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
+            className="absolute top-4 right-4 z-50"
+            initial={{ opacity: 0, x: 100 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 100 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
         >
             <motion.div
-                className="bg-black bg-opacity-90 rounded-lg p-6 border border-green-500 border-opacity-30 backdrop-blur-sm max-w-md w-full mx-4"
+                className="bg-black bg-opacity-90 rounded-lg p-4 border border-green-500 border-opacity-30 backdrop-blur-sm max-w-xs w-full shadow-2xl"
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.8, opacity: 0 }}
-                onClick={(e) => e.stopPropagation()}
+                transition={{ duration: 0.3, ease: "easeOut" }}
             >
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">Last Trick</h3>
@@ -67,11 +68,12 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
                     <AnimatePresence>
                         {trick.cards.map(({ card, playerId }, index) => {
                             const playerPosition = getPlayerPosition(playerId);
-                            const position = getCardPosition(index, playerPosition);
+                            const position = getCardPosition(playerPosition);
+                            const isWinningCard = trick.winningCard?.id === card.id;
 
                             return (
                                 <motion.div
-                                    key={`${card.id}-${index}`}
+                                    key={`${card.id}-${playerId}`}
                                     className="absolute"
                                     initial={{
                                         opacity: 0,
@@ -99,11 +101,21 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
                                         zIndex: index + 1
                                     }}
                                 >
-                                    <Card
-                                        card={card}
-                                        size="small"
-                                        className="shadow-lg"
-                                    />
+                                    <div className="relative">
+                                        <Card
+                                            card={card}
+                                            size="small"
+                                            className={`shadow-lg transition-all duration-300 ${isWinningCard
+                                                ? 'ring-4 ring-yellow-400 ring-opacity-90 shadow-yellow-400/50 shadow-lg scale-110'
+                                                : 'opacity-80'
+                                                }`}
+                                        />
+                                        {isWinningCard && (
+                                            <div className="absolute -top-3 -right-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black text-sm font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg border-2 border-white">
+                                                ★
+                                            </div>
+                                        )}
+                                    </div>
                                 </motion.div>
                             );
                         })}

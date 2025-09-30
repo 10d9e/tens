@@ -26,14 +26,14 @@ const Lobby: React.FC = () => {
     };
 
     const handleDeleteTable = (tableId: string) => {
-        if (window.confirm('Are you sure you want to delete this table? This action cannot be undone.')) {
-            deleteTable(tableId);
-        }
+        //if (window.confirm('Are you sure you want to delete this table? This action cannot be undone.')) {
+        deleteTable(tableId);
+        //}
     };
 
     return (
         <div style={{ padding: '20px' }}>
-            <div className="max-w-6xl mx-auto">
+            <div>
                 {/* Header */}
                 <motion.div
                     className="text-center mb-16"
@@ -74,6 +74,7 @@ const Lobby: React.FC = () => {
                             Create Table
                         </button>
                     </div>
+                    <br />
                 </motion.div>
 
                 {/* Tables List */}
@@ -88,6 +89,7 @@ const Lobby: React.FC = () => {
                             <motion.div
                                 key={table.id}
                                 className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 hover:border-white/40 transition-all duration-300 shadow-xl hover:shadow-2xl"
+                                style={{ padding: '20px' }}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5 }}
@@ -140,9 +142,10 @@ const Lobby: React.FC = () => {
                                         onClick={() => handleJoinTable(table.id)}
                                         disabled={table.players.length >= table.maxPlayers || !!table.gameState}
                                         className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-xl text-sm font-semibold text-white transition-all transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
+                                        style={{ backgroundColor: 'green', color: 'white', border: 'none', padding: '5px' }}
                                     >
                                         {table.players.length >= table.maxPlayers ? 'Full' :
-                                            table.gameState ? 'In Game' : 'Join'}
+                                            table.gameState ? 'In Game' : 'Join Table'}
                                     </button>
                                 </div>
                             </motion.div>

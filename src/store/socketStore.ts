@@ -104,12 +104,6 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
             // Play sound effect
             playCardSound();
-
-            // Show notification
-            const player = game.players.find(p => p.id === playerId);
-            if (player) {
-                toast.success(`${player.name} played ${card.rank} of ${card.suit}`);
-            }
         });
 
         socket.on('game_updated', (data) => {
@@ -118,7 +112,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
             if (game.phase === 'playing') {
                 useGameStore.getState().setIsBidding(false);
-                toast.success('Game phase updated to playing!');
+                // toast.success('Game phase updated to playing!');
             }
         });
 
@@ -171,7 +165,21 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 `🎉 Game Over! ${winningTeamName} wins! 🎉\n` +
                 `Winners: ${winningPlayerNames}\n` +
                 `Final Score: ${teamScore} - ${otherTeamScore}`,
-                { duration: 8000 }
+                {
+                    duration: 8000,
+                    position: 'top-center',
+                    style: {
+                        fontSize: '18px',
+                        padding: '20px',
+                        textAlign: 'center',
+                        maxWidth: '500px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        borderRadius: '12px',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+                    }
+                }
             );
 
             // Add system message to chat
