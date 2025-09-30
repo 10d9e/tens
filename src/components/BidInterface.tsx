@@ -6,7 +6,12 @@ interface BidInterfaceProps {
     isOpen: boolean;
     onClose: () => void;
     onBid: (points: number, suit?: Suit) => void;
-    currentBid?: number;
+    currentBid?: {
+        points: number;
+        playerId: string;
+        suit?: Suit;
+    };
+    players: any[];
     playerCards: any[];
 }
 
@@ -14,7 +19,8 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     isOpen,
     onClose,
     onBid,
-    currentBid = 0,
+    currentBid,
+    players,
     playerCards
 }) => {
     const [selectedPoints, setSelectedPoints] = useState<number>(0);
@@ -25,7 +31,8 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     // Initialize selected points to the minimum valid bid
     useEffect(() => {
         if (isOpen) {
-            const minBid = Math.max(50, currentBid + 5);
+            const currentBidPoints = currentBid?.points || 0;
+            const minBid = Math.max(50, currentBidPoints + 5);
             setSelectedPoints(minBid);
             setSelectedSuit(null);
         }
@@ -44,6 +51,18 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
         return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-gray-800';
     };
 
+    const getBidderInfo = () => {
+        if (!currentBid) return null;
+
+        const bidder = players.find(p => p.id === currentBid.playerId);
+        if (!bidder) return null;
+
+        const team = bidder.position % 2 === 0 ? 'Team 1' : 'Team 2';
+        const playerName = bidder.isBot ? `Bot (${bidder.botSkill})` : bidder.name;
+
+        return { team, playerName };
+    };
+
     const evaluateHand = () => {
         const values: Record<string, number> = {
             'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10,
@@ -57,7 +76,8 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     const suggestedBid = Math.max(50, Math.min(handValue, 100));
 
     const handleBidSubmit = () => {
-        if (selectedPoints > currentBid) {
+        const currentBidPoints = currentBid?.points || 0;
+        if (selectedPoints > currentBidPoints) {
             // Trump suit selection is required for any bid
             if (!selectedSuit) {
                 return; // Don't submit if no suit selected
@@ -100,9 +120,24 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                     <div className="mb-4 p-3 bg-blue-900 bg-opacity-30 rounded-lg">
                         <div className="text-sm text-blue-200">Hand Value: {handValue} points</div>
                         <div className="text-sm text-blue-200">Suggested Bid: {suggestedBid} points</div>
-                        {currentBid > 0 && (
-                            <div className="text-sm text-yellow-200">Current Bid: {currentBid} points</div>
-                        )}
+                        {currentBid && currentBid.points > 0 && (() => {
+                            const bidderInfo = getBidderInfo();
+                            return (
+                                <div className="text-sm text-yellow-200">
+                                    Current Bid: {currentBid.points} points
+                                    {bidderInfo && (
+                                        <span className="text-xs text-yellow-300 ml-2">
+                                            ({bidderInfo.team} - {bidderInfo.playerName}
+                                            {currentBid.suit && (
+                                                <span className={`ml-1 ${getSuitColor(currentBid.suit)}`}>
+                                                    {getSuitSymbol(currentBid.suit)}
+                                                </span>
+                                            )})
+                                        </span>
+                                    )}
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* Bid Amount Slider */}
@@ -111,20 +146,26 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                             Bid Amount: {selectedPoints} points
                         </label>
                         <div className="slider-container">
-                            <input
-                                type="range"
-                                min="50"
-                                max="100"
-                                step="5"
-                                value={selectedPoints}
-                                onChange={(e) => handleSliderChange(parseInt(e.target.value))}
-                                className="bid-slider"
-                                disabled={selectedPoints <= currentBid}
-                            />
-                            <div className="slider-labels">
-                                <span>50</span>
-                                <span>100</span>
-                            </div>
+                            {(() => {
+                                const minBid = Math.max(50, (currentBid?.points || 0) + 5);
+                                return (
+                                    <>
+                                        <input
+                                            type="range"
+                                            min={minBid}
+                                            max="100"
+                                            step="5"
+                                            value={selectedPoints}
+                                            onChange={(e) => handleSliderChange(parseInt(e.target.value))}
+                                            className="bid-slider"
+                                        />
+                                        <div className="slider-labels">
+                                            <span>{minBid}</span>
+                                            <span>100</span>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
 
@@ -157,7 +198,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                         <button
                             className="control-button primary"
                             onClick={handleBidSubmit}
-                            disabled={selectedPoints <= currentBid || !selectedSuit}
+                            disabled={selectedPoints <= (currentBid?.points || 0) || !selectedSuit}
                         >
                             {selectedSuit
                                 ? `Bid ${selectedPoints} - ${getSuitSymbol(selectedSuit)}`

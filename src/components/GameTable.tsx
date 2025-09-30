@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
@@ -60,10 +60,16 @@ const GameTable: React.FC = () => {
         if (!isMyTurn || currentGame.phase !== 'bidding') return;
 
         makeBid(currentGame.id, points, suit);
-        if (points === 0) {
-            setIsBidding(false);
-        }
+        // Always close the dialog after making a bid (whether bid or pass)
+        setIsBidding(false);
     };
+
+    // Automatically open bid dialog when it's the player's turn to bid
+    useEffect(() => {
+        if (isMyTurn && currentGame.phase === 'bidding' && !isBidding) {
+            setIsBidding(true);
+        }
+    }, [isMyTurn, currentGame.phase, isBidding, setIsBidding]);
 
     const getPlayerPosition = (player: any) => {
         // Map position numbers to position names
@@ -86,18 +92,12 @@ const GameTable: React.FC = () => {
             <div className="flex justify-between items-center p-6 bg-white/10 backdrop-blur-md border-b border-white/20">
                 <div className="flex items-center gap-6">
                     <h2 className="text-2xl font-bold text-white">🎴 Two Hundred</h2>
-                    <div className="flex gap-6 text-sm">
-                        <span className="px-3 py-1 bg-blue-500/30 rounded-lg text-white font-medium">
-                            Team 1: {getTeamScore('team1')} points
-                        </span>
-                        <span className="px-3 py-1 bg-red-500/30 rounded-lg text-white font-medium">
-                            Team 2: {getTeamScore('team2')} points
-                        </span>
-                    </div>
                 </div>
-
+                {/* Right justify username with emoji */}
+                <div className="text-white text-right">
+                    🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
+                </div>
             </div>
-
             {/* Table Center */}
             <div className="game-table relative w-full m-6">
                 {/* Other Players */}
@@ -187,35 +187,18 @@ const GameTable: React.FC = () => {
                 )}
 
                 {/* Game Information Display */}
-                <div className="absolute top-4 left-4 right-4 flex justify-between gap-4">
-                    {/* Trump Suit Display */}
-                    {currentGame.trumpSuit && (
-                        <div className="game-info bg-yellow-500/20 border-yellow-400/50">
-                            <div className={`text-4xl ${currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? 'text-red-600' : 'text-black'}`}>
-                                {currentGame.trumpSuit === 'hearts' && '♥'}
-                                {currentGame.trumpSuit === 'diamonds' && '♦'}
-                                {currentGame.trumpSuit === 'clubs' && '♣'}
-                                {currentGame.trumpSuit === 'spades' && '♠'}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Current Bid Display */}
-                    {currentGame.currentBid && (
-                        <div className="game-info">
-                            <div className="text-xs text-white/80 mb-1">Current Bid</div>
-                            <div className="text-xl font-bold text-white">
-                                {currentGame.currentBid.points} points
-                            </div>
-                            {currentGame.currentBid.suit && (
-                                <div className="text-xs text-white/80">
-                                    Trump: {currentGame.currentBid.suit}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
+                <div style={{ padding: '10px' }}>
+                    <div className="text-white">
+                        Team 1: {getTeamScore('team1')} points
+                    </div>
+                    <div className="text-white">
+                        Team 2: {getTeamScore('team2')} points
+                    </div>
                 </div>
+
+
+
+
             </div>
 
             {/* My Hand */}
@@ -232,25 +215,14 @@ const GameTable: React.FC = () => {
             </div>
 
             {/* Game Controls */}
-            {isMyTurn && (
+            {isMyTurn && currentGame.phase === 'playing' && selectedCard && (
                 <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-10">
-                    {currentGame.phase === 'bidding' && (
-                        <button
-                            className="px-8 py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
-                            onClick={() => setIsBidding(true)}
-                        >
-                            🎲 Make Bid
-                        </button>
-                    )}
-
-                    {currentGame.phase === 'playing' && selectedCard && (
-                        <button
-                            className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
-                            onClick={handlePlayCard}
-                        >
-                            🃏 Play Card
-                        </button>
-                    )}
+                    <button
+                        className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                        onClick={handlePlayCard}
+                    >
+                        🃏 Play Card
+                    </button>
                 </div>
             )}
 
@@ -259,7 +231,8 @@ const GameTable: React.FC = () => {
                 isOpen={isBidding && isMyTurn && currentGame.phase === 'bidding'}
                 onClose={() => setIsBidding(false)}
                 onBid={handleBid}
-                currentBid={currentGame.currentBid?.points}
+                currentBid={currentGame.currentBid}
+                players={currentGame.players}
                 playerCards={myPlayer?.cards || []}
             />
 
@@ -278,6 +251,9 @@ const GameTable: React.FC = () => {
             {currentGame.phase === 'finished' && (
                 <motion.div
                     className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)'
+                    }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                 >

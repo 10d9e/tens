@@ -25,7 +25,6 @@ If all four players pass, the hands are thrown in without score and the next dea
 
 The final (and highest) bidder becomes the contractor, and announces which suit will be trump for that hand.
 
-Note: it is not necessary for the first bidder to begin at the minimum 50 - the initial bid can be as high as you like.
 
 Play
 Having announced the trump suit, the contractor leads to the first trick. Players must follow suit if able to. A player who has no card of the suit led is free to play any card. The trick is won by the highest trump in it, or, if it contains no trumps, by the highest card of the suit that was led. The winner of each trick leads to the next.
