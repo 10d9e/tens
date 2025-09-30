@@ -5,7 +5,7 @@ import { useSocketStore } from '../store/socketStore';
 
 const Lobby: React.FC = () => {
     const { lobby, currentPlayer } = useGameStore();
-    const { joinTable } = useSocketStore();
+    const { joinTable, deleteTable } = useSocketStore();
     const [newTableName, setNewTableName] = useState('');
 
     console.log('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
@@ -25,8 +25,14 @@ const Lobby: React.FC = () => {
         }
     };
 
+    const handleDeleteTable = (tableId: string) => {
+        if (window.confirm('Are you sure you want to delete this table? This action cannot be undone.')) {
+            deleteTable(tableId);
+        }
+    };
+
     return (
-        <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900 px-8 py-12 sm:px-12 sm:py-16 md:px-16 md:py-20 lg:px-24 lg:py-24 xl:px-32 xl:py-32">
+        <div style={{ padding: '20px' }}>
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
                 <motion.div
@@ -85,13 +91,23 @@ const Lobby: React.FC = () => {
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.5 }}
-                                whileHover={{ scale: 1.02, y: -5 }}
                             >
                                 <div className="flex justify-between items-start mb-6">
                                     <h3 className="text-xl font-bold text-white">{table.name}</h3>
-                                    <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
-                                        {table.players.length}/{table.maxPlayers}
-                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
+                                            {table.players.length}/{table.maxPlayers}
+                                        </span>
+                                        {currentPlayer && table.creator === currentPlayer.id && !table.gameState && (
+                                            <button
+                                                onClick={() => handleDeleteTable(table.id)}
+                                                className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm"
+                                                title="Delete table"
+                                            >
+                                                🗑️
+                                            </button>
+                                        )}
+                                    </div>
                                 </div>
 
                                 <div className="mb-6">

@@ -13,6 +13,7 @@ interface SocketStore {
     disconnect: () => void;
     joinLobby: (playerName: string) => void;
     joinTable: (tableId: string, tableName?: string) => void;
+    deleteTable: (tableId: string) => void;
     makeBid: (gameId: string, points: number, suit?: string) => void;
     playCard: (gameId: string, card: any) => void;
     sendChat: (message: string, tableId: string) => void;
@@ -189,6 +190,21 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().addChatMessage(message);
         });
 
+        socket.on('error', (data) => {
+            console.error('Socket error:', data.message);
+            toast.error(data.message);
+        });
+
+        socket.on('table_deleted', (data) => {
+            console.log('Table deleted:', data.tableId);
+            toast.success('Table deleted successfully');
+            // Clear current table if we were in the deleted table
+            const currentTable = useGameStore.getState().currentTable;
+            if (currentTable && currentTable.id === data.tableId) {
+                useGameStore.getState().setCurrentTable(null);
+            }
+        });
+
         set({ socket });
     },
 
@@ -212,6 +228,16 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             console.log('Joining table:', tableId, 'with name:', tableName);
             socket.emit('join_table', { tableId, tableName });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    deleteTable: (tableId) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Deleting table:', tableId);
+            socket.emit('delete_table', { tableId });
         } else {
             console.log('Socket not connected');
         }

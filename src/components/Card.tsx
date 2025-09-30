@@ -58,9 +58,14 @@ const Card: React.FC<CardProps> = ({
         ${isSelected ? 'selected' : ''}
         ${!isPlayable ? 'cursor-not-allowed' : 'cursor-pointer hover:shadow-lg'}
         ${isPointCard ? 'ring-2 ring-yellow-400 ring-opacity-50' : ''}
+        relative
       `}
+            style={{
+                filter: !isPlayable ? 'grayscale(80%) brightness(0.6)' : undefined,
+                opacity: !isPlayable ? 0.7 : undefined
+            }}
             onClick={isPlayable ? onClick : undefined}
-            whileHover={isPlayable ? { scale: 1.05, y: -4 } : {}}
+            whileHover={isPlayable ? { scale: 1.05, y: -4 } : { scale: 1, y: 0 }}
             whileTap={isPlayable ? { scale: 0.95 } : {}}
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -90,7 +95,10 @@ const Card: React.FC<CardProps> = ({
 
             {/* Unplayable overlay */}
             {!isPlayable && (
-                <div className="absolute inset-0 bg-gray-400/60 rounded-lg"></div>
+                <div
+                    className="absolute inset-0 bg-red-500/80 rounded-lg z-50"
+                    style={{ backgroundColor: 'rgba(255, 0, 0, 0.8)' }}
+                ></div>
             )}
         </motion.div>
     );

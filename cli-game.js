@@ -145,7 +145,10 @@ class CLIBotAI {
             .sort(([, a], [, b]) => b - a)[0][0];
     }
 
-    playCard(playableCards, leadSuit, trumpSuit, trickCards) {
+    async playCard(playableCards, leadSuit, trumpSuit, trickCards) {
+        // Add 1 second delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         if (playableCards.length === 0) return null;
 
         // Simple strategy: play highest value card
@@ -397,7 +400,7 @@ class CLIGame {
                     // Fallback: play any card if no valid cards
                     card = player.cards[0];
                 } else {
-                    card = player.ai.playCard(playableCards, leadSuit, this.trumpSuit, this.currentTrick.cards);
+                    card = await player.ai.playCard(playableCards, leadSuit, this.trumpSuit, this.currentTrick.cards);
                 }
             } else {
                 card = await this.getHumanCard(leadSuit);

@@ -153,7 +153,7 @@ input {
     flex-direction: column;
     justify-content: space-between;
     padding: 0.5rem;
-    position: relative;
+    position: relative !important;
     min-width: 60px;
     min-height: 84px;
     font-family: 'Inter', sans-serif;
@@ -271,6 +271,15 @@ input {
     padding: 0.75rem;
     border-radius: 0.75rem;
     border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Disable hover effects for unplayable cards */
+.no-hover:hover {
+    transform: none !important;
+}
+
+.no-hover {
+    pointer-events: none;
 }
 
 /* Touch Optimizations */

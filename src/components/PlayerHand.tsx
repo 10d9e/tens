@@ -39,6 +39,25 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     const playableCards = getPlayableCards();
     const playableCardIds = new Set(playableCards.map(c => c.id));
 
+    // Sort cards by suit first, then by rank
+    const sortedCards = [...player.cards].sort((a, b) => {
+        // Define suit order (hearts, clubs, diamonds, spades)
+        const suitOrder = { hearts: 0, clubs: 1, diamonds: 2, spades: 3 };
+        const suitA = suitOrder[a.suit as keyof typeof suitOrder];
+        const suitB = suitOrder[b.suit as keyof typeof suitOrder];
+
+        if (suitA !== suitB) {
+            return suitA - suitB;
+        }
+
+        // Within same suit, sort by rank
+        const rankOrder = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '5': 5 };
+        const rankA = rankOrder[a.rank as keyof typeof rankOrder];
+        const rankB = rankOrder[b.rank as keyof typeof rankOrder];
+
+        return rankA - rankB;
+    });
+
     if (!player || !player.cards || player.cards.length === 0) {
         return (
             <div className="player-hand">
@@ -56,16 +75,16 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
         >
-            {player.cards.map((card, index) => {
+            {sortedCards.map((card, index) => {
                 const isPlayable = playableCardIds.has(card.id);
                 const isSelected = selectedCardId === card.id;
 
                 return (
                     <motion.div
                         key={card.id}
-                        className="relative"
+                        className={`relative ${!isPlayable ? 'no-hover' : ''}`}
                         style={{
-                            transform: `rotate(${(index - (player.cards.length - 1) / 2) * 6}deg) translateY(${Math.abs(index - (player.cards.length - 1) / 2) * -3}px)`,
+                            transform: `rotate(${(index - (sortedCards.length - 1) / 2) * 6}deg) translateY(${Math.abs(index - (sortedCards.length - 1) / 2) * -3}px)`,
                             zIndex: isSelected ? 10 : index
                         }}
                         whileHover={isPlayable ? {
@@ -73,7 +92,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
                             y: -25,
                             zIndex: 20,
                             transition: { duration: 0.2 }
-                        } : {}}
+                        } : undefined}
                     >
                         <Card
                             card={card}

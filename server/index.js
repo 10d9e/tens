@@ -77,7 +77,10 @@ class SimpleBotAI {
         return 0;
     }
 
-    playCard(playableCards) {
+    async playCard(playableCards) {
+        // Add 1 second delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         if (playableCards.length === 0) return null;
         return playableCards[Math.floor(Math.random() * playableCards.length)];
     }
@@ -279,7 +282,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('join_table', (data) => {
+    socket.on('join_table', async (data) => {
         console.log('join_table received:', data);
         const { tableId, lobbyId = 'default', tableName } = data;
         const player = players.get(socket.id);
@@ -303,7 +306,8 @@ io.on('connection', (socket) => {
                 players: [],
                 gameState: null,
                 maxPlayers: 4,
-                isPrivate: false
+                isPrivate: false,
+                creator: socket.id // Track who created the table
             };
             lobby.tables.set(tableId, table);
             console.log('Table created successfully');
@@ -345,7 +349,7 @@ io.on('connection', (socket) => {
                 // Start bot turn if first player is a bot
                 if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
                     console.log('First player is a bot, starting bot turn handling');
-                    handleBotTurn(game);
+                    await handleBotTurn(game);
                 }
             } else {
                 console.log('Game not auto-started. Conditions not met.');
@@ -353,7 +357,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('make_bid', (data) => {
+    socket.on('make_bid', async (data) => {
         const { gameId, points, suit } = data;
         const game = games.get(gameId);
         if (!game) return;
@@ -382,11 +386,11 @@ io.on('connection', (socket) => {
 
         // Handle bot players
         if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
-            handleBotTurn(game);
+            await handleBotTurn(game);
         }
     });
 
-    socket.on('play_card', (data) => {
+    socket.on('play_card', async (data) => {
         const { gameId, card } = data;
         const game = games.get(gameId);
         if (!game) return;
@@ -485,7 +489,7 @@ io.on('connection', (socket) => {
                 // Start bot turn handling for new bidding phase if current player is a bot
                 if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
                     console.log('Starting bot turn for new round bidding phase');
-                    handleBotTurn(game);
+                    await handleBotTurn(game);
                 }
                 return;
             }
@@ -502,7 +506,7 @@ io.on('connection', (socket) => {
             // Handle next bot player if applicable
             if (nextPlayer?.isBot) {
                 console.log('Next player is a bot, starting bot turn');
-                handleBotTurn(game);
+                await handleBotTurn(game);
             }
 
             // Check for game end
@@ -529,7 +533,7 @@ io.on('connection', (socket) => {
 
         // Handle bot players
         if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
-            handleBotTurn(game);
+            await handleBotTurn(game);
         }
     });
 
@@ -550,13 +554,48 @@ io.on('connection', (socket) => {
         socket.to(`table-${tableId}`).emit('chat_message', chatMessage);
     });
 
+    socket.on('delete_table', (data) => {
+        const { tableId, lobbyId = 'default' } = data;
+        const player = players.get(socket.id);
+        if (!player) return;
+
+        const lobby = lobbies.get(lobbyId);
+        if (!lobby) return;
+
+        const table = lobby.tables.get(tableId);
+        if (!table) return;
+
+        // Only allow the creator to delete the table
+        if (table.creator !== socket.id) {
+            socket.emit('error', { message: 'Only the table creator can delete this table' });
+            return;
+        }
+
+        // Don't allow deleting tables with active games
+        if (table.gameState) {
+            socket.emit('error', { message: 'Cannot delete table with an active game' });
+            return;
+        }
+
+        // Remove all players from the table's socket room
+        io.to(`table-${tableId}`).emit('table_deleted', { tableId });
+
+        // Remove the table
+        lobby.tables.delete(tableId);
+        console.log(`Table ${tableId} deleted by ${player.name}`);
+
+        // Notify all lobby members about the updated lobby
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+    });
+
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
         players.delete(socket.id);
     });
 });
 
-function checkBiddingCompletion(game) {
+async function checkBiddingCompletion(game) {
     // Check if we've completed a full round of bidding (all 4 players have had a turn)
     // and either someone has bid 30+ points or everyone has passed
 
@@ -590,14 +629,14 @@ function checkBiddingCompletion(game) {
         console.log('Playing phase started. Current player:', currentPlayer ? { name: currentPlayer.name, isBot: currentPlayer.isBot } : 'NOT FOUND');
         if (currentPlayer?.isBot) {
             console.log('Starting first bot turn in playing phase');
-            handleBotTurn(game);
+            await handleBotTurn(game);
         } else {
             console.log('Current player is human, waiting for human to play card');
         }
     }
 }
 
-function handleBotTurn(game) {
+async function handleBotTurn(game) {
     console.log('handleBotTurn called for game:', game.id);
     console.log('Current player ID:', game.currentPlayer);
     console.log('Game phase:', game.phase);
@@ -647,16 +686,16 @@ function handleBotTurn(game) {
         io.to(`table-${game.tableId}`).emit('bid_made', { game });
 
         // Check if bidding should end
-        checkBiddingCompletion(game);
+        await checkBiddingCompletion(game);
 
         // Handle next bot player if applicable
         if (game.players.find(p => p.id === game.currentPlayer)?.isBot && game.phase === 'bidding') {
-            handleBotTurn(game);
+            await handleBotTurn(game);
         }
     } else if (game.phase === 'playing') {
         const playableCards = currentPlayer.cards; // Simplified - should check lead suit
         console.log(`Bot ${currentPlayer.name} has ${playableCards.length} cards to play`);
-        const card = currentPlayer.ai.playCard(playableCards);
+        const card = await currentPlayer.ai.playCard(playableCards);
 
         if (card) {
             console.log(`Bot ${currentPlayer.name} playing card: ${card.rank} of ${card.suit}`);
@@ -748,7 +787,7 @@ function handleBotTurn(game) {
                     // Start bot turn handling for new bidding phase if current player is a bot
                     if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
                         console.log('Starting bot turn for new round bidding phase');
-                        handleBotTurn(game);
+                        await handleBotTurn(game);
                     }
                     return;
                 }
@@ -765,7 +804,7 @@ function handleBotTurn(game) {
                 // Handle next bot player if applicable
                 if (nextPlayer?.isBot) {
                     console.log('Next player is a bot, starting bot turn');
-                    handleBotTurn(game);
+                    await handleBotTurn(game);
                 }
 
                 // Check for game end
@@ -793,7 +832,7 @@ function handleBotTurn(game) {
 
             // Handle next bot player if applicable
             if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
-                handleBotTurn(game);
+                await handleBotTurn(game);
             }
         } else {
             console.log(`Bot ${currentPlayer.name} could not play a card - this should not happen!`);
@@ -803,7 +842,7 @@ function handleBotTurn(game) {
 
             // Handle next bot player if applicable
             if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
-                handleBotTurn(game);
+                await handleBotTurn(game);
             }
         }
     }

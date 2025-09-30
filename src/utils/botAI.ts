@@ -65,11 +65,9 @@ export class BotAI {
         };
     }
 
-    playCard(gameState: GameState, playerId: string): BotDecision {
+    async playCard(gameState: GameState, playerId: string): Promise<BotDecision> {
         // add a delay of 1 second
-        setTimeout(() => {
-
-        }, 1000);
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         const player = gameState.players.find(p => p.id === playerId);
         if (!player) throw new Error('Player not found');

@@ -8,6 +8,7 @@ import BidInterface from './BidInterface';
 import ChatPanel from './ChatPanel';
 import LastTrickViewer from './LastTrickViewer';
 import { Card as CardType } from '../types/game';
+import { canPlayCard } from '../utils/gameLogic';
 
 const GameTable: React.FC = () => {
     const {
@@ -39,7 +40,13 @@ const GameTable: React.FC = () => {
     const handleCardClick = (card: CardType) => {
         if (!isMyTurn || currentGame.phase !== 'playing') return;
 
-        setSelectedCard(card.id);
+        // Check if the card is playable
+        const leadSuit = currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null;
+        const isPlayable = canPlayCard(card, leadSuit as any, currentGame.trumpSuit!, myPlayer?.cards || []);
+
+        if (isPlayable) {
+            setSelectedCard(card.id);
+        }
     };
 
     const handlePlayCard = () => {
