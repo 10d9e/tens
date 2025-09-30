@@ -71,9 +71,9 @@ class SimpleBotAI {
     }
 
     makeBid(handValue) {
-        if (handValue >= 40) return Math.max(30, Math.floor(Math.random() * 20) + 20);
-        if (handValue >= 30) return Math.max(20, Math.floor(Math.random() * 15) + 15);
-        if (handValue >= 20) return Math.max(15, Math.floor(Math.random() * 10) + 10);
+        if (handValue >= 50) return Math.max(50, Math.floor(Math.random() * 20) + 50);
+        if (handValue >= 40) return Math.max(50, Math.floor(Math.random() * 15) + 50);
+        if (handValue >= 30) return Math.max(50, Math.floor(Math.random() * 10) + 50);
         return 0;
     }
 
@@ -86,8 +86,43 @@ class SimpleBotAI {
     }
 }
 
-// Create the default table after SimpleBotAI is defined
+// Create a Big Bub table with 2 bot players
+function createBigBubTable() {
+    const tableId = 'big-bub-table';
+    const table = {
+        id: tableId,
+        name: 'Big Bub',
+        players: [],
+        gameState: null,
+        maxPlayers: 4,
+        isPrivate: false
+    };
+
+    // Add 2 bot players at North (0) and South (2), leaving East (1) and West (3) for human players
+    const botSkills = ['medium', 'hard'];
+    const botPositions = [0, 2]; // North and South
+    for (let i = 0; i < 2; i++) {
+        const botId = `bot-${uuidv4()}`;
+        const bot = {
+            id: botId,
+            name: `Bot (${botSkills[i]})`,
+            isBot: true,
+            botSkill: botSkills[i],
+            position: botPositions[i],
+            cards: [],
+            score: 0,
+            isReady: true
+        };
+        table.players.push(bot);
+    }
+
+    defaultLobby.tables.set(tableId, table);
+    console.log('Created Big Bub table with 2 bot players');
+}
+
+// Create the default tables after SimpleBotAI is defined
 createDefaultTable();
+createBigBubTable();
 
 // Game logic functions
 function createDeck() {
@@ -147,6 +182,40 @@ function getNextPlayerByPosition(currentPlayerId, players) {
     return nextPlayer ? nextPlayer.id : players[0].id;
 }
 
+function calculateRoundScores(game, contractorTeam, contractorCardPoints, opposingCardPoints, opposingTeamBid) {
+    const currentBid = game.currentBid;
+    if (!currentBid) return { team1Score: 0, team2Score: 0 };
+
+    const contractorScore = game.teamScores[contractorTeam];
+    const opposingScore = game.teamScores[contractorTeam === 'team1' ? 'team2' : 'team1'];
+
+    let newContractorScore = contractorScore;
+    let newOpposingScore = opposingScore;
+
+    // Contractor team scoring
+    if (contractorCardPoints >= currentBid.points) {
+        // Contractor made their bid - add card points to their score
+        newContractorScore += contractorCardPoints;
+    } else {
+        // Contractor failed - subtract bid amount from their score
+        newContractorScore -= currentBid.points;
+    }
+
+    // Opposing team scoring
+    if (opposingScore >= 100 && !opposingTeamBid) {
+        // Opposing team has 100+ points and didn't bid - they score nothing
+        newOpposingScore += 0;
+    } else {
+        // Opposing team gets their card points
+        newOpposingScore += opposingCardPoints;
+    }
+
+    return {
+        team1Score: contractorTeam === 'team1' ? newContractorScore : newOpposingScore,
+        team2Score: contractorTeam === 'team2' ? newContractorScore : newOpposingScore
+    };
+}
+
 function createGame(tableId) {
     const gameId = uuidv4();
 
@@ -168,7 +237,9 @@ function createGame(tableId) {
         teamScores: { team1: 0, team2: 0 },
         dealer: null,
         spectatorIds: [],
-        deck: createDeck()
+        deck: createDeck(),
+        contractorTeam: null, // Track which team is the contractor
+        opposingTeamBid: false // Track if opposing team made any bid
     };
 
     games.set(gameId, game);
@@ -318,6 +389,17 @@ io.on('connection', (socket) => {
             // so their partner (North, position 0) is directly across
             if (tableId === 'robot-fun-table' && !player.isBot) {
                 player.position = 2; // South position
+            } else if (tableId === 'big-bub-table' && !player.isBot) {
+                // For Big Bub table, position human players at East (1) and West (3)
+                // Check which positions are available for humans
+                const occupiedPositions = table.players.map(p => p.position);
+                if (!occupiedPositions.includes(1)) {
+                    player.position = 1; // East position
+                } else if (!occupiedPositions.includes(3)) {
+                    player.position = 3; // West position
+                } else {
+                    player.position = table.players.length; // Fallback
+                }
             } else {
                 player.position = table.players.length;
             }
@@ -370,6 +452,10 @@ io.on('connection', (socket) => {
         if (suit) {
             game.trumpSuit = suit;
             game.phase = 'playing';
+
+            // Set contractor team
+            const player = game.players.find(p => p.id === socket.id);
+            game.contractorTeam = player.position % 2 === 0 ? 'team1' : 'team2';
 
             // Set the bid winner as the current player (they lead the first trick)
             game.currentPlayer = game.currentBid.playerId;
@@ -461,6 +547,40 @@ io.on('connection', (socket) => {
             const allCardsPlayed = game.players.every(p => p.cards.length === 0);
             if (allCardsPlayed) {
                 console.log('All cards have been played! Round complete.');
+
+                // Calculate round scores using proper scoring system
+                if (game.contractorTeam && game.currentBid) {
+                    const contractorCardPoints = game.teamScores[game.contractorTeam];
+                    const opposingTeam = game.contractorTeam === 'team1' ? 'team2' : 'team1';
+                    const opposingCardPoints = game.teamScores[opposingTeam];
+
+                    // Reset team scores to calculate proper round scores
+                    const contractorScore = game.teamScores[game.contractorTeam];
+                    const opposingScore = game.teamScores[opposingTeam];
+
+                    // Apply proper scoring rules
+                    let newContractorScore = contractorScore;
+                    let newOpposingScore = opposingScore;
+
+                    if (contractorCardPoints >= game.currentBid.points) {
+                        // Contractor made their bid - add card points to their score
+                        newContractorScore += contractorCardPoints;
+                    } else {
+                        // Contractor failed - subtract bid amount from their score
+                        newContractorScore -= game.currentBid.points;
+                    }
+
+                    // Opposing team scoring (simplified - assume they can always score for now)
+                    newOpposingScore += opposingCardPoints;
+
+                    // Update team scores
+                    game.teamScores[game.contractorTeam] = newContractorScore;
+                    game.teamScores[opposingTeam] = newOpposingScore;
+
+                    console.log(`Round scoring: Contractor (${game.contractorTeam}) ${contractorCardPoints} points, Opposing (${opposingTeam}) ${opposingCardPoints} points`);
+                    console.log(`New scores: Team1 ${game.teamScores.team1}, Team2 ${game.teamScores.team2}`);
+                }
+
                 // Start a new round
                 game.round++;
                 game.deck = createDeck();
@@ -488,6 +608,8 @@ io.on('connection', (socket) => {
                 game.lastTrick = null; // Clear last trick for new round
                 game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                 game.dealer = game.currentPlayer;
+                game.contractorTeam = null; // Reset contractor team
+                game.opposingTeamBid = false; // Reset opposing team bid flag
 
                 console.log('Round reset complete - all bid parameters cleared for new round');
 
@@ -521,12 +643,26 @@ io.on('connection', (socket) => {
             }
 
             // Check for game end
-            if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200) {
+            if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200 ||
+                game.teamScores.team1 <= -200 || game.teamScores.team2 <= -200) {
                 game.phase = 'finished';
 
                 // Determine winning team and create detailed game end info
-                const winningTeam = game.teamScores.team1 >= 200 ? 'team1' : 'team2';
-                const winningTeamName = winningTeam === 'team1' ? 'Team 1' : 'Team 2';
+                let winningTeam, winningTeamName;
+                if (game.teamScores.team1 >= 200) {
+                    winningTeam = 'team1';
+                    winningTeamName = 'Team 1';
+                } else if (game.teamScores.team2 >= 200) {
+                    winningTeam = 'team2';
+                    winningTeamName = 'Team 2';
+                } else if (game.teamScores.team1 <= -200) {
+                    winningTeam = 'team2'; // team1 loses
+                    winningTeamName = 'Team 2';
+                } else if (game.teamScores.team2 <= -200) {
+                    winningTeam = 'team1'; // team2 loses
+                    winningTeamName = 'Team 1';
+                }
+
                 const winningPlayers = game.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
 
                 const gameEndInfo = {
@@ -542,8 +678,8 @@ io.on('connection', (socket) => {
             }
         }
 
-        // Handle bot players
-        if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+        // Handle bot players - but only if we're not in the middle of a trick completion
+        if (game.currentTrick.cards.length < 4 && game.players.find(p => p.id === game.currentPlayer)?.isBot) {
             await handleBotTurn(game);
         }
     });
@@ -607,20 +743,30 @@ io.on('connection', (socket) => {
 });
 
 async function checkBiddingCompletion(game) {
-    // Check if we've completed a full round of bidding (all 4 players have had a turn)
-    // and either someone has bid 30+ points or everyone has passed
+    // Check if bidding should end based on the rules:
+    // 1. If someone bids 100 (highest possible bid)
+    // 2. If 3 players have passed (need to track this)
 
     if (!game.currentBid || game.currentBid.points === 0) {
-        // No current bid, check if we need to end bidding
-        // For now, let's implement a simple rule: if we've gone through all players once
-        // and no one has bid, end the bidding phase
         console.log('No current bid - checking if bidding should end');
         return;
     }
 
-    // If someone has bid 30+ points, they need to select trump suit
-    if (game.currentBid.points >= 30 && !game.trumpSuit) {
-        console.log(`Bid of ${game.currentBid.points} points requires trump suit selection`);
+    // If someone has bid 100, bidding ends immediately
+    if (game.currentBid.points >= 100) {
+        console.log(`Bid of ${game.currentBid.points} points - bidding ends, moving to playing phase`);
+        game.phase = 'playing';
+        game.currentPlayer = game.currentBid.playerId;
+        console.log(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
+
+        io.to(`table-${game.tableId}`).emit('game_updated', { game });
+
+        // Start the first bot turn in playing phase if current player is a bot
+        const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+        if (currentPlayer?.isBot) {
+            console.log('Starting first bot turn in playing phase');
+            await handleBotTurn(game);
+        }
         return;
     }
 
@@ -667,26 +813,26 @@ async function handleBotTurn(game) {
         console.log(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid: ${bidPoints} points`);
 
         if (bidPoints > 0) {
-            game.currentBid = { playerId: currentPlayer.id, points: bidPoints };
-            console.log(`Bot ${currentPlayer.name} bid ${bidPoints} points`);
+            // Trump suit selection is required for any bid
+            const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+            const suitCounts = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
 
-            // If bot bid 30+ points, automatically select trump suit
-            if (bidPoints >= 30 && !game.trumpSuit) {
-                const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-                const suitCounts = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
+            // Count cards in each suit
+            currentPlayer.cards.forEach(card => {
+                suitCounts[card.suit]++;
+            });
 
-                // Count cards in each suit
-                currentPlayer.cards.forEach(card => {
-                    suitCounts[card.suit]++;
-                });
+            // Select the suit with the most cards
+            const bestSuit = Object.entries(suitCounts)
+                .sort(([, a], [, b]) => b - a)[0][0];
 
-                // Select the suit with the most cards
-                const bestSuit = Object.entries(suitCounts)
-                    .sort(([, a], [, b]) => b - a)[0][0];
+            game.currentBid = { playerId: currentPlayer.id, points: bidPoints, suit: bestSuit };
+            game.trumpSuit = bestSuit;
 
-                game.trumpSuit = bestSuit;
-                console.log(`Bot ${currentPlayer.name} selected ${bestSuit} as trump suit`);
-            }
+            // Set contractor team
+            game.contractorTeam = currentPlayer.position % 2 === 0 ? 'team1' : 'team2';
+
+            console.log(`Bot ${currentPlayer.name} bid ${bidPoints} points with ${bestSuit} as trump suit`);
         } else {
             console.log(`Bot ${currentPlayer.name} passed`);
         }
@@ -770,6 +916,40 @@ async function handleBotTurn(game) {
                 const allCardsPlayed = game.players.every(p => p.cards.length === 0);
                 if (allCardsPlayed) {
                     console.log('All cards have been played! Round complete.');
+
+                    // Calculate round scores using proper scoring system
+                    if (game.contractorTeam && game.currentBid) {
+                        const contractorCardPoints = game.teamScores[game.contractorTeam];
+                        const opposingTeam = game.contractorTeam === 'team1' ? 'team2' : 'team1';
+                        const opposingCardPoints = game.teamScores[opposingTeam];
+
+                        // Reset team scores to calculate proper round scores
+                        const contractorScore = game.teamScores[game.contractorTeam];
+                        const opposingScore = game.teamScores[opposingTeam];
+
+                        // Apply proper scoring rules
+                        let newContractorScore = contractorScore;
+                        let newOpposingScore = opposingScore;
+
+                        if (contractorCardPoints >= game.currentBid.points) {
+                            // Contractor made their bid - add card points to their score
+                            newContractorScore += contractorCardPoints;
+                        } else {
+                            // Contractor failed - subtract bid amount from their score
+                            newContractorScore -= game.currentBid.points;
+                        }
+
+                        // Opposing team scoring (simplified - assume they can always score for now)
+                        newOpposingScore += opposingCardPoints;
+
+                        // Update team scores
+                        game.teamScores[game.contractorTeam] = newContractorScore;
+                        game.teamScores[opposingTeam] = newOpposingScore;
+
+                        console.log(`Round scoring: Contractor (${game.contractorTeam}) ${contractorCardPoints} points, Opposing (${opposingTeam}) ${opposingCardPoints} points`);
+                        console.log(`New scores: Team1 ${game.teamScores.team1}, Team2 ${game.teamScores.team2}`);
+                    }
+
                     // Start a new round
                     game.round++;
                     game.deck = createDeck();
@@ -796,6 +976,8 @@ async function handleBotTurn(game) {
                     game.currentTrick = { cards: [], winner: null, points: 0 };
                     game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                     game.dealer = game.currentPlayer;
+                    game.contractorTeam = null; // Reset contractor team
+                    game.opposingTeamBid = false; // Reset opposing team bid flag
 
                     io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
@@ -823,12 +1005,26 @@ async function handleBotTurn(game) {
                 }
 
                 // Check for game end
-                if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200) {
+                if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200 ||
+                    game.teamScores.team1 <= -200 || game.teamScores.team2 <= -200) {
                     game.phase = 'finished';
 
                     // Determine winning team and create detailed game end info
-                    const winningTeam = game.teamScores.team1 >= 200 ? 'team1' : 'team2';
-                    const winningTeamName = winningTeam === 'team1' ? 'Team 1' : 'Team 2';
+                    let winningTeam, winningTeamName;
+                    if (game.teamScores.team1 >= 200) {
+                        winningTeam = 'team1';
+                        winningTeamName = 'Team 1';
+                    } else if (game.teamScores.team2 >= 200) {
+                        winningTeam = 'team2';
+                        winningTeamName = 'Team 2';
+                    } else if (game.teamScores.team1 <= -200) {
+                        winningTeam = 'team2'; // team1 loses
+                        winningTeamName = 'Team 2';
+                    } else if (game.teamScores.team2 <= -200) {
+                        winningTeam = 'team1'; // team2 loses
+                        winningTeamName = 'Team 1';
+                    }
+
                     const winningPlayers = game.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
 
                     const gameEndInfo = {
@@ -845,8 +1041,8 @@ async function handleBotTurn(game) {
                 }
             }
 
-            // Handle next bot player if applicable
-            if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+            // Handle next bot player if applicable - but only if we're not in the middle of a trick completion
+            if (game.currentTrick.cards.length < 4 && game.players.find(p => p.id === game.currentPlayer)?.isBot) {
                 await handleBotTurn(game);
             }
         } else {

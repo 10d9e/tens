@@ -61,7 +61,7 @@ export function getCardValue(card: Card): number {
     return CARD_VALUES[card.rank];
 }
 
-export function canPlayCard(card: Card, leadSuit: Suit | null, trumpSuit: Suit, playerCards: Card[]): boolean {
+export function canPlayCard(card: Card, leadSuit: Suit | null, _trumpSuit: Suit, playerCards: Card[]): boolean {
     if (!leadSuit) return true; // First card of trick
 
     // Must follow suit if possible
@@ -116,7 +116,9 @@ export function calculateTrickPoints(trick: Trick): number {
 }
 
 export function isValidBid(bid: Bid, currentBid?: Bid): boolean {
-    if (!currentBid) return bid.points >= 10;
+    // Minimum bid is 50, all bids must be multiples of 5
+    if (bid.points < 50 || bid.points % 5 !== 0) return false;
+    if (!currentBid) return true;
     return bid.points > currentBid.points;
 }
 
@@ -133,11 +135,54 @@ export function getPlayerTeam(playerId: string, players: Player[]): 'team1' | 't
 }
 
 export function isGameOver(gameState: GameState): boolean {
-    return gameState.teamScores.team1 >= 200 || gameState.teamScores.team2 >= 200;
+    return gameState.teamScores.team1 >= 200 || gameState.teamScores.team2 >= 200 ||
+        gameState.teamScores.team1 <= -200 || gameState.teamScores.team2 <= -200;
 }
 
 export function getWinningTeam(gameState: GameState): 'team1' | 'team2' | null {
     if (gameState.teamScores.team1 >= 200) return 'team1';
     if (gameState.teamScores.team2 >= 200) return 'team2';
+    if (gameState.teamScores.team1 <= -200) return 'team2'; // team1 loses
+    if (gameState.teamScores.team2 <= -200) return 'team1'; // team2 loses
     return null;
+}
+
+export function calculateRoundScores(
+    gameState: GameState,
+    contractorTeam: 'team1' | 'team2',
+    contractorCardPoints: number,
+    opposingCardPoints: number,
+    opposingTeamBid: boolean
+): { team1Score: number; team2Score: number } {
+    const currentBid = gameState.currentBid;
+    if (!currentBid) return { team1Score: 0, team2Score: 0 };
+
+    const contractorScore = gameState.teamScores[contractorTeam];
+    const opposingScore = gameState.teamScores[contractorTeam === 'team1' ? 'team2' : 'team1'];
+
+    let newContractorScore = contractorScore;
+    let newOpposingScore = opposingScore;
+
+    // Contractor team scoring
+    if (contractorCardPoints >= currentBid.points) {
+        // Contractor made their bid - add card points to their score
+        newContractorScore += contractorCardPoints;
+    } else {
+        // Contractor failed - subtract bid amount from their score
+        newContractorScore -= currentBid.points;
+    }
+
+    // Opposing team scoring
+    if (opposingScore >= 100 && !opposingTeamBid) {
+        // Opposing team has 100+ points and didn't bid - they score nothing
+        newOpposingScore += 0;
+    } else {
+        // Opposing team gets their card points
+        newOpposingScore += opposingCardPoints;
+    }
+
+    return {
+        team1Score: contractorTeam === 'team1' ? newContractorScore : newOpposingScore,
+        team2Score: contractorTeam === 'team2' ? newContractorScore : newOpposingScore
+    };
 }

@@ -25,7 +25,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     // Initialize selected points to the minimum valid bid
     useEffect(() => {
         if (isOpen) {
-            const minBid = Math.max(10, currentBid + 5);
+            const minBid = Math.max(50, currentBid + 5);
             setSelectedPoints(minBid);
             setSelectedSuit(null);
         }
@@ -54,15 +54,15 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     };
 
     const handValue = evaluateHand();
-    const suggestedBid = Math.max(10, Math.min(handValue, 100));
+    const suggestedBid = Math.max(50, Math.min(handValue, 100));
 
     const handleBidSubmit = () => {
         if (selectedPoints > currentBid) {
-            // For bids >= 30, require a trump suit selection
-            if (selectedPoints >= 30 && !selectedSuit) {
-                return; // Don't submit if no suit selected for high bids
+            // Trump suit selection is required for any bid
+            if (!selectedSuit) {
+                return; // Don't submit if no suit selected
             }
-            onBid(selectedPoints, selectedSuit || undefined);
+            onBid(selectedPoints, selectedSuit);
             onClose();
         }
     };
@@ -74,10 +74,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
 
     const handleSliderChange = (value: number) => {
         setSelectedPoints(value);
-        // Clear suit selection when changing bid amount
-        if (value < 30) {
-            setSelectedSuit(null);
-        }
+        // Trump suit selection is always required, so don't clear it
     };
 
     if (!isOpen) return null;
@@ -116,7 +113,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                         <div className="slider-container">
                             <input
                                 type="range"
-                                min="10"
+                                min="50"
                                 max="100"
                                 step="5"
                                 value={selectedPoints}
@@ -125,31 +122,29 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                                 disabled={selectedPoints <= currentBid}
                             />
                             <div className="slider-labels">
-                                <span>10</span>
+                                <span>50</span>
                                 <span>100</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Trump Suit Selection - Only show for bids >= 30 */}
-                    {selectedPoints >= 30 && (
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-white mb-3">
-                                Select Trump Suit (Required for bids ≥ 30)
-                            </label>
-                            <div className="suit-options">
-                                {suits.map(suit => (
-                                    <button
-                                        key={suit}
-                                        className={`suit-option ${selectedSuit === suit ? 'selected' : ''} ${getSuitColor(suit)}`}
-                                        onClick={() => setSelectedSuit(suit)}
-                                    >
-                                        {getSuitSymbol(suit)}
-                                    </button>
-                                ))}
-                            </div>
+                    {/* Trump Suit Selection - Required for all bids */}
+                    <div className="mb-6">
+                        <label className="block text-sm font-medium text-white mb-3">
+                            Select Trump Suit (Required)
+                        </label>
+                        <div className="suit-options">
+                            {suits.map(suit => (
+                                <button
+                                    key={suit}
+                                    className={`suit-option ${selectedSuit === suit ? 'selected' : ''} ${getSuitColor(suit)}`}
+                                    onClick={() => setSelectedSuit(suit)}
+                                >
+                                    {getSuitSymbol(suit)}
+                                </button>
+                            ))}
                         </div>
-                    )}
+                    </div>
 
                     {/* Action Buttons */}
                     <div className="flex gap-2 justify-center">
@@ -162,9 +157,9 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                         <button
                             className="control-button primary"
                             onClick={handleBidSubmit}
-                            disabled={selectedPoints <= currentBid || (selectedPoints >= 30 && !selectedSuit)}
+                            disabled={selectedPoints <= currentBid || !selectedSuit}
                         >
-                            {selectedPoints >= 30 && selectedSuit
+                            {selectedSuit
                                 ? `Bid ${selectedPoints} - ${getSuitSymbol(selectedSuit)}`
                                 : `Bid ${selectedPoints}`
                             }
