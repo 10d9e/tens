@@ -41,8 +41,10 @@ export interface GameState {
     lastTrick?: Trick;
     round: number;
     teamScores: { team1: number; team2: number };
+    roundScores: { team1: number; team2: number }; // Points accumulated during current round
     dealer: string;
     spectatorIds: string[];
+    contractorTeam?: 'team1' | 'team2'; // Track which team is the contractor
 }
 
 export interface LobbyTable {

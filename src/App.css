@@ -616,3 +616,115 @@ body {
 .card-playing {
     animation: cardPlay 0.2s ease-out;
 }
+
+/* Round Notepad Styles */
+.round-notepad {
+    position: fixed;
+    top: 2rem;
+    right: 2rem;
+    background: rgba(0, 0, 0, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    min-width: 200px;
+    z-index: 50;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.notepad-header {
+    text-align: center;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+}
+
+.notepad-header h3 {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    color: #4ade80;
+}
+
+.current-bid {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.bid-label {
+    opacity: 0.8;
+}
+
+.bid-amount {
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.bid-suit {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.round-scores {
+    margin-bottom: 1rem;
+}
+
+.score-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.score-row:last-child {
+    border-bottom: none;
+}
+
+.team-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.contractor-badge {
+    background: linear-gradient(135deg, #4ade80, #22c55e);
+    color: #1f2937;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.score-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.notepad-footer {
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 0.5rem;
+}
+
+.total-points {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* Responsive adjustments for round notepad */
+@media (max-width: 768px) {
+    .round-notepad {
+        position: fixed;
+        top: auto;
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        min-width: auto;
+    }
+}

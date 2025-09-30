@@ -235,6 +235,7 @@ function createGame(tableId) {
         lastTrick: null,
         round: 0,
         teamScores: { team1: 0, team2: 0 },
+        roundScores: { team1: 0, team2: 0 }, // Points accumulated during current round
         dealer: null,
         spectatorIds: [],
         deck: createDeck(),
@@ -528,9 +529,9 @@ io.on('connection', (socket) => {
             game.currentTrick.winner = winner.playerId;
             game.lastTrick = { ...game.currentTrick };
 
-            // Update team scores
+            // Update round scores (not total team scores)
             const winnerTeam = game.players.find(p => p.id === winner.playerId).position % 2 === 0 ? 'team1' : 'team2';
-            game.teamScores[winnerTeam] += trickPoints;
+            game.roundScores[winnerTeam] += trickPoints;
 
             // Log trick details for debugging
             const winnerPlayer = game.players.find(p => p.id === winner.playerId);
@@ -550,9 +551,9 @@ io.on('connection', (socket) => {
 
                 // Calculate round scores using proper scoring system
                 if (game.contractorTeam && game.currentBid) {
-                    const contractorCardPoints = game.teamScores[game.contractorTeam];
+                    const contractorCardPoints = game.roundScores[game.contractorTeam];
                     const opposingTeam = game.contractorTeam === 'team1' ? 'team2' : 'team1';
-                    const opposingCardPoints = game.teamScores[opposingTeam];
+                    const opposingCardPoints = game.roundScores[opposingTeam];
 
                     // Reset team scores to calculate proper round scores
                     const contractorScore = game.teamScores[game.contractorTeam];
@@ -610,6 +611,7 @@ io.on('connection', (socket) => {
                 game.dealer = game.currentPlayer;
                 game.contractorTeam = null; // Reset contractor team
                 game.opposingTeamBid = false; // Reset opposing team bid flag
+                game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
 
                 console.log('Round reset complete - all bid parameters cleared for new round');
 
@@ -897,9 +899,9 @@ async function handleBotTurn(game) {
                 game.currentTrick.winner = winner.playerId;
                 game.lastTrick = { ...game.currentTrick };
 
-                // Update team scores
+                // Update round scores (not total team scores)
                 const winnerTeam = game.players.find(p => p.id === winner.playerId).position % 2 === 0 ? 'team1' : 'team2';
-                game.teamScores[winnerTeam] += trickPoints;
+                game.roundScores[winnerTeam] += trickPoints;
 
                 // Log trick details for debugging
                 const winnerPlayer = game.players.find(p => p.id === winner.playerId);
@@ -919,9 +921,9 @@ async function handleBotTurn(game) {
 
                     // Calculate round scores using proper scoring system
                     if (game.contractorTeam && game.currentBid) {
-                        const contractorCardPoints = game.teamScores[game.contractorTeam];
+                        const contractorCardPoints = game.roundScores[game.contractorTeam];
                         const opposingTeam = game.contractorTeam === 'team1' ? 'team2' : 'team1';
-                        const opposingCardPoints = game.teamScores[opposingTeam];
+                        const opposingCardPoints = game.roundScores[opposingTeam];
 
                         // Reset team scores to calculate proper round scores
                         const contractorScore = game.teamScores[game.contractorTeam];
@@ -978,6 +980,7 @@ async function handleBotTurn(game) {
                     game.dealer = game.currentPlayer;
                     game.contractorTeam = null; // Reset contractor team
                     game.opposingTeamBid = false; // Reset opposing team bid flag
+                    game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
 
                     io.to(`table-${game.tableId}`).emit('round_completed', { game });
 

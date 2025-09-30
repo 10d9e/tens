@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
 import PlayerHand from './PlayerHand';
 import TrickArea from './TrickArea';
 import BidInterface from './BidInterface';
-import ChatPanel from './ChatPanel';
-import LastTrickViewer from './LastTrickViewer';
+import RoundNotepad from './RoundNotepad';
 import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 
@@ -20,9 +19,7 @@ const GameTable: React.FC = () => {
         setIsBidding
     } = useGameStore();
 
-    const { makeBid, playCard, sendChat } = useSocketStore();
-    const [showChat, setShowChat] = useState(false);
-    const [showLastTrick, setShowLastTrick] = useState(false);
+    const { makeBid, playCard } = useSocketStore();
 
     if (!currentGame || !currentPlayer) {
         return <div>Loading game...</div>;
@@ -70,7 +67,7 @@ const GameTable: React.FC = () => {
 
     const getPlayerPosition = (player: any) => {
         // Map position numbers to position names
-        const positionMap = {
+        const positionMap: { [key: number]: string } = {
             0: 'north',   // North
             1: 'east',    // East  
             2: 'south',   // South (human player - should not be in otherPlayers)
@@ -99,20 +96,6 @@ const GameTable: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="flex gap-3">
-                    <button
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all border border-white/20"
-                        onClick={() => setShowLastTrick(!showLastTrick)}
-                    >
-                        📋 Last Trick
-                    </button>
-                    <button
-                        className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg font-medium transition-all border border-white/20"
-                        onClick={() => setShowChat(!showChat)}
-                    >
-                        💬 Chat
-                    </button>
-                </div>
             </div>
 
             {/* Table Center */}
@@ -121,7 +104,7 @@ const GameTable: React.FC = () => {
                 {otherPlayers.map(player => {
                     const position = getPlayerPosition(player);
                     // Use inline styles for more reliable positioning
-                    const positionStyles = {
+                    const positionStyles: { [key: string]: any } = {
                         'north': { top: '16px', left: '50%', transform: 'translateX(-50%)' },
                         'east': { right: '16px', top: '50%', transform: 'translateY(-50%)' },
                         'south': { bottom: '16px', left: '50%', transform: 'translateX(-50%)' },
@@ -280,20 +263,14 @@ const GameTable: React.FC = () => {
                 playerCards={myPlayer?.cards || []}
             />
 
-            {/* Chat Panel */}
-            {showChat && (
-                <ChatPanel
-                    onClose={() => setShowChat(false)}
-                    onSendMessage={(message) => sendChat(message, currentGame.id)}
-                />
-            )}
 
-            {/* Last Trick Viewer */}
-            {showLastTrick && currentGame.lastTrick && (
-                <LastTrickViewer
-                    trick={currentGame.lastTrick}
-                    players={currentGame.players}
-                    onClose={() => setShowLastTrick(false)}
+            {/* Round Notepad */}
+            {currentGame.phase === 'playing' && (
+                <RoundNotepad
+                    roundScores={currentGame.roundScores || { team1: 0, team2: 0 }}
+                    currentBid={currentGame.currentBid}
+                    contractorTeam={currentGame.contractorTeam}
+                    round={currentGame.round}
                 />
             )}
 
