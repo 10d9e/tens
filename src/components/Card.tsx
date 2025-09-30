@@ -1,0 +1,89 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { Card as CardType } from '../types/game';
+
+interface CardProps {
+    card: CardType;
+    onClick?: () => void;
+    isSelected?: boolean;
+    isPlayable?: boolean;
+    size?: 'small' | 'medium' | 'large';
+    className?: string;
+}
+
+const Card: React.FC<CardProps> = ({
+    card,
+    onClick,
+    isSelected = false,
+    isPlayable = true,
+    size = 'medium',
+    className = ''
+}) => {
+    const getSuitSymbol = (suit: string) => {
+        switch (suit) {
+            case 'hearts': return '♥';
+            case 'diamonds': return '♦';
+            case 'clubs': return '♣';
+            case 'spades': return '♠';
+            default: return '';
+        }
+    };
+
+    const getSizeClasses = () => {
+        switch (size) {
+            case 'small':
+                return 'w-8 h-11 text-xs';
+            case 'large':
+                return 'w-16 h-22 text-sm';
+            default:
+                return 'w-12 h-16 text-xs';
+        }
+    };
+
+    const getCardValue = (rank: string) => {
+        const values: Record<string, number> = {
+            'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10,
+            '9': 0, '8': 0, '7': 0, '5': 5
+        };
+        return values[rank] || 0;
+    };
+
+    const cardValue = getCardValue(card.rank);
+    const isPointCard = cardValue > 0;
+
+    return (
+        <motion.div
+            className={`
+        card ${card.suit} ${getSizeClasses()} ${className}
+        ${isSelected ? 'selected' : ''}
+        ${!isPlayable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${isPointCard ? 'ring-2 ring-yellow-400 ring-opacity-50' : ''}
+      `}
+            onClick={isPlayable ? onClick : undefined}
+            whileHover={isPlayable ? { scale: 1.05, y: -4 } : {}}
+            whileTap={isPlayable ? { scale: 0.95 } : {}}
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+        >
+            <div className="card-rank">
+                {card.rank}
+                {isPointCard && (
+                    <span className="text-yellow-500 text-xs ml-1">
+                        ({cardValue})
+                    </span>
+                )}
+            </div>
+
+            <div className="card-suit">
+                {getSuitSymbol(card.suit)}
+            </div>
+
+            <div className="card-rank-bottom">
+                {card.rank}
+            </div>
+        </motion.div>
+    );
+};
+
+export default Card;
