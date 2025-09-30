@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lobby from './components/Lobby';
@@ -8,10 +8,20 @@ import { useSocketStore } from './store/socketStore';
 import './App.css';
 
 function App() {
-    const { currentGame, currentTable } = useGameStore();
+    const { currentGame } = useGameStore();
     const { socket, isConnected } = useSocketStore();
     const [playerName, setPlayerName] = useState('');
     const [showNameInput, setShowNameInput] = useState(true);
+
+    useEffect(() => {
+        // Initialize socket connection
+        if (!socket) {
+            console.log('Initializing socket connection...');
+            useSocketStore.getState().connect();
+        } else {
+            console.log('Socket already connected:', socket.id);
+        }
+    }, [socket]);
 
     useEffect(() => {
         if (socket && isConnected && playerName) {

@@ -36,7 +36,7 @@ const Card: React.FC<CardProps> = ({
             case 'large':
                 return 'w-16 h-22 text-sm';
             default:
-                return 'w-12 h-16 text-xs';
+                return 'w-14 h-20 text-sm';
         }
     };
 
@@ -56,7 +56,7 @@ const Card: React.FC<CardProps> = ({
             className={`
         card ${card.suit} ${getSizeClasses()} ${className}
         ${isSelected ? 'selected' : ''}
-        ${!isPlayable ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
+        ${!isPlayable ? 'cursor-not-allowed' : 'cursor-pointer hover:shadow-lg'}
         ${isPointCard ? 'ring-2 ring-yellow-400 ring-opacity-50' : ''}
       `}
             onClick={isPlayable ? onClick : undefined}
@@ -66,22 +66,32 @@ const Card: React.FC<CardProps> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
         >
-            <div className="card-rank">
-                {card.rank}
+            <div className="card-rank flex items-center justify-between">
+                <span>{card.rank}</span>
                 {isPointCard && (
-                    <span className="text-yellow-500 text-xs ml-1">
+                    <span className="text-yellow-500 text-xs font-bold">
                         ({cardValue})
                     </span>
                 )}
             </div>
 
-            <div className="card-suit">
+            <div className="card-suit flex-1 flex items-center justify-center">
                 {getSuitSymbol(card.suit)}
             </div>
 
-            <div className="card-rank-bottom">
-                {card.rank}
+            <div className="card-rank-bottom flex items-center justify-between">
+                <span>{card.rank}</span>
+                {isPointCard && (
+                    <span className="text-yellow-500 text-xs font-bold">
+                        ({cardValue})
+                    </span>
+                )}
             </div>
+
+            {/* Unplayable overlay */}
+            {!isPlayable && (
+                <div className="absolute inset-0 bg-gray-400/60 rounded-lg"></div>
+            )}
         </motion.div>
     );
 };

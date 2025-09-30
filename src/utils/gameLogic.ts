@@ -96,7 +96,7 @@ export function getTrickWinner(trick: Trick, trumpSuit: Suit): string {
     return winningCard.playerId;
 }
 
-function getCardRank(rank: Rank): number {
+export function getCardRank(rank: Rank): number {
     const ranks: Record<Rank, number> = {
         'A': 14,
         'K': 13,

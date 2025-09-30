@@ -71,6 +71,29 @@ npm run build
 npm run server
 ```
 
+### Command Line Game (for testing and debugging)
+```bash
+npm run cli
+```
+
+The CLI version allows you to play against 3 AI bots to test game logic without the web interface. Perfect for debugging and understanding the game mechanics.
+
+## Features
+
+### 🎨 Modern UI Design
+- **Tailwind CSS** - Beautiful, responsive design with glassmorphism effects
+- **Smooth Animations** - Framer Motion powered transitions and micro-interactions
+- **Mobile Responsive** - Optimized for all screen sizes
+- **Dark Theme** - Elegant green card table aesthetic
+
+### 🎮 Game Features
+- **Real-time Multiplayer** - Play with friends online
+- **AI Bot Players** - Three difficulty levels (Easy, Medium, Hard)
+- **Lobby System** - Create and join tables
+- **In-game Chat** - Communicate with other players
+- **Last Trick Viewer** - Review previous tricks
+- **Spectator Mode** - Watch games in progress
+
 ## Project Structure
 
 ```
@@ -97,6 +120,8 @@ tens/
 │   └── main.tsx            # App entry point
 ├── server/                 # Backend server
 │   └── index.js            # Express + Socket.io server
+├── cli-game.js             # Command line game for testing
+├── test-cli.js             # CLI game test script
 └── package.json            # Dependencies and scripts
 ```
 
@@ -106,6 +131,7 @@ tens/
 - **React 18** - UI framework
 - **TypeScript** - Type safety
 - **Vite** - Build tool and dev server
+- **Tailwind CSS** - Utility-first CSS framework for modern styling
 - **Framer Motion** - Animations
 - **Zustand** - State management
 - **Socket.io Client** - Real-time communication

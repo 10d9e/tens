@@ -25,15 +25,29 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
 }) => {
     const isMyTurn = player.id === currentPlayer;
 
+    console.log('PlayerHand render - player:', player);
+    console.log('PlayerHand render - player.cards:', player?.cards);
+    console.log('PlayerHand render - isMyTurn:', isMyTurn);
+
     const getPlayableCards = () => {
         if (!isMyTurn) return [];
         return player.cards.filter(card =>
-            canPlayCard(card, leadSuit, trumpSuit, player.cards)
+            canPlayCard(card, leadSuit as any, trumpSuit, player.cards)
         );
     };
 
     const playableCards = getPlayableCards();
     const playableCardIds = new Set(playableCards.map(c => c.id));
+
+    if (!player || !player.cards || player.cards.length === 0) {
+        return (
+            <div className="player-hand">
+                <div className="text-white text-center p-4">
+                    <div className="text-sm">Waiting for cards...</div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <motion.div
@@ -49,13 +63,14 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
                 return (
                     <motion.div
                         key={card.id}
+                        className="relative"
                         style={{
-                            transform: `rotate(${(index - (player.cards.length - 1) / 2) * 8}deg) translateY(${Math.abs(index - (player.cards.length - 1) / 2) * -2}px)`,
+                            transform: `rotate(${(index - (player.cards.length - 1) / 2) * 6}deg) translateY(${Math.abs(index - (player.cards.length - 1) / 2) * -3}px)`,
                             zIndex: isSelected ? 10 : index
                         }}
                         whileHover={isPlayable ? {
                             rotate: 0,
-                            y: -20,
+                            y: -25,
                             zIndex: 20,
                             transition: { duration: 0.2 }
                         } : {}}

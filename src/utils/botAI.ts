@@ -66,6 +66,11 @@ export class BotAI {
     }
 
     playCard(gameState: GameState, playerId: string): BotDecision {
+        // add a delay of 1 second
+        setTimeout(() => {
+
+        }, 1000);
+
         const player = gameState.players.find(p => p.id === playerId);
         if (!player) throw new Error('Player not found');
 
@@ -155,7 +160,7 @@ export class BotAI {
     private mediumCardSelection(playableCards: Card[], leadSuit: Suit | null, gameState: GameState): Card {
         // Consider trick-winning potential
         if (leadSuit) {
-            const trumpCards = playableCards.filter(c => c.suit === trumpSuit);
+            const trumpCards = playableCards.filter(c => c.suit === gameState.trumpSuit);
             const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
 
             if (trumpCards.length > 0) {

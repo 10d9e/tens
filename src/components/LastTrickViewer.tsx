@@ -111,7 +111,6 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
 
                     {trick.cards.length === 0 && (
                         <div className="text-center text-gray-400">
-                            <div className="text-2xl mb-2">🎴</div>
                             <div className="text-sm">No cards played</div>
                         </div>
                     )}

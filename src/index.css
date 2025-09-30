@@ -1,4 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
     font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -138,6 +141,136 @@ input {
     select {
         font-size: 16px;
     }
+}
+
+/* Card Styles */
+.card {
+    background-color: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    border: 2px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 0.5rem;
+    position: relative;
+    min-width: 60px;
+    min-height: 84px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.3s ease;
+}
+
+.card.hearts,
+.card.diamonds {
+    color: #dc2626;
+}
+
+.card.clubs,
+.card.spades {
+    color: #000000;
+}
+
+.card-rank {
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.card-suit {
+    font-size: 1.5rem;
+    line-height: 1;
+    text-align: center;
+}
+
+.card-rank-bottom {
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1;
+    transform: rotate(180deg);
+}
+
+.card.selected {
+    border-color: #fbbf24;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: translateY(-10px) !important;
+}
+
+.card:hover {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Player Hand Styles */
+.player-hand {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 0.25rem;
+    min-height: 120px;
+    padding: 20px;
+}
+
+/* Trick Area Styles */
+.trick-area {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 300px;
+    height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.trick-card {
+    pointer-events: auto;
+}
+
+/* Game Table Styles */
+.game-table {
+    position: relative;
+    background: linear-gradient(to bottom right, #166534, #15803d);
+    border-radius: 1.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    min-height: 600px;
+    height: 70vh;
+}
+
+/* Player Info Styles */
+.player-info {
+    backdrop-filter: blur(12px);
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    text-align: center;
+    min-width: 120px;
+}
+
+.player-info.north {
+    background-color: rgba(59, 130, 246, 0.3);
+}
+
+.player-info.east {
+    background-color: rgba(34, 197, 94, 0.3);
+}
+
+.player-info.south {
+    background-color: rgba(239, 68, 68, 0.3);
+}
+
+.player-info.west {
+    background-color: rgba(234, 179, 8, 0.3);
+}
+
+/* Game Info Styles */
+.game-info {
+    position: absolute;
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(12px);
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 /* Touch Optimizations */
