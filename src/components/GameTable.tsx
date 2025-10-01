@@ -56,6 +56,20 @@ const GameTable: React.FC = () => {
         }
     };
 
+    const handleCardDoubleClick = (card: CardType) => {
+        if (!isMyTurn || currentGame.phase !== 'playing') return;
+
+        // Check if the card is playable
+        const leadSuit = currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null;
+        const isPlayable = canPlayCard(card, leadSuit as any, currentGame.trumpSuit!, myPlayer?.cards || []);
+
+        if (isPlayable) {
+            // Play the card immediately
+            playCard(currentGame.id, card);
+            setSelectedCard(null);
+        }
+    };
+
     const handleBid = (points: number, suit?: string) => {
         if (!isMyTurn || currentGame.phase !== 'bidding') return;
 
@@ -209,6 +223,7 @@ const GameTable: React.FC = () => {
                     leadSuit={currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null}
                     trumpSuit={currentGame.trumpSuit!}
                     onCardClick={handleCardClick}
+                    onCardDoubleClick={handleCardDoubleClick}
                     selectedCardId={selectedCard}
                     isCurrentPlayer={isMyTurn}
                 />

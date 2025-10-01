@@ -25,7 +25,11 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
     playerId: null,
 
     connect: () => {
-        const socket = io('http://localhost:3001');
+        // Use the same IP as the frontend for the socket connection
+        const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:3001'
+            : `http://${window.location.hostname}:3001`;
+        const socket = io(serverUrl);
 
         socket.on('connect', () => {
             set({ socket, isConnected: true, playerId: socket.id });

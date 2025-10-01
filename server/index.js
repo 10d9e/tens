@@ -8,12 +8,26 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
     cors: {
-        origin: "http://localhost:3000",
-        methods: ["GET", "POST"]
+        origin: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://192.168.2.15:3000",
+            /^http:\/\/192\.168\.\d+\.\d+:3000$/  // Allow any 192.168.x.x:3000
+        ],
+        methods: ["GET", "POST"],
+        credentials: true
     }
 });
 
-app.use(cors());
+app.use(cors({
+    origin: [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://192.168.2.15:3000",
+        /^http:\/\/192\.168\.\d+\.\d+:3000$/  // Allow any 192.168.x.x:3000
+    ],
+    credentials: true
+}));
 app.use(express.json());
 
 // Game state storage
@@ -29,39 +43,43 @@ const defaultLobby = {
 };
 lobbies.set('default', defaultLobby);
 
-// Create a default table with 3 bot players
-function createDefaultTable() {
-    const tableId = 'robot-fun-table';
-    const table = {
-        id: tableId,
-        name: 'Robot Fun',
-        players: [],
-        gameState: null,
-        maxPlayers: 4,
-        isPrivate: false
-    };
+// Create multiple default tables with 3 bot players each
+function create3BotTables(numTables = 1) {
+    for (let tableNum = 1; tableNum <= numTables; tableNum++) {
+        const tableId = tableNum === 1 ? 'robot-fun-table' : `robot-fun-table-${tableNum}`;
+        const tableName = tableNum === 1 ? 'Robot Fun' : `Robot Fun ${tableNum}`;
 
-    // Add 3 bot players (without AI for now, will be added when game starts)
-    // Position them at North (0), East (1), and West (3), leaving South (2) for human player
-    const botSkills = ['easy', 'medium', 'hard'];
-    const botPositions = [0, 1, 3]; // North, East, West
-    for (let i = 0; i < 3; i++) {
-        const botId = `bot-${uuidv4()}`;
-        const bot = {
-            id: botId,
-            name: getRandomHumanName(),
-            isBot: true,
-            botSkill: botSkills[i],
-            position: botPositions[i],
-            cards: [],
-            score: 0,
-            isReady: true
+        const table = {
+            id: tableId,
+            name: tableName,
+            players: [],
+            gameState: null,
+            maxPlayers: 4,
+            isPrivate: false
         };
-        table.players.push(bot);
-    }
 
-    defaultLobby.tables.set(tableId, table);
-    console.log('Created default table "Robot Fun" with 3 bot players');
+        // Add 3 bot players (without AI for now, will be added when game starts)
+        // Position them at North (0), East (1), and West (3), leaving South (2) for human player
+        const botSkills = ['easy', 'medium', 'hard'];
+        const botPositions = [0, 1, 3]; // North, East, West
+        for (let i = 0; i < 3; i++) {
+            const botId = `bot-${uuidv4()}`;
+            const bot = {
+                id: botId,
+                name: getRandomHumanName(),
+                isBot: true,
+                botSkill: botSkills[i],
+                position: botPositions[i],
+                cards: [],
+                score: 0,
+                isReady: true
+            };
+            table.players.push(bot);
+        }
+
+        defaultLobby.tables.set(tableId, table);
+        console.log(`Created default table "${tableName}" with 3 bot players`);
+    }
 }
 
 // Human names for bots
@@ -116,6 +134,27 @@ function reservePlayerName(playerName) {
 function releasePlayerName(playerName) {
     usedNames.delete(playerName);
     console.log(`Released name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
+}
+
+// Function to debug and print all players' cards
+function debugPrintAllPlayerCards(game, context = '') {
+    console.log(`\n🃏 DEBUG: All Players' Cards ${context ? `(${context})` : ''}`);
+    console.log('='.repeat(50));
+    game.players.forEach((player, index) => {
+        const playerType = player.isBot ? '🤖 BOT' : '👤 HUMAN';
+        const cardsList = player.cards.map(card => {
+            const suitSymbols = {
+                'hearts': '❤️',
+                'diamonds': '♦️',
+                'clubs': '♣️',
+                'spades': '♠️'
+            };
+            return `${card.rank}${suitSymbols[card.suit] || card.suit}`;
+        }).join(', ');
+        console.log(`${index + 1}. ${player.name} (${playerType}) - ${player.cards.length} cards: [${cardsList}]`);
+    });
+    console.log('='.repeat(50));
+    console.log(`Total cards in play: ${game.players.reduce((sum, player) => sum + player.cards.length, 0)}/36\n`);
 }
 
 // Bot AI (simplified for server)
@@ -197,6 +236,7 @@ class SimpleBotAI {
 
     async playCard(playableCards, leadSuit, trumpSuit) {
         // Add variable delay based on skill level to simulate thinking time
+        /*
         let delay;
         switch (this.skill) {
             case 'easy':
@@ -211,6 +251,8 @@ class SimpleBotAI {
             default:
                 delay = Math.random() * 2000 + 1000; // Default fallback
         }
+        */
+        const delay = 1000;
         console.log(`${this.skill} bot thinking for ${Math.round(delay)}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
 
@@ -280,7 +322,7 @@ function createBigBubTable() {
 }
 
 // Create the default tables after SimpleBotAI is defined
-createDefaultTable();
+create3BotTables(20); // Create 2 default tables with 3 bots each
 createBigBubTable();
 
 // Game logic functions
@@ -478,6 +520,9 @@ function startGame(game) {
         name: p.name,
         cardCount: p.cards.length
     })));
+
+    // Debug: Print all players' cards at game start
+    debugPrintAllPlayerCards(game, 'Game Start - Initial Deal');
 
     return game;
 }
@@ -702,6 +747,9 @@ io.on('connection', (socket) => {
             const winnerPlayer = game.players.find(p => p.id === winner.playerId);
             console.log(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
+            // Debug: Print all players' cards after trick completion
+            debugPrintAllPlayerCards(game, `After Trick Won by ${winnerPlayer?.name}`);
+
             // Add delay to let players see the final card before completing trick
             // Variable pause to show final card (1.5-2.5 seconds)
             const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
@@ -715,6 +763,9 @@ io.on('connection', (socket) => {
             const allCardsPlayed = game.players.every(p => p.cards.length === 0);
             if (allCardsPlayed) {
                 console.log('All cards have been played! Round complete.');
+
+                // Debug: Print final card state (should all be 0 cards)
+                debugPrintAllPlayerCards(game, 'Round Complete - All Cards Played');
 
                 // Calculate round scores using proper scoring system
                 if (game.contractorTeam && game.currentBid) {
@@ -1180,6 +1231,9 @@ async function handleBotTurn(game) {
                 const winnerPlayer = game.players.find(p => p.id === winner.playerId);
                 console.log(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
+                // Debug: Print all players' cards after trick completion
+                debugPrintAllPlayerCards(game, `After Trick Won by ${winnerPlayer?.name}`);
+
                 // Add delay to let players see the final card before completing trick
                 // Variable pause to show final card (1.5-2.5 seconds)
                 const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
@@ -1193,6 +1247,9 @@ async function handleBotTurn(game) {
                 const allCardsPlayed = game.players.every(p => p.cards.length === 0);
                 if (allCardsPlayed) {
                     console.log('All cards have been played! Round complete.');
+
+                    // Debug: Print final card state (should all be 0 cards)
+                    debugPrintAllPlayerCards(game, 'Round Complete - All Cards Played');
 
                     // Calculate round scores using proper scoring system
                     if (game.contractorTeam && game.currentBid) {

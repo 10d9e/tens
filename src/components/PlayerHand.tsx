@@ -10,6 +10,7 @@ interface PlayerHandProps {
     leadSuit: string | null;
     trumpSuit: string;
     onCardClick: (card: CardType) => void;
+    onCardDoubleClick?: (card: CardType) => void;
     selectedCardId: string | null;
     isCurrentPlayer: boolean;
 }
@@ -20,6 +21,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     leadSuit,
     trumpSuit,
     onCardClick,
+    onCardDoubleClick,
     selectedCardId,
     isCurrentPlayer
 }) => {
@@ -32,7 +34,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     const getPlayableCards = () => {
         if (!isMyTurn) return [];
         return player.cards.filter(card =>
-            canPlayCard(card, leadSuit as any, trumpSuit, player.cards)
+            canPlayCard(card, leadSuit as any, trumpSuit as any, player.cards)
         );
     };
 
@@ -84,7 +86,6 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
                         key={card.id}
                         className={`relative ${!isPlayable ? 'no-hover' : ''}`}
                         style={{
-                            transform: `rotate(${(index - (sortedCards.length - 1) / 2) * 6}deg) translateY(${Math.abs(index - (sortedCards.length - 1) / 2) * -3}px)`,
                             zIndex: isSelected ? 10 : index
                         }}
                         whileHover={isPlayable ? {
@@ -97,6 +98,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
                         <Card
                             card={card}
                             onClick={() => isPlayable && onCardClick(card)}
+                            onDoubleClick={() => isPlayable && onCardDoubleClick?.(card)}
                             isSelected={isSelected}
                             isPlayable={isPlayable}
                             size="medium"

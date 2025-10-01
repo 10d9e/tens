@@ -5,6 +5,7 @@ import { Card as CardType } from '../types/game';
 interface CardProps {
     card: CardType;
     onClick?: () => void;
+    onDoubleClick?: () => void;
     isSelected?: boolean;
     isPlayable?: boolean;
     size?: 'small' | 'medium' | 'large';
@@ -14,6 +15,7 @@ interface CardProps {
 const Card: React.FC<CardProps> = ({
     card,
     onClick,
+    onDoubleClick,
     isSelected = false,
     isPlayable = true,
     size = 'medium',
@@ -65,6 +67,7 @@ const Card: React.FC<CardProps> = ({
                 opacity: !isPlayable ? 0.7 : undefined
             }}
             onClick={isPlayable ? onClick : undefined}
+            onDoubleClick={isPlayable ? onDoubleClick : undefined}
             whileHover={isPlayable ? { scale: 1.05, y: -4 } : { scale: 1, y: 0 }}
             whileTap={isPlayable ? { scale: 0.95 } : {}}
             initial={{ opacity: 0, y: -20 }}
