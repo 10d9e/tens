@@ -25,7 +25,7 @@ const RoundNotepad: React.FC<RoundNotepadProps> = ({
     };
 
     const getSuitColor = (suit: string) => {
-        return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-gray-800';
+        return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-white';
     };
 
     return (

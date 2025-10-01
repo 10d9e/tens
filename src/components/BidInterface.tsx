@@ -48,7 +48,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     };
 
     const getSuitColor = (suit: Suit) => {
-        return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-gray-800';
+        return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-white';
     };
 
     const getBidderInfo = () => {
