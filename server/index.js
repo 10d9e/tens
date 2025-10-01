@@ -49,7 +49,7 @@ function createDefaultTable() {
         const botId = `bot-${uuidv4()}`;
         const bot = {
             id: botId,
-            name: `Bot (${botSkills[i]})`,
+            name: getRandomHumanName(),
             isBot: true,
             botSkill: botSkills[i],
             position: botPositions[i],
@@ -62,6 +62,60 @@ function createDefaultTable() {
 
     defaultLobby.tables.set(tableId, table);
     console.log('Created default table "Robot Fun" with 3 bot players');
+}
+
+// Human names for bots
+const humanNames = [
+    'Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry',
+    'Ivy', 'Jack', 'Kate', 'Liam', 'Maya', 'Noah', 'Olivia', 'Paul',
+    'Quinn', 'Ruby', 'Sam', 'Tara', 'Uma', 'Victor', 'Wendy', 'Xavier',
+    'Yara', 'Zoe', 'Alex', 'Blake', 'Casey', 'Drew', 'Emery', 'Finley',
+    'Gabriel', 'Harper', 'Isaac', 'Jordan', 'Kai', 'Luna', 'Max', 'Nora',
+    'Owen', 'Piper', 'Quentin', 'Riley', 'Sage', 'Taylor', 'Val', 'Willow'
+];
+
+// Global set to track used names across all players (human and bot)
+const usedNames = new Set();
+
+// Function to get a unique random human name for bots
+function getRandomHumanName() {
+    // Filter out already used names
+    const availableNames = humanNames.filter(name => !usedNames.has(name));
+
+    if (availableNames.length === 0) {
+        // If all names are used, append a number to make it unique
+        const baseName = humanNames[Math.floor(Math.random() * humanNames.length)];
+        let counter = 1;
+        let uniqueName = `${baseName}${counter}`;
+        while (usedNames.has(uniqueName)) {
+            counter++;
+            uniqueName = `${baseName}${counter}`;
+        }
+        usedNames.add(uniqueName);
+        return uniqueName;
+    }
+
+    // Pick a random available name
+    const selectedName = availableNames[Math.floor(Math.random() * availableNames.length)];
+    usedNames.add(selectedName);
+    return selectedName;
+}
+
+// Function to check if a human name is available and reserve it
+function reservePlayerName(playerName) {
+    if (usedNames.has(playerName)) {
+        console.log(`Name "${playerName}" is already taken`);
+        return false; // Name already taken
+    }
+    usedNames.add(playerName);
+    console.log(`Reserved name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
+    return true; // Name reserved successfully
+}
+
+// Function to release a name when a player disconnects
+function releasePlayerName(playerName) {
+    usedNames.delete(playerName);
+    console.log(`Released name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
 }
 
 // Bot AI (simplified for server)
@@ -141,12 +195,53 @@ class SimpleBotAI {
         return finalBid;
     }
 
-    async playCard(playableCards) {
-        // Add 1 second delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    async playCard(playableCards, leadSuit, trumpSuit) {
+        // Add variable delay based on skill level to simulate thinking time
+        let delay;
+        switch (this.skill) {
+            case 'easy':
+                delay = Math.random() * 6000 + 2000; // Random delay between 2000-8000ms (2-8 seconds)
+                break;
+            case 'medium':
+                delay = Math.random() * 3000 + 1000; // Random delay between 1000-4000ms (1-4 seconds)
+                break;
+            case 'hard':
+                delay = Math.random() * 1000 + 1000; // Random delay between 1000-2000ms (1-2 seconds)
+                break;
+            default:
+                delay = Math.random() * 2000 + 1000; // Default fallback
+        }
+        console.log(`${this.skill} bot thinking for ${Math.round(delay)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
 
         if (playableCards.length === 0) return null;
-        return playableCards[Math.floor(Math.random() * playableCards.length)];
+
+        // Simple strategy: prefer playing high-value cards if we have the lead suit
+        // or low-value cards if we don't
+        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '5': 5 };
+
+        if (leadSuit) {
+            // If we have the lead suit, try to win with a high card
+            const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
+            if (leadSuitCards.length > 0) {
+                // Play highest lead suit card
+                return leadSuitCards.reduce((highest, current) => {
+                    const currentRank = getCardRank(current.rank);
+                    const highestRank = getCardRank(highest.rank);
+                    return currentRank > highestRank ? current : highest;
+                });
+            }
+
+            // If we don't have the lead suit, play a low-value card
+            return playableCards.reduce((lowest, current) => {
+                const currentValue = values[current.rank] || 0;
+                const lowestValue = values[lowest.rank] || 0;
+                return currentValue < lowestValue ? current : lowest;
+            });
+        } else {
+            // First card of trick - play a medium value card
+            return playableCards[Math.floor(Math.random() * playableCards.length)];
+        }
     }
 }
 
@@ -169,7 +264,7 @@ function createBigBubTable() {
         const botId = `bot-${uuidv4()}`;
         const bot = {
             id: botId,
-            name: `Bot (${botSkills[i]})`,
+            name: getRandomHumanName(),
             isBot: true,
             botSkill: botSkills[i],
             position: botPositions[i],
@@ -317,7 +412,7 @@ function addBotPlayer(game, skill = 'medium') {
     const botId = `bot-${uuidv4()}`;
     const bot = {
         id: botId,
-        name: `Bot (${skill})`,
+        name: getRandomHumanName(),
         isBot: true,
         botSkill: skill,
         position: game.players.length,
@@ -394,6 +489,14 @@ io.on('connection', (socket) => {
     socket.on('join_lobby', (data) => {
         console.log('join_lobby received:', data);
         const { playerName, lobbyId = 'default' } = data;
+
+        // Check if the name is already taken
+        if (!reservePlayerName(playerName)) {
+            console.log(`Name "${playerName}" is already taken`);
+            socket.emit('name_taken', { message: `The name "${playerName}" is already taken. Please choose a different name.` });
+            return;
+        }
+
         const player = {
             id: socket.id,
             name: playerName,
@@ -600,8 +703,10 @@ io.on('connection', (socket) => {
             console.log(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
             // Add delay to let players see the final card before completing trick
-            console.log('Pausing 1.5 seconds to show final card...');
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            // Variable pause to show final card (1.5-2.5 seconds)
+            const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
+            console.log(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
+            await new Promise(resolve => setTimeout(resolve, finalCardDelay));
 
             // Emit trick completed event with the completed trick
             io.to(`table-${game.tableId}`).emit('trick_completed', { game });
@@ -717,9 +822,10 @@ io.on('connection', (socket) => {
 
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
-                // Pause for 1 second to let players see the final trick
-                console.log('Pausing for 1 second before starting new round...');
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Pause for a variable time (1-2 seconds) to let players see the final trick
+                const pauseDelay = Math.random() * 1000 + 1000; // Random delay between 1000-2000ms
+                console.log(`Pausing for ${Math.round(pauseDelay)}ms before starting new round...`);
+                await new Promise(resolve => setTimeout(resolve, pauseDelay));
 
                 // Start bot turn handling for new bidding phase if current player is a bot
                 if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
@@ -840,6 +946,11 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
+        const player = players.get(socket.id);
+        if (player && player.name) {
+            releasePlayerName(player.name);
+            console.log(`Released name "${player.name}"`);
+        }
         players.delete(socket.id);
     });
 });
@@ -996,9 +1107,27 @@ async function handleBotTurn(game) {
             await handleBotTurn(game);
         }
     } else if (game.phase === 'playing') {
-        const playableCards = currentPlayer.cards; // Simplified - should check lead suit
-        console.log(`Bot ${currentPlayer.name} has ${playableCards.length} cards to play`);
-        const card = await currentPlayer.ai.playCard(playableCards);
+        // Determine lead suit from current trick
+        const leadSuit = game.currentTrick.cards.length > 0
+            ? game.currentTrick.cards[0].card.suit
+            : null;
+
+        // Filter playable cards based on leading suit rule
+        const playableCards = currentPlayer.cards.filter(card => {
+            if (!leadSuit) return true; // First card of trick
+
+            // Must follow suit if possible
+            const hasLeadSuit = currentPlayer.cards.some(c => c.suit === leadSuit);
+            if (hasLeadSuit) {
+                return card.suit === leadSuit;
+            }
+
+            return true; // Can play any card if can't follow suit
+        });
+
+        console.log(`Bot ${currentPlayer.name} has ${currentPlayer.cards.length} total cards, ${playableCards.length} playable cards`);
+        console.log(`Lead suit: ${leadSuit}, Trump suit: ${game.trumpSuit}`);
+        const card = await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit);
 
         if (card) {
             console.log(`Bot ${currentPlayer.name} playing card: ${card.rank} of ${card.suit}`);
@@ -1052,8 +1181,10 @@ async function handleBotTurn(game) {
                 console.log(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
                 // Add delay to let players see the final card before completing trick
-                console.log('Pausing 1.5 seconds to show final card...');
-                await new Promise(resolve => setTimeout(resolve, 1500));
+                // Variable pause to show final card (1.5-2.5 seconds)
+                const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
+                console.log(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
+                await new Promise(resolve => setTimeout(resolve, finalCardDelay));
 
                 // Emit trick completed event with the completed trick
                 io.to(`table-${game.tableId}`).emit('trick_completed', { game });

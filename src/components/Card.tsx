@@ -74,7 +74,7 @@ const Card: React.FC<CardProps> = ({
             <div className="card-rank flex items-center justify-between">
                 <span>{card.rank}</span>
                 {isPointCard && (
-                    <span className="text-yellow-500 text-xs font-bold">
+                    <span className="text-yellow-600 text-[10px] font-medium opacity-75">
                         ({cardValue})
                     </span>
                 )}
@@ -84,13 +84,8 @@ const Card: React.FC<CardProps> = ({
                 {getSuitSymbol(card.suit)}
             </div>
 
-            <div className="card-rank-bottom flex items-center justify-between">
+            <div className="card-rank-bottom flex items-center justify-start">
                 <span>{card.rank}</span>
-                {isPointCard && (
-                    <span className="text-yellow-500 text-xs font-bold">
-                        ({cardValue})
-                    </span>
-                )}
             </div>
 
 

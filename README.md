@@ -114,8 +114,7 @@ tens/
 │   ├── types/              # TypeScript type definitions
 │   │   └── game.ts         # Game-related types
 │   ├── utils/              # Utility functions
-│   │   ├── gameLogic.ts    # Core game logic
-│   │   └── botAI.ts        # AI bot implementation
+│   │   └── gameLogic.ts    # Core game logic
 │   ├── App.tsx             # Main app component
 │   └── main.tsx            # App entry point
 ├── server/                 # Backend server
