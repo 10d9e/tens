@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 const cors = require('cors');
+const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
 const app = express();
@@ -12,7 +13,8 @@ const io = socketIo(server, {
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "http://192.168.2.15:3000",
-            /^http:\/\/192\.168\.\d+\.\d+:3000$/  // Allow any 192.168.x.x:3000
+            /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow any 192.168.x.x:3000
+            process.env.FRONTEND_URL || "https://tens-game.railway.app"  // Production frontend URL
         ],
         methods: ["GET", "POST"],
         credentials: true
@@ -24,11 +26,20 @@ app.use(cors({
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://192.168.2.15:3000",
-        /^http:\/\/192\.168\.\d+\.\d+:3000$/  // Allow any 192.168.x.x:3000
+        /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow any 192.168.x.x:3000
+        process.env.FRONTEND_URL || "https://tens-game.railway.app"  // Production frontend URL
     ],
     credentials: true
 }));
 app.use(express.json());
+
+// Serve static files from the React app build
+app.use(express.static('dist'));
+
+// Handle React routing, return all requests to React app
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
 
 // Game state storage
 const games = new Map();

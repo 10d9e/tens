@@ -31,7 +31,6 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players }) => {
         return positions[playerPosition] || { x: 0, y: 0 };
     };
 
-    const isTrickComplete = trick.cards.length === 4;
 
     return (
         <div className="trick-area relative">
