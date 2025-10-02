@@ -24,7 +24,7 @@ interface GameStore {
     updateGameState: (updates: Partial<GameState>) => void;
 }
 
-export const useGameStore = create<GameStore>((set, get) => ({
+export const useGameStore = create<GameStore>((set) => ({
     currentGame: null,
     currentTable: null,
     currentPlayer: null,

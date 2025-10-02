@@ -9,7 +9,7 @@ interface TrickAreaProps {
     trumpSuit: string;
 }
 
-const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, trumpSuit }) => {
+const TrickArea: React.FC<TrickAreaProps> = ({ trick, players }) => {
     // Debug logging
     console.log('TrickArea render - trick.cards:', trick.cards);
     console.log('TrickArea render - trick.cards.length:', trick.cards.length);
@@ -20,7 +20,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, trumpSuit }) => {
         return player.position;
     };
 
-    const getCardPosition = (index: number, playerPosition: number) => {
+    const getCardPosition = (_index: number, playerPosition: number) => {
         const positions = [
             { x: 0, y: -100 },   // North
             { x: 100, y: 0 },    // East
@@ -35,15 +35,6 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, trumpSuit }) => {
 
     return (
         <div className="trick-area relative">
-            {/* Trick complete indicator */}
-            {isTrickComplete && (
-                <motion.div
-                    className="absolute inset-0 bg-green-500 bg-opacity-20 rounded-lg border-2 border-green-400 border-opacity-50 pointer-events-none"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                />
-            )}
 
             <AnimatePresence>
                 {trick.cards.map(({ card, playerId }, index) => {
@@ -84,7 +75,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, trumpSuit }) => {
                             <Card
                                 card={card}
                                 size="medium"
-                                className={`shadow-lg ${isTrickComplete ? 'ring-2 ring-green-400 ring-opacity-50' : ''}`}
+                                className="shadow-lg"
                             />
                         </motion.div>
                     );

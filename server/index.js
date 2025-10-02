@@ -321,7 +321,7 @@ function createBigBubTable() {
 }
 
 // Create the default tables after SimpleBotAI is defined
-create3BotTables(20); // Create 2 default tables with 3 bots each
+create3BotTables(5); // Create 2 default tables with 3 bots each
 createBigBubTable();
 
 // Game logic functions
@@ -571,9 +571,277 @@ io.on('connection', (socket) => {
         }
     });
 
+    socket.on('create_table', (data) => {
+        console.log('create_table received:', data);
+        const { tableId, lobbyId = 'default', tableName } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const lobby = lobbies.get(lobbyId);
+        if (!lobby) {
+            console.log('Lobby not found:', lobbyId);
+            return;
+        }
+
+        // Check if table already exists
+        if (lobby.tables.has(tableId)) {
+            console.log('Table already exists:', tableId);
+            return;
+        }
+
+        console.log('Creating new table:', tableId, 'with name:', tableName);
+        const table = {
+            id: tableId,
+            name: tableName || `Table ${tableId}`,
+            players: [],
+            gameState: null,
+            maxPlayers: 4,
+            isPrivate: false,
+            creator: socket.id
+        };
+
+        // Add the creator as the first player
+        player.position = 0;
+        table.players.push(player);
+        console.log(`Added creator ${player.name} to new table`);
+
+        lobby.tables.set(tableId, table);
+        console.log('Table created successfully');
+
+        // Add creator to table socket room
+        socket.join(`table-${tableId}`);
+
+        // Notify all lobby members about the new table
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+
+        // Send table_joined event to redirect creator to waiting room
+        socket.emit('table_joined', { table, player });
+
+        // Send confirmation to creator
+        socket.emit('table_created', { table, success: true });
+    });
+
+    socket.on('add_bot', (data) => {
+        console.log('add_bot received:', data);
+        const { tableId, position, skill = 'medium' } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const lobby = lobbies.get('default');
+        if (!lobby) {
+            console.log('Lobby not found');
+            return;
+        }
+
+        const table = lobby.tables.get(tableId);
+        if (!table) {
+            console.log('Table not found:', tableId);
+            return;
+        }
+
+        // Check if user is the table creator
+        if (table.creator !== socket.id) {
+            console.log('Only table creator can add bots');
+            socket.emit('error', { message: 'Only the table creator can add bots' });
+            return;
+        }
+
+        // Check if position is already occupied
+        if (table.players.some(p => p.position === position)) {
+            console.log('Position already occupied:', position);
+            socket.emit('error', { message: 'Position already occupied' });
+            return;
+        }
+
+        // Create bot player
+        const botId = `bot-${uuidv4()}`;
+        const bot = {
+            id: botId,
+            name: getRandomHumanName(),
+            isBot: true,
+            botSkill: skill,
+            position: position,
+            cards: [],
+            score: 0,
+            isReady: true
+        };
+
+        table.players.push(bot);
+        console.log(`Added bot ${bot.name} at position ${position}`);
+
+        // Notify all table members about the updated table
+        io.to(`table-${tableId}`).emit('table_updated', { table });
+
+        // Notify all lobby members about the updated lobby
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+    });
+
+    socket.on('remove_bot', (data) => {
+        console.log('remove_bot received:', data);
+        const { tableId, botId } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const lobby = lobbies.get('default');
+        if (!lobby) {
+            console.log('Lobby not found');
+            return;
+        }
+
+        const table = lobby.tables.get(tableId);
+        if (!table) {
+            console.log('Table not found:', tableId);
+            return;
+        }
+
+        // Check if user is the table creator
+        if (table.creator !== socket.id) {
+            console.log('Only table creator can remove bots');
+            socket.emit('error', { message: 'Only the table creator can remove bots' });
+            return;
+        }
+
+        // Find and remove the bot
+        const botIndex = table.players.findIndex(p => p.id === botId && p.isBot);
+        if (botIndex === -1) {
+            console.log('Bot not found:', botId);
+            socket.emit('error', { message: 'Bot not found' });
+            return;
+        }
+
+        const removedBot = table.players.splice(botIndex, 1)[0];
+        console.log(`Removed bot ${removedBot.name} from position ${removedBot.position}`);
+
+        // Notify all table members about the updated table
+        io.to(`table-${tableId}`).emit('table_updated', { table });
+
+        // Notify all lobby members about the updated lobby
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+    });
+
+    socket.on('start_game', async (data) => {
+        console.log('start_game received:', data);
+        const { tableId } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const lobby = lobbies.get('default');
+        if (!lobby) {
+            console.log('Lobby not found');
+            return;
+        }
+
+        const table = lobby.tables.get(tableId);
+        if (!table) {
+            console.log('Table not found:', tableId);
+            return;
+        }
+
+        // Check if user is the table creator
+        if (table.creator !== socket.id) {
+            console.log('Only table creator can start the game');
+            socket.emit('error', { message: 'Only the table creator can start the game' });
+            return;
+        }
+
+        // Check if table has exactly 4 players
+        if (table.players.length !== 4) {
+            console.log('Table must have exactly 4 players to start');
+            socket.emit('error', { message: 'Table must have exactly 4 players to start' });
+            return;
+        }
+
+        // Check if game is already started
+        if (table.gameState) {
+            console.log('Game already started');
+            socket.emit('error', { message: 'Game already started' });
+            return;
+        }
+
+        console.log('Starting game manually for table:', tableId);
+        const game = createGame(tableId);
+        table.gameState = startGame(game);
+        games.set(game.id, game);
+
+        console.log('Emitting game_started event');
+        io.to(`table-${tableId}`).emit('game_started', { game: table.gameState });
+
+        // Start bot turn if first player is a bot
+        if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+            console.log('First player is a bot, starting bot turn handling');
+            await handleBotTurn(game);
+        }
+    });
+
+    socket.on('leave_table', (data) => {
+        console.log('leave_table received:', data);
+        const { tableId, lobbyId = 'default' } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const lobby = lobbies.get(lobbyId);
+        if (!lobby) {
+            console.log('Lobby not found:', lobbyId);
+            return;
+        }
+
+        const table = lobby.tables.get(tableId);
+        if (!table) {
+            console.log('Table not found:', tableId);
+            return;
+        }
+
+        // Remove player from table
+        const playerIndex = table.players.findIndex(p => p.id === player.id);
+        if (playerIndex !== -1) {
+            console.log(`Removing player ${player.name} from table ${tableId}`);
+            table.players.splice(playerIndex, 1);
+
+            // Reset positions for remaining players
+            table.players.forEach((p, index) => {
+                p.position = index;
+            });
+
+            // Remove from socket room
+            socket.leave(`table-${tableId}`);
+
+            // Notify other players in the table
+            socket.to(`table-${tableId}`).emit('player_left_table', { table, player });
+
+            // Notify all lobby members about the updated lobby
+            const tablesArray = Array.from(lobby.tables.values());
+            io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+
+            // Send confirmation to player who left
+            socket.emit('table_left', { success: true });
+
+            console.log(`Player ${player.name} left table ${tableId}. Remaining players: ${table.players.length}`);
+        } else {
+            console.log(`Player ${player.name} not found in table ${tableId}`);
+        }
+    });
+
     socket.on('join_table', async (data) => {
         console.log('join_table received:', data);
-        const { tableId, lobbyId = 'default', tableName } = data;
+        const { tableId, lobbyId = 'default', tableName, numBots = 0 } = data;
         const player = players.get(socket.id);
         if (!player) {
             console.log('Player not found for socket:', socket.id);
@@ -595,25 +863,21 @@ io.on('connection', (socket) => {
             return;
         }
 
-        let table = lobby.tables.get(tableId);
+        const table = lobby.tables.get(tableId);
         if (!table) {
-            console.log('Creating new table:', tableId, 'with name:', tableName);
-            table = {
-                id: tableId,
-                name: tableName || `Table ${tableId}`,
-                players: [],
-                gameState: null,
-                maxPlayers: 4,
-                isPrivate: false,
-                creator: socket.id // Track who created the table
-            };
-            lobby.tables.set(tableId, table);
-            console.log('Table created successfully');
+            console.log('Table not found:', tableId);
+            socket.emit('error', { message: 'Table not found' });
+            return;
         }
 
         if (table.players.length < table.maxPlayers) {
-            // Always assign positions sequentially (0, 1, 2, 3) to ensure proper rotation
-            player.position = table.players.length;
+            // Find the first available position (0, 1, 2, 3) to ensure proper rotation
+            const occupiedPositions = table.players.map(p => p.position);
+            let availablePosition = 0;
+            while (occupiedPositions.includes(availablePosition) && availablePosition < table.maxPlayers) {
+                availablePosition++;
+            }
+            player.position = availablePosition;
             table.players.push(player);
             socket.join(`table-${tableId}`);
 
@@ -624,14 +888,15 @@ io.on('connection', (socket) => {
             const tablesArray = Array.from(lobby.tables.values());
             io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
 
-            // Auto-start game if table is full OR if it's the Robot Fun table with a human player
+            // Only auto-start game if table is completely full (4 players)
             console.log('Checking auto-start conditions:');
             console.log('- Table players length:', table.players.length);
             console.log('- Table ID:', tableId);
             console.log('- Has human player:', table.players.some(p => !p.isBot));
+            console.log('- Has bots:', table.players.some(p => p.isBot));
 
-            if (table.players.length === 4 || (tableId === 'robot-fun-table' && table.players.some(p => !p.isBot))) {
-                console.log('Auto-starting game...');
+            if (table.players.length === 4) {
+                console.log('Table is full - auto-starting game...');
                 const game = createGame(tableId);
                 table.gameState = startGame(game);
                 games.set(game.id, game);
@@ -645,7 +910,7 @@ io.on('connection', (socket) => {
                     await handleBotTurn(game);
                 }
             } else {
-                console.log('Game not auto-started. Conditions not met.');
+                console.log('Table not full - staying in waiting room.');
             }
         }
     });

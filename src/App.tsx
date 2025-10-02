@@ -3,12 +3,13 @@ import { Toaster } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import Lobby from './components/Lobby';
 import GameTable from './components/GameTable';
+import WaitingRoom from './components/WaitingRoom';
 import { useGameStore } from './store/gameStore';
 import { useSocketStore } from './store/socketStore';
 import './App.css';
 
 function App() {
-    const { currentGame } = useGameStore();
+    const { currentGame, currentTable } = useGameStore();
     const { socket, isConnected } = useSocketStore();
     const [playerName, setPlayerName] = useState('');
     const [showNameInput, setShowNameInput] = useState(true);
@@ -81,6 +82,16 @@ function App() {
                         transition={{ duration: 0.3 }}
                     >
                         <GameTable />
+                    </motion.div>
+                ) : currentTable ? (
+                    <motion.div
+                        key="waiting"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <WaitingRoom />
                     </motion.div>
                 ) : (
                     <motion.div

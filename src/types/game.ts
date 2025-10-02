@@ -55,6 +55,7 @@ export interface LobbyTable {
     maxPlayers: number;
     isPrivate: boolean;
     password?: string;
+    creator?: string;
 }
 
 export interface ChatMessage {

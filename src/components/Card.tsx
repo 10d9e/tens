@@ -77,7 +77,7 @@ const Card: React.FC<CardProps> = ({
             <div className="card-rank flex items-center justify-between">
                 <span>{card.rank}</span>
                 {isPointCard && (
-                    <span className="text-yellow-600 text-[10px] font-medium opacity-75">
+                    <span className="text-blue-800 text-[10px] font-medium text-right">
                         ({cardValue})
                     </span>
                 )}

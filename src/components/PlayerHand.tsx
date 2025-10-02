@@ -82,12 +82,6 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     return (
         <motion.div
             className="player-hand"
-            style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                width: '100%'
-            }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -105,7 +99,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
                         }}
                         whileHover={isPlayable ? {
                             rotate: 0,
-                            y: -25,
+                            y: -7,
                             zIndex: 20,
                             transition: { duration: 0.2 }
                         } : undefined}

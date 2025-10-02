@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
-import { ChatMessage } from '../types/game';
+// import { ChatMessage } from '../types/game';
 
 interface ChatPanelProps {
     onClose: () => void;

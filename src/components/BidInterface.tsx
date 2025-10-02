@@ -103,7 +103,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     return createPortal(
         <AnimatePresence>
             <motion.div
-                className="fixed inset-0 bg-black bg-opacity-50"
+                className="fixed inset-0 bg-opacity-50 flex items-center justify-center"
                 style={{ zIndex: 9999 }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -112,13 +112,6 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
             >
                 <motion.div
                     className="bid-interface combined"
-                    style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        margin: 0
-                    }}
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
@@ -126,9 +119,9 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                 >
                     <h3>Make Your Bid</h3>
 
-                    <div className="mb-4 p-3 bg-blue-900 bg-opacity-30 rounded-lg">
-                        <div className="text-sm text-blue-200">Hand Value: {handValue} points</div>
-                        <div className="text-sm text-blue-200">Suggested Bid: {suggestedBid} points</div>
+                    <div className="mb-4 p-3 bg-opacity-30 rounded-lg">
+                        <div className="text-sm">Hand Value: {handValue} points</div>
+                        <div className="text-sm">Suggested Bid: {suggestedBid} points</div>
                         {currentBid && currentBid.points > 0 && (() => {
                             const bidderInfo = getBidderInfo();
                             return (

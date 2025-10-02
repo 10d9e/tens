@@ -12,6 +12,7 @@ import { canPlayCard } from '../utils/gameLogic';
 const GameTable: React.FC = () => {
     const {
         currentGame,
+        currentTable,
         currentPlayer,
         isBidding,
         selectedCard,
@@ -19,7 +20,7 @@ const GameTable: React.FC = () => {
         setIsBidding
     } = useGameStore();
 
-    const { makeBid, playCard } = useSocketStore();
+    const { makeBid, playCard, leaveTable } = useSocketStore();
 
     if (!currentGame || !currentPlayer) {
         return <div>Loading game...</div>;
@@ -164,15 +165,15 @@ const GameTable: React.FC = () => {
                                 <div className="text-white font-medium mb-1">
                                     {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({getPlayerPosition(player)})
                                 </div>
-                                <div className="text-white/80 text-sm mb-1">
-                                    {player.cards.length} cards
-                                </div>
+
                                 {currentGame.currentBid && currentGame.currentBid.playerId === player.id && (
                                     <div className="text-yellow-300 text-xs font-bold mb-1">
                                         Bid: {currentGame.currentBid.points}
                                     </div>
                                 )}
                             </div>
+
+                            <div style={{ height: '0.5em' }} />
 
                             <div className="flex justify-center mt-2 gap-1">
                                 {player.cards.map((_, index) => (
@@ -234,10 +235,7 @@ const GameTable: React.FC = () => {
             </div>
 
             {/* My Hand */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-green-900/90 to-transparent backdrop-blur-sm"
-                style={{
-                    width: '100%',
-                }}>
+            <div className="fixed left-0 right-0 p-6">
                 <PlayerHand
                     player={myPlayer}
                     currentPlayer={currentGame.currentPlayer}
@@ -261,8 +259,6 @@ const GameTable: React.FC = () => {
                     </button>
                 </div>
             )}
-
-
 
 
             {/* Round Notepad */}
@@ -317,9 +313,20 @@ const GameTable: React.FC = () => {
                             );
                         })()}
 
-                        <div className="text-sm text-gray-400">
+                        <div className="text-sm text-gray-400 mb-6">
                             Thanks for playing! 🎉
                         </div>
+
+                        <button
+                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                            onClick={() => {
+                                if (currentTable?.id) {
+                                    leaveTable(currentTable.id);
+                                }
+                            }}
+                        >
+                            🏠 Exit to Lobby
+                        </button>
                     </motion.div>
                 </motion.div>
             )}

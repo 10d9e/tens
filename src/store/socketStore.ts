@@ -12,7 +12,12 @@ interface SocketStore {
     connect: () => void;
     disconnect: () => void;
     joinLobby: (playerName: string) => void;
-    joinTable: (tableId: string, tableName?: string) => void;
+    joinTable: (tableId: string, tableName?: string, numBots?: number) => void;
+    createTable: (tableName: string) => void;
+    addBot: (tableId: string, position: number, skill?: string) => void;
+    removeBot: (tableId: string, botId: string) => void;
+    startGame: (tableId: string) => void;
+    leaveTable: (tableId: string) => void;
     deleteTable: (tableId: string) => void;
     makeBid: (gameId: string, points: number, suit?: string) => void;
     playCard: (gameId: string, card: any) => void;
@@ -62,17 +67,47 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().setLobby(tablesArray);
         });
 
+        socket.on('table_created', (data) => {
+            console.log('Table created:', data);
+            if (data.success) {
+                toast.success(`Table "${data.table.name}" created successfully!`);
+            }
+        });
+
+        socket.on('table_left', (data) => {
+            console.log('Left table:', data);
+            useGameStore.getState().setCurrentTable(null);
+            useGameStore.getState().setCurrentGame(null);
+            toast.success('Left table successfully');
+        });
+
         socket.on('table_joined', (data) => {
             console.log('Table joined data:', data);
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
             useGameStore.getState().setCurrentPlayer(player);
+
+            // Check if table is full - if not, we'll be in waiting room
+            // If full, game will start automatically and we'll get game_started event
+            console.log('Table players:', table.players.length, 'Max players:', table.maxPlayers);
+        });
+
+        socket.on('table_updated', (data) => {
+            console.log('Table updated:', data);
+            const { table } = data;
+            useGameStore.getState().setCurrentTable(table);
         });
 
         socket.on('player_joined_table', (data) => {
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
             toast.success(`${player.name} joined the table`);
+        });
+
+        socket.on('player_left_table', (data) => {
+            const { table, player } = data;
+            useGameStore.getState().setCurrentTable(table);
+            toast(`${player.name} left the table`);
         });
 
         socket.on('game_started', (data) => {
@@ -83,7 +118,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             // Update the current player with the correct data from the game state
             const currentPlayerId = useGameStore.getState().currentPlayer?.id;
             if (currentPlayerId) {
-                const updatedPlayer = game.players.find(p => p.id === currentPlayerId);
+                const updatedPlayer = game.players.find((p: any) => p.id === currentPlayerId);
                 if (updatedPlayer) {
                     useGameStore.getState().setCurrentPlayer(updatedPlayer);
                 }
@@ -103,7 +138,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('card_played', (data) => {
-            const { game, card, playerId } = data;
+            const { game } = data;
             useGameStore.getState().setCurrentGame(game);
 
             // Play sound effect
@@ -129,7 +164,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             playTrickSound();
 
             // Show notification
-            const winner = game.players.find(p => p.id === game.lastTrick?.winner);
+            const winner = game.players.find((p: any) => p.id === game.lastTrick?.winner);
             if (winner) {
                 toast.success(`${winner.name} won the trick! (+${game.lastTrick?.points} points)`);
             }
@@ -160,7 +195,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().setCurrentGame(updatedGame);
 
             // Create detailed win notification
-            const winningPlayerNames = winningPlayers.map(p => p.name).join(' & ');
+            const winningPlayerNames = winningPlayers.map((p: any) => p.name).join(' & ');
             const teamScore = finalScores[winningTeam];
             const otherTeam = winningTeam === 'team1' ? 'team2' : 'team1';
             const otherTeamScore = finalScores[otherTeam];
@@ -235,11 +270,62 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         }
     },
 
-    joinTable: (tableId, tableName) => {
+    joinTable: (tableId, tableName, numBots) => {
         const { socket } = get();
         if (socket) {
-            console.log('Joining table:', tableId, 'with name:', tableName);
-            socket.emit('join_table', { tableId, tableName });
+            console.log('Joining table:', tableId, 'with name:', tableName, 'bots:', numBots);
+            socket.emit('join_table', { tableId, tableName, numBots });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    createTable: (tableName) => {
+        const { socket } = get();
+        if (socket) {
+            const tableId = `table-${Date.now()}`;
+            console.log('Creating table:', tableId, 'with name:', tableName);
+            socket.emit('create_table', { tableId, tableName });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    addBot: (tableId, position, skill) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Adding bot to table:', tableId, 'at position:', position, 'with skill:', skill);
+            socket.emit('add_bot', { tableId, position, skill });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    removeBot: (tableId, botId) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Removing bot from table:', tableId, 'bot ID:', botId);
+            socket.emit('remove_bot', { tableId, botId });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    startGame: (tableId) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Starting game for table:', tableId);
+            socket.emit('start_game', { tableId });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    leaveTable: (tableId) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Leaving table:', tableId);
+            socket.emit('leave_table', { tableId });
         } else {
             console.log('Socket not connected');
         }

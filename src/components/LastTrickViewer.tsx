@@ -69,7 +69,7 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
                         {trick.cards.map(({ card, playerId }, index) => {
                             const playerPosition = getPlayerPosition(playerId);
                             const position = getCardPosition(playerPosition);
-                            const isWinningCard = trick.winningCard?.id === card.id;
+                            // const isWinningCard = trick.winningCard?.id === card.id;
 
                             return (
                                 <motion.div
@@ -105,16 +105,13 @@ const LastTrickViewer: React.FC<LastTrickViewerProps> = ({ trick, players, onClo
                                         <Card
                                             card={card}
                                             size="small"
-                                            className={`shadow-lg transition-all duration-300 ${isWinningCard
-                                                ? 'ring-4 ring-yellow-400 ring-opacity-90 shadow-yellow-400/50 shadow-lg scale-110'
-                                                : 'opacity-80'
-                                                }`}
+                                            className="shadow-lg transition-all duration-300 opacity-80"
                                         />
-                                        {isWinningCard && (
+                                        {/* {isWinningCard && (
                                             <div className="absolute -top-3 -right-3 bg-gradient-to-r from-yellow-400 to-yellow-500 text-black text-sm font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg border-2 border-white">
                                                 ★
                                             </div>
-                                        )}
+                                        )} */}
                                     </div>
                                 </motion.div>
                             );
