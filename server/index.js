@@ -491,6 +491,48 @@ function addAItoExistingBots(game) {
     });
 }
 
+function removeAllBotsFromTable(table) {
+    // Remove all bot players from the table
+    const removedBots = [];
+    for (let i = table.players.length - 1; i >= 0; i--) {
+        if (table.players[i].isBot) {
+            const removedBot = table.players.splice(i, 1)[0];
+            removedBots.push(removedBot);
+            console.log(`Removed bot ${removedBot.name} from table ${table.id}`);
+        }
+    }
+    return removedBots;
+}
+
+function cleanupEmptyTable(tableId, lobby) {
+    const table = lobby.tables.get(tableId);
+    if (table && table.players.length === 0) {
+        console.log(`Table ${tableId} is empty, deleting it`);
+        lobby.tables.delete(tableId);
+        return true;
+    }
+    return false;
+}
+
+function cleanupBotsAfterGameEnd(game) {
+    // Remove all bots from the table after game ends
+    const lobby = lobbies.get('default');
+    if (lobby) {
+        const table = lobby.tables.get(game.tableId);
+        if (table) {
+            const removedBots = removeAllBotsFromTable(table);
+            console.log(`Removed ${removedBots.length} bots from table after game completion`);
+
+            // Notify all table members about the updated table
+            io.to(`table-${game.tableId}`).emit('table_updated', { table });
+
+            // Notify all lobby members about the updated lobby
+            const tablesArray = Array.from(lobby.tables.values());
+            io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+        }
+    }
+}
+
 function startGame(game) {
     console.log('Starting game with players:', game.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot })));
 
@@ -900,6 +942,14 @@ io.on('connection', (socket) => {
             socket.emit('table_left', { success: true });
 
             console.log(`Player ${player.name} left table ${tableId}. Remaining players: ${table.players.length}`);
+
+            // Check if table is now empty and clean it up
+            if (cleanupEmptyTable(tableId, lobby)) {
+                console.log(`Cleaned up empty table ${tableId}`);
+                // Notify lobby members that table was deleted
+                const tablesArray = Array.from(lobby.tables.values());
+                io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+            }
         } else {
             console.log(`Player ${player.name} not found in table ${tableId}`);
         }
@@ -1160,6 +1210,9 @@ io.on('connection', (socket) => {
 
                     console.log(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                     io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
+
+                    // Remove all bots from the table after game ends
+                    cleanupBotsAfterGameEnd(game);
                     return;
                 }
 
@@ -1340,6 +1393,14 @@ io.on('connection', (socket) => {
                         // Update lobby for remaining players
                         const tablesArray = Array.from(lobby.tables.values());
                         io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+
+                        // Check if table is now empty and clean it up
+                        if (cleanupEmptyTable(tableId, lobby)) {
+                            console.log(`Cleaned up empty table ${tableId} after player disconnect`);
+                            // Notify lobby members that table was deleted
+                            const updatedTablesArray = Array.from(lobby.tables.values());
+                            io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: updatedTablesArray } });
+                        }
                     }
                 }
             }
@@ -1362,6 +1423,9 @@ io.on('connection', (socket) => {
                             reason: 'Player disconnected',
                             disconnectedPlayer: player.name
                         });
+
+                        // Remove all bots from the table after game ends due to disconnect
+                        cleanupBotsAfterGameEnd(game);
                     }
                 }
             }
@@ -1772,6 +1836,9 @@ async function handleBotTurn(game) {
 
                     console.log(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                     io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
+
+                    // Remove all bots from the table after game ends
+                    cleanupBotsAfterGameEnd(game);
                     return;
                 }
             }
