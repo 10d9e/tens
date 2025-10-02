@@ -731,6 +731,63 @@ io.on('connection', (socket) => {
         io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
     });
 
+    socket.on('move_player', (data) => {
+        console.log('move_player received:', data);
+        const { tableId, newPosition } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const lobby = lobbies.get('default');
+        if (!lobby) {
+            console.log('Lobby not found');
+            return;
+        }
+
+        const table = lobby.tables.get(tableId);
+        if (!table) {
+            console.log('Table not found:', tableId);
+            return;
+        }
+
+        // Check if the position is valid (0-3)
+        if (newPosition < 0 || newPosition >= table.maxPlayers) {
+            console.log('Invalid position:', newPosition);
+            socket.emit('error', { message: 'Invalid position' });
+            return;
+        }
+
+        // Check if the new position is already occupied
+        const positionOccupied = table.players.some(p => p.position === newPosition);
+        if (positionOccupied) {
+            console.log('Position already occupied:', newPosition);
+            socket.emit('error', { message: 'Position already occupied' });
+            return;
+        }
+
+        // Find the player in the table
+        const playerIndex = table.players.findIndex(p => p.id === socket.id);
+        if (playerIndex === -1) {
+            console.log('Player not found in table');
+            socket.emit('error', { message: 'Player not found in table' });
+            return;
+        }
+
+        // Update the player's position
+        const oldPosition = table.players[playerIndex].position;
+        table.players[playerIndex].position = newPosition;
+        console.log(`Moved player ${player.name} from position ${oldPosition} to position ${newPosition}`);
+
+        // Notify all table members about the updated table
+        io.to(`table-${tableId}`).emit('table_updated', { table });
+
+        // Notify all lobby members about the updated lobby
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+    });
+
     socket.on('start_game', async (data) => {
         console.log('start_game received:', data);
         const { tableId } = data;
@@ -815,10 +872,8 @@ io.on('connection', (socket) => {
             console.log(`Removing player ${player.name} from table ${tableId}`);
             table.players.splice(playerIndex, 1);
 
-            // Reset positions for remaining players
-            table.players.forEach((p, index) => {
-                p.position = index;
-            });
+            // Don't reset positions - preserve original bot positions
+            // This allows bots to maintain their strategic team positions (NS vs WE)
 
             // Remove from socket room
             socket.leave(`table-${tableId}`);

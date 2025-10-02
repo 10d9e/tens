@@ -187,7 +187,7 @@ const Lobby: React.FC = () => {
                                 <h3 className="font-bold text-white mb-2 text-lg">🎲 Bidding</h3>
                                 <p className="text-white/80">Bid on how many points your team will score. Highest bidder chooses trump suit.</p>
                             </div>
-                            <div className="p-10">
+                            <div>
                                 <h3 className="font-bold text-white mb-2 text-lg">🃏 Gameplay</h3>
                                 <p className="text-white/80">Follow suit if possible. Highest trump wins, otherwise highest card of lead suit.</p>
                             </div>

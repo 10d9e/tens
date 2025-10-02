@@ -16,6 +16,7 @@ interface SocketStore {
     createTable: (tableName: string) => void;
     addBot: (tableId: string, position: number, skill?: string) => void;
     removeBot: (tableId: string, botId: string) => void;
+    movePlayer: (tableId: string, newPosition: number) => void;
     startGame: (tableId: string) => void;
     leaveTable: (tableId: string) => void;
     deleteTable: (tableId: string) => void;
@@ -306,6 +307,16 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             console.log('Removing bot from table:', tableId, 'bot ID:', botId);
             socket.emit('remove_bot', { tableId, botId });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    movePlayer: (tableId, newPosition) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Moving player to position:', tableId, 'new position:', newPosition);
+            socket.emit('move_player', { tableId, newPosition });
         } else {
             console.log('Socket not connected');
         }

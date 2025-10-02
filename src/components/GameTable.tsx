@@ -22,6 +22,14 @@ const GameTable: React.FC = () => {
 
     const { makeBid, playCard, leaveTable } = useSocketStore();
 
+    // Automatically open bid dialog when it's the player's turn to bid
+    useEffect(() => {
+        if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'bidding' && !isBidding) {
+            setIsBidding(true);
+        }
+    }, [currentGame, currentPlayer, isBidding, setIsBidding]);
+
+    // Early returns after all hooks
     if (!currentGame || !currentPlayer) {
         return <div>Loading game...</div>;
     }
@@ -90,12 +98,6 @@ const GameTable: React.FC = () => {
         setIsBidding(false);
     };
 
-    // Automatically open bid dialog when it's the player's turn to bid
-    useEffect(() => {
-        if (isMyTurn && currentGame.phase === 'bidding' && !isBidding) {
-            setIsBidding(true);
-        }
-    }, [isMyTurn, currentGame.phase, isBidding, setIsBidding]);
 
     const getPlayerPosition = (player: any) => {
         // Map position numbers to position names
@@ -246,19 +248,19 @@ const GameTable: React.FC = () => {
                     selectedCardId={selectedCard}
                     currentTrick={currentGame.currentTrick}
                 />
-            </div>
 
-            {/* Game Controls */}
-            {isMyTurn && currentGame.phase === 'playing' && selectedCard && !currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id) && (
-                <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-10">
-                    <button
-                        className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
-                        onClick={handlePlayCard}
-                    >
-                        🃏 Play Card
-                    </button>
+                {/* Game Controls - positioned below the hand, always reserving space */}
+                <div className="flex justify-center">
+                    {isMyTurn && currentGame.phase === 'playing' && selectedCard && !currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id) && (
+                        <button
+                            className="rounded-sm bg-gradient-to-r text-white font-bold shadow-lg transition-all transform hover:scale-105"
+                            onClick={handlePlayCard}
+                        >
+                            🃏 Play Card
+                        </button>
+                    )}
                 </div>
-            )}
+            </div>
 
 
             {/* Round Notepad */}

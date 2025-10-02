@@ -5,7 +5,7 @@ import { useSocketStore } from '../store/socketStore';
 
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
-    const { leaveTable, addBot, removeBot, startGame } = useSocketStore();
+    const { leaveTable, addBot, removeBot, movePlayer, startGame } = useSocketStore();
     const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard'>('medium');
 
     if (!currentTable || !currentPlayer) {
@@ -29,6 +29,12 @@ const WaitingRoom: React.FC = () => {
     const handleRemoveBot = (botId: string) => {
         if (currentTable) {
             removeBot(currentTable.id, botId);
+        }
+    };
+
+    const handleMovePlayer = (newPosition: number) => {
+        if (currentTable) {
+            movePlayer(currentTable.id, newPosition);
         }
     };
 
@@ -111,10 +117,10 @@ const WaitingRoom: React.FC = () => {
                                     return (
                                         <motion.div
                                             key={index}
-                                            className={`p-6 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
+                                            className={`p-2 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
                                                 ? 'bg-green-500/20 border-green-400 text-white'
                                                 : 'bg-slate-500 border-slate-400 text-white'
-                                                } ${isCreator ? 'cursor-pointer' : ''}`}
+                                                } ${(isCreator || !player) ? 'cursor-pointer' : ''}`}
                                             initial={{ opacity: 0, scale: 0.9 }}
                                             animate={{ opacity: 1, scale: 1 }}
                                             transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -127,6 +133,8 @@ const WaitingRoom: React.FC = () => {
                                                     } else {
                                                         handleAddBot(index);
                                                     }
+                                                } else if (!player) {
+                                                    handleMovePlayer(index);
                                                 }
                                             }}
                                         >
@@ -155,6 +163,9 @@ const WaitingRoom: React.FC = () => {
                                                         <div className="text-xs">Empty</div>
                                                         {isCreator && (
                                                             <div className="text-xs text-green-300">Click to add bot</div>
+                                                        )}
+                                                        {!isCreator && (
+                                                            <div className="text-xs text-blue-300">Click to move here</div>
                                                         )}
                                                     </div>
                                                 )}
@@ -174,10 +185,10 @@ const WaitingRoom: React.FC = () => {
                                     return (
                                         <motion.div
                                             key={index}
-                                            className={`p-6 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
+                                            className={`p-2 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
                                                 ? 'bg-green-500/20 border-green-400 text-white'
                                                 : 'bg-slate-500 border-slate-400 text-white'
-                                                } ${isCreator ? 'cursor-pointer' : ''}`}
+                                                } ${(isCreator || !player) ? 'cursor-pointer' : ''}`}
                                             initial={{ opacity: 0, scale: 0.9 }}
                                             animate={{ opacity: 1, scale: 1 }}
                                             transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -190,6 +201,8 @@ const WaitingRoom: React.FC = () => {
                                                     } else {
                                                         handleAddBot(index);
                                                     }
+                                                } else if (!player) {
+                                                    handleMovePlayer(index);
                                                 }
                                             }}
                                         >
@@ -218,6 +231,9 @@ const WaitingRoom: React.FC = () => {
                                                         <div className="text-xs">Empty</div>
                                                         {isCreator && (
                                                             <div className="text-xs text-green-300">Click to add bot</div>
+                                                        )}
+                                                        {!isCreator && (
+                                                            <div className="text-xs text-blue-300">Click to move here</div>
                                                         )}
                                                     </div>
                                                 )}
@@ -237,10 +253,10 @@ const WaitingRoom: React.FC = () => {
                                     return (
                                         <motion.div
                                             key={index}
-                                            className={`p-6 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
+                                            className={`p-2 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
                                                 ? 'bg-green-500/20 border-green-400 text-white'
                                                 : 'bg-slate-500 border-slate-400 text-white'
-                                                } ${isCreator ? 'cursor-pointer' : ''}`}
+                                                } ${(isCreator || !player) ? 'cursor-pointer' : ''}`}
                                             initial={{ opacity: 0, scale: 0.9 }}
                                             animate={{ opacity: 1, scale: 1 }}
                                             transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -253,6 +269,8 @@ const WaitingRoom: React.FC = () => {
                                                     } else {
                                                         handleAddBot(index);
                                                     }
+                                                } else if (!player) {
+                                                    handleMovePlayer(index);
                                                 }
                                             }}
                                         >
@@ -282,6 +300,9 @@ const WaitingRoom: React.FC = () => {
                                                         {isCreator && (
                                                             <div className="text-xs text-green-300">Click to add bot</div>
                                                         )}
+                                                        {!isCreator && (
+                                                            <div className="text-xs text-blue-300">Click to move here</div>
+                                                        )}
                                                     </div>
                                                 )}
                                             </div>
@@ -300,10 +321,10 @@ const WaitingRoom: React.FC = () => {
                                     return (
                                         <motion.div
                                             key={index}
-                                            className={`p-6 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
+                                            className={`p-2 rounded-xl border-2 transition-all duration-300 w-32 h-24 ${player
                                                 ? 'bg-green-500/20 border-green-400 text-white'
                                                 : 'bg-slate-500 border-slate-400 text-white'
-                                                } ${isCreator ? 'cursor-pointer' : ''}`}
+                                                } ${(isCreator || !player) ? 'cursor-pointer' : ''}`}
                                             initial={{ opacity: 0, scale: 0.9 }}
                                             animate={{ opacity: 1, scale: 1 }}
                                             transition={{ duration: 0.3, delay: index * 0.1 }}
@@ -316,6 +337,8 @@ const WaitingRoom: React.FC = () => {
                                                     } else {
                                                         handleAddBot(index);
                                                     }
+                                                } else if (!player) {
+                                                    handleMovePlayer(index);
                                                 }
                                             }}
                                         >
@@ -344,6 +367,9 @@ const WaitingRoom: React.FC = () => {
                                                         <div className="text-xs">Empty</div>
                                                         {isCreator && (
                                                             <div className="text-xs text-green-300">Click to add bot</div>
+                                                        )}
+                                                        {!isCreator && (
+                                                            <div className="text-xs text-blue-300">Click to move here</div>
                                                         )}
                                                     </div>
                                                 )}
