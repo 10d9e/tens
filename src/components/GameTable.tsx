@@ -27,7 +27,6 @@ const GameTable: React.FC = () => {
 
     const isMyTurn = currentPlayer.id === currentGame.currentPlayer;
     const myPlayer = currentGame.players.find(p => p.id === currentPlayer.id);
-    const otherPlayers = currentGame.players.filter(p => p.id !== currentPlayer.id);
 
     // Don't render if we don't have a valid player
     if (!myPlayer) {
@@ -36,6 +35,10 @@ const GameTable: React.FC = () => {
 
     const handleCardClick = (card: CardType) => {
         if (!isMyTurn || currentGame.phase !== 'playing') return;
+
+        // Check if the human player has already played a card in the current trick
+        const hasPlayedInCurrentTrick = currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id);
+        if (hasPlayedInCurrentTrick) return;
 
         // Check if the card is playable
         const leadSuit = currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null;
@@ -49,6 +52,10 @@ const GameTable: React.FC = () => {
     const handlePlayCard = () => {
         if (!selectedCard || !isMyTurn || currentGame.phase !== 'playing') return;
 
+        // Check if the human player has already played a card in the current trick
+        const hasPlayedInCurrentTrick = currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id);
+        if (hasPlayedInCurrentTrick) return;
+
         const card = myPlayer?.cards.find(c => c.id === selectedCard);
         if (card) {
             playCard(currentGame.id, card);
@@ -58,6 +65,10 @@ const GameTable: React.FC = () => {
 
     const handleCardDoubleClick = (card: CardType) => {
         if (!isMyTurn || currentGame.phase !== 'playing') return;
+
+        // Check if the human player has already played a card in the current trick
+        const hasPlayedInCurrentTrick = currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id);
+        if (hasPlayedInCurrentTrick) return;
 
         // Check if the card is playable
         const leadSuit = currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null;
@@ -114,8 +125,8 @@ const GameTable: React.FC = () => {
             </div>
             {/* Table Center */}
             <div className="game-table relative w-full m-6">
-                {/* Other Players */}
-                {otherPlayers.map(player => {
+                {/* All Players (including human player) */}
+                {currentGame.players.map(player => {
                     const position = getPlayerPosition(player);
                     // Use inline styles for more reliable positioning
                     const positionStyles: { [key: string]: any } = {
@@ -128,6 +139,7 @@ const GameTable: React.FC = () => {
                     const appliedStyle = positionStyles[position] || positionStyles['north'];
 
                     const isCurrentPlayer = player.id === currentGame.currentPlayer;
+                    const isHumanPlayer = player.id === currentPlayer.id;
 
                     return (
                         <div
@@ -135,14 +147,14 @@ const GameTable: React.FC = () => {
                             className="absolute"
                             style={{
                                 ...appliedStyle, // Apply position-specific styles
-                                backgroundColor: 'rgba(0, 0, 0, 0.3)',
-                                border: isCurrentPlayer ? '2px solid rgba(251, 191, 36, 0.8)' : '1px solid rgba(255, 255, 255, 0.2)',
+                                backgroundColor: isHumanPlayer ? 'rgba(59, 130, 246, 0.3)' : 'rgba(0, 0, 0, 0.3)',
+                                border: isCurrentPlayer ? '2px solid rgba(251, 191, 36, 0.8)' : isHumanPlayer ? '2px solid rgba(59, 130, 246, 0.8)' : '1px solid rgba(255, 255, 255, 0.2)',
                                 zIndex: 10,
                                 minWidth: '120px',
                                 padding: '8px',
                                 borderRadius: '8px',
                                 backdropFilter: 'blur(4px)',
-                                boxShadow: isCurrentPlayer ? '0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2)' : 'none',
+                                boxShadow: isCurrentPlayer ? '0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2)' : isHumanPlayer ? '0 0 20px rgba(59, 130, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.2)' : 'none',
                                 transition: 'all 0.3s ease'
                             }}
                             data-position={position}
@@ -150,7 +162,7 @@ const GameTable: React.FC = () => {
                         >
                             <div className={`player-info ${position}`}>
                                 <div className="text-white font-medium mb-1">
-                                    {player.name} {player.isBot && '🤖'} (pos: {player.position})
+                                    {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({getPlayerPosition(player)})
                                 </div>
                                 <div className="text-white/80 text-sm mb-1">
                                     {player.cards.length} cards
@@ -181,6 +193,16 @@ const GameTable: React.FC = () => {
                     trumpSuit={currentGame.trumpSuit!}
                 />
 
+                {/* Bid Interface */}
+                <BidInterface
+                    isOpen={isBidding && isMyTurn && currentGame.phase === 'bidding'}
+                    onClose={() => setIsBidding(false)}
+                    onBid={handleBid}
+                    currentBid={currentGame.currentBid}
+                    players={currentGame.players}
+                    playerCards={myPlayer?.cards || []}
+                />
+
                 {/* Center Trump Suit Display */}
                 {currentGame.trumpSuit && currentGame.phase === 'playing' && (
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
@@ -209,14 +231,13 @@ const GameTable: React.FC = () => {
                         Team 2: {getTeamScore('team2')} points
                     </div>
                 </div>
-
-
-
-
             </div>
 
             {/* My Hand */}
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-green-900/90 to-transparent backdrop-blur-sm">
+            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-green-900/90 to-transparent backdrop-blur-sm"
+                style={{
+                    width: '100%',
+                }}>
                 <PlayerHand
                     player={myPlayer}
                     currentPlayer={currentGame.currentPlayer}
@@ -225,12 +246,12 @@ const GameTable: React.FC = () => {
                     onCardClick={handleCardClick}
                     onCardDoubleClick={handleCardDoubleClick}
                     selectedCardId={selectedCard}
-                    isCurrentPlayer={isMyTurn}
+                    currentTrick={currentGame.currentTrick}
                 />
             </div>
 
             {/* Game Controls */}
-            {isMyTurn && currentGame.phase === 'playing' && selectedCard && (
+            {isMyTurn && currentGame.phase === 'playing' && selectedCard && !currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id) && (
                 <div className="fixed bottom-32 left-1/2 transform -translate-x-1/2 z-10">
                     <button
                         className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
@@ -241,15 +262,7 @@ const GameTable: React.FC = () => {
                 </div>
             )}
 
-            {/* Bid Interface */}
-            <BidInterface
-                isOpen={isBidding && isMyTurn && currentGame.phase === 'bidding'}
-                onClose={() => setIsBidding(false)}
-                onBid={handleBid}
-                currentBid={currentGame.currentBid}
-                players={currentGame.players}
-                playerCards={myPlayer?.cards || []}
-            />
+
 
 
             {/* Round Notepad */}

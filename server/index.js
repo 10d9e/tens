@@ -59,9 +59,8 @@ function create3BotTables(numTables = 1) {
         };
 
         // Add 3 bot players (without AI for now, will be added when game starts)
-        // Position them at North (0), East (1), and West (3), leaving South (2) for human player
+        // Position them sequentially (0, 1, 2) leaving position 3 for human player
         const botSkills = ['easy', 'medium', 'hard'];
-        const botPositions = [0, 1, 3]; // North, East, West
         for (let i = 0; i < 3; i++) {
             const botId = `bot-${uuidv4()}`;
             const bot = {
@@ -69,7 +68,7 @@ function create3BotTables(numTables = 1) {
                 name: getRandomHumanName(),
                 isBot: true,
                 botSkill: botSkills[i],
-                position: botPositions[i],
+                position: i, // Sequential positions: 0, 1, 2
                 cards: [],
                 score: 0,
                 isReady: true
@@ -376,10 +375,14 @@ function getCardRank(rank) {
 
 function getNextPlayerByPosition(currentPlayerId, players) {
     const currentPlayer = players.find(p => p.id === currentPlayerId);
-    if (!currentPlayer) return players[0].id;
+    if (!currentPlayer) {
+        console.log('ERROR: Current player not found:', currentPlayerId);
+        return players[0].id;
+    }
 
     const nextPosition = (currentPlayer.position + 1) % 4;
     const nextPlayer = players.find(p => p.position === nextPosition);
+
     return nextPlayer ? nextPlayer.id : players[0].id;
 }
 
@@ -577,6 +580,15 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Check if player is already in an active game
+        for (const [gameId, game] of games) {
+            if (game.players.some(p => p.id === player.id) && game.phase !== 'finished') {
+                console.log(`Player ${player.name} is already in an active game (${gameId}). Cannot join another table.`);
+                socket.emit('error', { message: 'You are already in an active game. Please finish your current game before joining another table.' });
+                return;
+            }
+        }
+
         const lobby = lobbies.get(lobbyId);
         if (!lobby) {
             console.log('Lobby not found:', lobbyId);
@@ -600,24 +612,8 @@ io.on('connection', (socket) => {
         }
 
         if (table.players.length < table.maxPlayers) {
-            // For the default robot table, position human player at South (position 2)
-            // so their partner (North, position 0) is directly across
-            if (tableId === 'robot-fun-table' && !player.isBot) {
-                player.position = 2; // South position
-            } else if (tableId === 'big-bub-table' && !player.isBot) {
-                // For Big Bub table, position human players at East (1) and West (3)
-                // Check which positions are available for humans
-                const occupiedPositions = table.players.map(p => p.position);
-                if (!occupiedPositions.includes(1)) {
-                    player.position = 1; // East position
-                } else if (!occupiedPositions.includes(3)) {
-                    player.position = 3; // West position
-                } else {
-                    player.position = table.players.length; // Fallback
-                }
-            } else {
-                player.position = table.players.length;
-            }
+            // Always assign positions sequentially (0, 1, 2, 3) to ensure proper rotation
+            player.position = table.players.length;
             table.players.push(player);
             socket.join(`table-${tableId}`);
 
@@ -1001,6 +997,43 @@ io.on('connection', (socket) => {
         if (player && player.name) {
             releasePlayerName(player.name);
             console.log(`Released name "${player.name}"`);
+
+            // Remove player from any tables and games
+            for (const [lobbyId, lobby] of lobbies) {
+                for (const [tableId, table] of lobby.tables) {
+                    const playerIndex = table.players.findIndex(p => p.id === player.id);
+                    if (playerIndex !== -1) {
+                        console.log(`Removing disconnected player ${player.name} from table ${tableId}`);
+                        table.players.splice(playerIndex, 1);
+
+                        // Update lobby for remaining players
+                        const tablesArray = Array.from(lobby.tables.values());
+                        io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+                    }
+                }
+            }
+
+            // Remove player from any active games
+            for (const [gameId, game] of games) {
+                const playerIndex = game.players.findIndex(p => p.id === player.id);
+                if (playerIndex !== -1) {
+                    console.log(`Removing disconnected player ${player.name} from game ${gameId}`);
+                    game.players.splice(playerIndex, 1);
+
+                    // If game becomes invalid (less than 4 players), end it
+                    if (game.players.length < 4 && game.phase !== 'finished') {
+                        console.log(`Game ${gameId} has insufficient players (${game.players.length}), ending game`);
+                        game.phase = 'finished';
+
+                        // Notify remaining players that the game ended due to player disconnect
+                        io.to(`table-${game.tableId}`).emit('game_ended', {
+                            game,
+                            reason: 'Player disconnected',
+                            disconnectedPlayer: player.name
+                        });
+                    }
+                }
+            }
         }
         players.delete(socket.id);
     });
@@ -1413,18 +1446,71 @@ async function handleBotTurn(game) {
             }
 
             // Handle next bot player if applicable - but only if we're not in the middle of a trick completion
-            if (game.currentTrick.cards.length < 4 && game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+            const nextBotPlayer = game.players.find(p => p.id === game.currentPlayer);
+            if (game.currentTrick.cards.length < 4 && nextBotPlayer?.isBot && nextBotPlayer.cards.length > 0) {
                 await handleBotTurn(game);
             }
         } else {
             console.log(`Bot ${currentPlayer.name} could not play a card - this should not happen!`);
-            // If bot can't play a card, something is wrong - move to next player anyway
+
+            // Check if all players have 0 cards - if so, end the round
+            const allCardsPlayed = game.players.every(p => p.cards.length === 0);
+            if (allCardsPlayed) {
+                console.log('All players have 0 cards - ending round');
+
+                // Debug: Print final card state (should all be 0 cards)
+                debugPrintAllPlayerCards(game, 'Round Complete - All Cards Played');
+
+                // Calculate round scores using proper scoring system
+                if (game.contractorTeam && game.currentBid) {
+                    const contractorCardPoints = game.roundScores[game.contractorTeam];
+                    const opposingTeam = game.contractorTeam === 'team1' ? 'team2' : 'team1';
+                    const opposingCardPoints = game.roundScores[opposingTeam];
+
+                    // Calculate bonus points
+                    const contractorBonus = contractorCardPoints >= game.currentBid.points ? 100 : -100;
+                    const opposingBonus = contractorBonus === 100 ? 100 : 0;
+
+                    // Update team scores
+                    game.teamScores[game.contractorTeam] += contractorCardPoints + contractorBonus;
+                    game.teamScores[opposingTeam] += opposingCardPoints + opposingBonus;
+
+                    console.log(`Round ${game.round} completed:`);
+                    console.log(`Contractor team (${game.contractorTeam}): ${contractorCardPoints} card points + ${contractorBonus} bonus = ${contractorCardPoints + contractorBonus}`);
+                    console.log(`Opposing team (${opposingTeam}): ${opposingCardPoints} card points + ${opposingBonus} bonus = ${opposingCardPoints + opposingBonus}`);
+                    console.log(`New team scores: Team1: ${game.teamScores.team1}, Team2: ${game.teamScores.team2}`);
+                }
+
+                // Move to next round
+                game.round++;
+                game.phase = 'bidding';
+                game.currentBid = null;
+                game.contractorTeam = null;
+                game.trumpSuit = null;
+                game.opposingTeamBid = false; // Reset opposing team bid flag
+                game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
+
+                io.to(`table-${game.tableId}`).emit('round_completed', { game });
+
+                // Start bot turn handling for new bidding phase if current player is a bot
+                if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+                    console.log('Starting bot turn for new round bidding phase');
+                    await handleBotTurn(game);
+                }
+                return;
+            }
+
+            // If bot can't play a card, move to next player but don't recurse infinitely
             game.currentPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
             io.to(`table-${game.tableId}`).emit('game_updated', { game });
 
-            // Handle next bot player if applicable
-            if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+            // Only handle next bot turn if we're not in a loop situation
+            const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
+            if (nextPlayer?.isBot && nextPlayer.cards.length > 0) {
+                console.log('Moving to next bot with cards:', nextPlayer.name);
                 await handleBotTurn(game);
+            } else {
+                console.log('No more bots with cards to play, waiting for human player or round completion');
             }
         }
     }

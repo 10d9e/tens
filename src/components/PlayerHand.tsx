@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import Card from './Card';
-import { Card as CardType, Player } from '../types/game';
+import { Card as CardType, Player, Trick } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 
 interface PlayerHandProps {
@@ -12,7 +12,7 @@ interface PlayerHandProps {
     onCardClick: (card: CardType) => void;
     onCardDoubleClick?: (card: CardType) => void;
     selectedCardId: string | null;
-    isCurrentPlayer: boolean;
+    currentTrick: Trick;
 }
 
 const PlayerHand: React.FC<PlayerHandProps> = ({
@@ -23,16 +23,20 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     onCardClick,
     onCardDoubleClick,
     selectedCardId,
-    isCurrentPlayer
+    currentTrick
 }) => {
     const isMyTurn = player.id === currentPlayer;
+
+    // Check if the human player has already played a card in the current trick
+    const hasPlayedInCurrentTrick = currentTrick.cards.some(trickCard => trickCard.playerId === player.id);
 
     console.log('PlayerHand render - player:', player);
     console.log('PlayerHand render - player.cards:', player?.cards);
     console.log('PlayerHand render - isMyTurn:', isMyTurn);
+    console.log('PlayerHand render - hasPlayedInCurrentTrick:', hasPlayedInCurrentTrick);
 
     const getPlayableCards = () => {
-        if (!isMyTurn) return [];
+        if (!isMyTurn || hasPlayedInCurrentTrick) return [];
         return player.cards.filter(card =>
             canPlayCard(card, leadSuit as any, trumpSuit as any, player.cards)
         );
@@ -62,7 +66,12 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
 
     if (!player || !player.cards || player.cards.length === 0) {
         return (
-            <div className="player-hand">
+            <div className="player-hand" style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%'
+            }}>
                 <div className="text-white text-center p-4">
                     <div className="text-sm">Waiting for cards...</div>
                 </div>
@@ -73,6 +82,12 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     return (
         <motion.div
             className="player-hand"
+            style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%'
+            }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
