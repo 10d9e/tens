@@ -153,10 +153,30 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('bid_made', (data) => {
             const { game } = data;
-            useGameStore.getState().setCurrentGame(game);
+            const gameStore = useGameStore.getState();
+            const previousGame = gameStore.currentGame;
+
+            gameStore.setCurrentGame(game);
+
+            // Play cowbell sound only when a new bid is made (not when just updating the game state)
+            if (game.currentBid && game.currentBid.points > 0) {
+                // Check if this is a new bid by comparing with previous state
+                const isNewBid = !previousGame?.currentBid ||
+                    previousGame.currentBid.points !== game.currentBid.points ||
+                    previousGame.currentBid.playerId !== game.currentBid.playerId;
+
+                if (isNewBid) {
+                    playCowbellSound();
+                    // Trigger bell animation for the player who made the bid
+                    useGameStore.getState().setBellAnimation(game.currentBid.playerId);
+                }
+            } else if (game.biddingPasses > (previousGame?.biddingPasses || 0)) {
+                // Play tick sound when someone passes (biddingPasses increased)
+                playPassTickSound();
+            }
 
             if (game.phase === 'playing') {
-                useGameStore.getState().setIsBidding(false);
+                gameStore.setIsBidding(false);
                 toast.success('Bidding complete! Game starting...');
             }
         });
@@ -422,3 +442,84 @@ function playTrickSound() {
     oscillator.start(audioContext.currentTime);
     oscillator.stop(audioContext.currentTime + 0.2);
 }
+
+function playBidTurnSound() {
+    // Create a gentle notification sound for bid turn
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Gentle ascending tone
+    oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+    oscillator.frequency.setValueAtTime(500, audioContext.currentTime + 0.1);
+
+    oscillator.type = 'sine';
+
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.15);
+}
+
+function playCowbellSound() {
+    // Create a cowbell-like sound for bids
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Create multiple oscillators for a richer cowbell sound
+    const oscillators = [];
+    const gainNodes = [];
+
+    // Main cowbell frequencies
+    const frequencies = [800, 1200, 1600];
+
+    for (let i = 0; i < frequencies.length; i++) {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(frequencies[i], audioContext.currentTime);
+        oscillator.type = 'square'; // Square wave for more percussive sound
+
+        // Quick attack, longer decay for cowbell effect
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+
+        oscillators.push(oscillator);
+        gainNodes.push(gainNode);
+    }
+}
+
+function playPassTickSound() {
+    // Create a subtle tick sound for when players pass
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    // Short, high-pitched tick
+    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+    oscillator.type = 'sine';
+
+    // Very quick, subtle sound
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.05, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.05);
+}
+
+// Export sound functions for use in components
+export { playBidTurnSound, playCowbellSound, playPassTickSound };

@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
-import { useSocketStore } from '../store/socketStore';
+import { useSocketStore, playBidTurnSound } from '../store/socketStore';
 import PlayerHand from './PlayerHand';
 import TrickArea from './TrickArea';
 import BidInterface from './BidInterface';
 import RoundNotepad from './RoundNotepad';
+import BellAnimation from './BellAnimation';
 import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 
@@ -15,6 +16,7 @@ const GameTable: React.FC = () => {
         currentPlayer,
         isBidding,
         selectedCard,
+        bellAnimation,
         setSelectedCard,
         setIsBidding
     } = useGameStore();
@@ -25,6 +27,8 @@ const GameTable: React.FC = () => {
     useEffect(() => {
         if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'bidding' && !isBidding) {
             setIsBidding(true);
+            // Play sound effect when it's the player's turn to bid
+            playBidTurnSound();
         }
     }, [currentGame, currentPlayer, isBidding, setIsBidding]);
 
@@ -174,6 +178,12 @@ const GameTable: React.FC = () => {
                                 )}
                             </div>
 
+                            {/* Bell animation for when this player makes a bid */}
+                            <BellAnimation
+                                isVisible={bellAnimation?.playerId === player.id &&
+                                    (Date.now() - bellAnimation.timestamp) < 1000}
+                            />
+
                             <div style={{ height: '0.5em' }} />
 
                             <div className="flex justify-center mt-2 gap-1">
@@ -207,10 +217,10 @@ const GameTable: React.FC = () => {
 
                 {/* Center Trump Suit Display */}
                 {currentGame.trumpSuit && currentGame.phase === 'playing' && (
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-0">
                         <div className="text-center">
                             <div
-                                className="text-[2rem]"
+                                className="text-[4rem]"
                                 style={{
                                     color: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? '#dc2626' : '#1f2937'
                                 }}

@@ -605,7 +605,7 @@ io.on('connection', (socket) => {
             // Check if the name is already taken by a different player
             if (!reservePlayerName(playerName)) {
                 console.log(`Name "${playerName}" is already taken`);
-                socket.emit('name_taken', { message: `The name "${playerName}" is already taken. Please choose a different name.` });
+                // socket.emit('name_taken', { message: `The name "${playerName}" is already taken. Please choose a different name.` });
                 return;
             }
         }

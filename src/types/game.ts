@@ -45,6 +45,7 @@ export interface GameState {
     dealer: string;
     spectatorIds: string[];
     contractorTeam?: 'team1' | 'team2'; // Track which team is the contractor
+    biddingPasses?: number; // Track number of consecutive passes
 }
 
 export interface LobbyTable {

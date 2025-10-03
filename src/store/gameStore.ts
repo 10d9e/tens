@@ -10,6 +10,7 @@ interface GameStore {
     lastTrick: any;
     isBidding: boolean;
     selectedCard: string | null;
+    bellAnimation: { playerId: string; timestamp: number } | null;
 
     // Actions
     setCurrentGame: (game: GameState | null) => void;
@@ -22,6 +23,7 @@ interface GameStore {
     setSelectedCard: (cardId: string | null) => void;
     updatePlayerCards: (playerId: string, cards: any[]) => void;
     updateGameState: (updates: Partial<GameState>) => void;
+    setBellAnimation: (playerId: string) => void;
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -33,6 +35,7 @@ export const useGameStore = create<GameStore>((set) => ({
     lastTrick: null,
     isBidding: false,
     selectedCard: null,
+    bellAnimation: null,
 
     setCurrentGame: (game) => set({ currentGame: game }),
     setCurrentTable: (table) => set({ currentTable: table }),
@@ -64,5 +67,9 @@ export const useGameStore = create<GameStore>((set) => ({
         return {
             currentGame: { ...state.currentGame, ...updates }
         };
+    }),
+
+    setBellAnimation: (playerId) => set({
+        bellAnimation: { playerId, timestamp: Date.now() }
     })
 }));
