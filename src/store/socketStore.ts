@@ -56,6 +56,12 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().setCurrentPlayer(player);
         });
 
+        socket.on('name_taken', (data) => {
+            console.log('Name taken error:', data);
+            toast.error(data.message);
+            // Don't clear the current player state, just show the error
+        });
+
         socket.on('player_joined', (data) => {
             const { player } = data;
             toast.success(`${player.name} joined the lobby`);
@@ -77,8 +83,12 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('table_left', (data) => {
             console.log('Left table:', data);
-            useGameStore.getState().setCurrentTable(null);
-            useGameStore.getState().setCurrentGame(null);
+            const gameStore = useGameStore.getState();
+            gameStore.setCurrentTable(null);
+            gameStore.setCurrentGame(null);
+            // Don't clear currentPlayer - keep the player info for the lobby
+            gameStore.setIsBidding(false);
+            gameStore.setSelectedCard(null);
             toast.success('Left table successfully');
         });
 
@@ -97,6 +107,19 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             console.log('Table updated:', data);
             const { table } = data;
             useGameStore.getState().setCurrentTable(table);
+
+            // Check if current player is still in the table
+            const currentPlayer = useGameStore.getState().currentPlayer;
+            if (currentPlayer && !table.players.find((p: any) => p.id === currentPlayer.id)) {
+                console.log('Current player no longer in table, clearing game state but preserving player info');
+                const gameStore = useGameStore.getState();
+                gameStore.setCurrentGame(null);
+                gameStore.setCurrentTable(null);
+                // Don't clear currentPlayer - keep the player info for the lobby
+                gameStore.setIsBidding(false);
+                gameStore.setSelectedCard(null);
+                toast('You have been returned to the lobby', { icon: 'ℹ️' });
+            }
         });
 
         socket.on('player_joined_table', (data) => {
@@ -177,7 +200,6 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             const { game } = data;
             useGameStore.getState().setCurrentGame(game);
             useGameStore.getState().setLastTrick(null); // Clear last trick
-            useGameStore.getState().setIsBidding(false); // Reset bidding state for new round
 
             // Ensure trick area is cleared for new round
             const updatedGame = { ...game, currentTrick: { cards: [], winner: null, points: 0 } };
@@ -202,26 +224,9 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             const otherTeam = winningTeam === 'team1' ? 'team2' : 'team1';
             const otherTeamScore = finalScores[otherTeam];
 
-            toast.success(
-                `🎉 Game Over! ${winningTeamName} wins! 🎉\n` +
-                `Winners: ${winningPlayerNames}\n` +
-                `Final Score: ${teamScore} - ${otherTeamScore}`,
-                {
-                    duration: 8000,
-                    position: 'top-center',
-                    style: {
-                        fontSize: '18px',
-                        padding: '20px',
-                        textAlign: 'center',
-                        maxWidth: '500px',
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        color: 'white',
-                        fontWeight: 'bold',
-                        borderRadius: '12px',
-                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
-                    }
-                }
-            );
+            console.log('Game end details:', { winningTeam, winningTeamName, teamScore, otherTeam, otherTeamScore });
+
+
 
             // Add system message to chat
             const systemMessage = {
@@ -233,6 +238,9 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 type: 'system' as const
             };
             useGameStore.getState().addChatMessage(systemMessage);
+
+            // Set a flag to indicate the game has ended
+            useGameStore.getState().updateGameState({ phase: 'finished' });
         });
 
         socket.on('chat_message', (message) => {

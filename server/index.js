@@ -146,6 +146,53 @@ function releasePlayerName(playerName) {
     console.log(`Released name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
 }
 
+// Function to reset table state after game completion
+function resetTableAfterGameCompletion(tableId) {
+    const lobby = lobbies.get('default');
+    const table = lobby?.tables.get(tableId);
+
+    if (!table) {
+        console.log(`Table ${tableId} not found for reset`);
+        return;
+    }
+
+    console.log(`Resetting table ${tableId} after game completion`);
+
+    // Remove all human players from the table
+    /*
+    const humanPlayers = table.players.filter(player => !player.isBot);
+    humanPlayers.forEach(player => {
+        console.log(`Removing human player ${player.name} from table ${tableId}`);
+        // Remove player from players map
+        players.delete(player.id);
+        // Release their name
+        releasePlayerName(player.name);
+    });
+    */
+
+    // Keep only bot players
+    table.players = table.players.filter(player => player.isBot);
+
+    // Reset table state
+    table.gameState = null;
+
+    // Reset bot player states
+    table.players.forEach(player => {
+        player.cards = [];
+        player.score = 0;
+        player.isReady = true;
+    });
+
+    console.log(`Table ${tableId} reset complete. Remaining players: ${table.players.length} bots`);
+
+    // Notify lobby about the updated table
+    const tablesArray = Array.from(lobby.tables.values());
+    io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+
+    // Notify any remaining table members
+    io.to(`table-${tableId}`).emit('table_updated', { table });
+}
+
 // Function to debug and print all players' cards
 function debugPrintAllPlayerCards(game, context = '') {
     console.log(`\n🃏 DEBUG: All Players' Cards ${context ? `(${context})` : ''}`);
@@ -261,10 +308,10 @@ class SimpleBotAI {
             default:
                 delay = Math.random() * 2000 + 1000; // Default fallback
         }
-        */
         const delay = 1000;
         console.log(`${this.skill} bot thinking for ${Math.round(delay)}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
+        */
 
         if (playableCards.length === 0) return null;
 
@@ -491,48 +538,6 @@ function addAItoExistingBots(game) {
     });
 }
 
-function removeAllBotsFromTable(table) {
-    // Remove all bot players from the table
-    const removedBots = [];
-    for (let i = table.players.length - 1; i >= 0; i--) {
-        if (table.players[i].isBot) {
-            const removedBot = table.players.splice(i, 1)[0];
-            removedBots.push(removedBot);
-            console.log(`Removed bot ${removedBot.name} from table ${table.id}`);
-        }
-    }
-    return removedBots;
-}
-
-function cleanupEmptyTable(tableId, lobby) {
-    const table = lobby.tables.get(tableId);
-    if (table && table.players.length === 0) {
-        console.log(`Table ${tableId} is empty, deleting it`);
-        lobby.tables.delete(tableId);
-        return true;
-    }
-    return false;
-}
-
-function cleanupBotsAfterGameEnd(game) {
-    // Remove all bots from the table after game ends
-    const lobby = lobbies.get('default');
-    if (lobby) {
-        const table = lobby.tables.get(game.tableId);
-        if (table) {
-            const removedBots = removeAllBotsFromTable(table);
-            console.log(`Removed ${removedBots.length} bots from table after game completion`);
-
-            // Notify all table members about the updated table
-            io.to(`table-${game.tableId}`).emit('table_updated', { table });
-
-            // Notify all lobby members about the updated lobby
-            const tablesArray = Array.from(lobby.tables.values());
-            io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
-        }
-    }
-}
-
 function startGame(game) {
     console.log('Starting game with players:', game.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot })));
 
@@ -571,14 +576,6 @@ function startGame(game) {
     game.dealer = game.players[0].id;
     game.round = 1;
 
-    // Initialize bidding state
-    game.currentBid = null;
-    game.trumpSuit = null;
-    game.biddingPasses = 0;
-    game.biddingRound = 0;
-    game.contractorTeam = null;
-    game.opposingTeamBid = false;
-
     console.log('Game started successfully. Players with cards:', game.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -599,11 +596,18 @@ io.on('connection', (socket) => {
         console.log('join_lobby received:', data);
         const { playerName, lobbyId = 'default' } = data;
 
-        // Check if the name is already taken
-        if (!reservePlayerName(playerName)) {
-            console.log(`Name "${playerName}" is already taken`);
-            socket.emit('name_taken', { message: `The name "${playerName}" is already taken. Please choose a different name.` });
-            return;
+        // Check if this is a rejoin with the same name (same socket ID)
+        const existingPlayer = players.get(socket.id);
+        if (existingPlayer && existingPlayer.name === playerName) {
+            console.log(`Player "${playerName}" rejoining lobby with same name`);
+            // Allow rejoin with same name
+        } else {
+            // Check if the name is already taken by a different player
+            if (!reservePlayerName(playerName)) {
+                console.log(`Name "${playerName}" is already taken`);
+                socket.emit('name_taken', { message: `The name "${playerName}" is already taken. Please choose a different name.` });
+                return;
+            }
         }
 
         const player = {
@@ -661,7 +665,7 @@ io.on('connection', (socket) => {
             gameState: null,
             maxPlayers: 4,
             isPrivate: false,
-            creator: socket.id
+            creator: player.name
         };
 
         // Add the creator as the first player
@@ -708,7 +712,7 @@ io.on('connection', (socket) => {
         }
 
         // Check if user is the table creator
-        if (table.creator !== socket.id) {
+        if (table.creator !== player.name) {
             console.log('Only table creator can add bots');
             socket.emit('error', { message: 'Only the table creator can add bots' });
             return;
@@ -767,7 +771,7 @@ io.on('connection', (socket) => {
         }
 
         // Check if user is the table creator
-        if (table.creator !== socket.id) {
+        if (table.creator !== player.name) {
             console.log('Only table creator can remove bots');
             socket.emit('error', { message: 'Only the table creator can remove bots' });
             return;
@@ -871,7 +875,7 @@ io.on('connection', (socket) => {
         }
 
         // Check if user is the table creator
-        if (table.creator !== socket.id) {
+        if (table.creator !== player.name) {
             console.log('Only table creator can start the game');
             socket.emit('error', { message: 'Only the table creator can start the game' });
             return;
@@ -950,14 +954,6 @@ io.on('connection', (socket) => {
             socket.emit('table_left', { success: true });
 
             console.log(`Player ${player.name} left table ${tableId}. Remaining players: ${table.players.length}`);
-
-            // Check if table is now empty and clean it up
-            if (cleanupEmptyTable(tableId, lobby)) {
-                console.log(`Cleaned up empty table ${tableId}`);
-                // Notify lobby members that table was deleted
-                const tablesArray = Array.from(lobby.tables.values());
-                io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
-            }
         } else {
             console.log(`Player ${player.name} not found in table ${tableId}`);
         }
@@ -1046,9 +1042,6 @@ io.on('connection', (socket) => {
 
         const player = game.players.find(p => p.id === socket.id);
         if (!player || player.id !== game.currentPlayer) return;
-
-        // Increment bidding round counter (tracks how many players have had a chance to bid)
-        game.biddingRound = (game.biddingRound || 0) + 1;
 
         if (points === 0) {
             // Player passed
@@ -1222,8 +1215,11 @@ io.on('connection', (socket) => {
                     console.log(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                     io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
 
-                    // Remove all bots from the table after game ends
-                    cleanupBotsAfterGameEnd(game);
+                    // Reset table state after game completion
+                    setTimeout(() => {
+                        resetTableAfterGameCompletion(game.tableId);
+                    }, 3000); // Give players 3 seconds to see the game end message
+
                     return;
                 }
 
@@ -1325,6 +1321,11 @@ io.on('connection', (socket) => {
 
                 console.log(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                 io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
+
+                // Reset table state after game completion
+                setTimeout(() => {
+                    resetTableAfterGameCompletion(game.tableId);
+                }, 3000); // Give players 3 seconds to see the game end message
             }
         }
 
@@ -1363,7 +1364,7 @@ io.on('connection', (socket) => {
         if (!table) return;
 
         // Only allow the creator to delete the table
-        if (table.creator !== socket.id) {
+        if (table.creator !== player.name) {
             socket.emit('error', { message: 'Only the table creator can delete this table' });
             return;
         }
@@ -1404,14 +1405,6 @@ io.on('connection', (socket) => {
                         // Update lobby for remaining players
                         const tablesArray = Array.from(lobby.tables.values());
                         io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
-
-                        // Check if table is now empty and clean it up
-                        if (cleanupEmptyTable(tableId, lobby)) {
-                            console.log(`Cleaned up empty table ${tableId} after player disconnect`);
-                            // Notify lobby members that table was deleted
-                            const updatedTablesArray = Array.from(lobby.tables.values());
-                            io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: updatedTablesArray } });
-                        }
                     }
                 }
             }
@@ -1435,8 +1428,10 @@ io.on('connection', (socket) => {
                             disconnectedPlayer: player.name
                         });
 
-                        // Remove all bots from the table after game ends due to disconnect
-                        cleanupBotsAfterGameEnd(game);
+                        // Reset table state after game ends due to disconnect
+                        setTimeout(() => {
+                            resetTableAfterGameCompletion(game.tableId);
+                        }, 3000); // Give players 3 seconds to see the game end message
                     }
                 }
             }
@@ -1470,22 +1465,10 @@ async function checkBiddingCompletion(game) {
         return;
     }
 
-    // Check if bidding should end
-    // Bidding ends when:
-    // 1. Someone bids 100 (already handled above)
-    // 2. All 4 players have had a chance to bid and either:
-    //    - Someone made a bid and 3 others passed, OR
-    //    - All 4 players passed (no bid made)
-
-    // Count how many players have had a chance to bid in this round
-    const totalPlayers = game.players.length;
-    const playersWhoHaveBid = game.biddingRound || 0;
-
-    // If all players have had a chance to bid
-    if (playersWhoHaveBid >= totalPlayers) {
+    // If 3 players have passed, bidding ends
+    if (game.biddingPasses >= 3) {
         if (game.currentBid) {
-            // Someone made a bid and others passed
-            console.log(`All players have bid - bidding ends with current bid of ${game.currentBid.points} points`);
+            console.log(`3 players passed - bidding ends with current bid of ${game.currentBid.points} points`);
             game.phase = 'playing';
             game.trumpSuit = game.currentBid.suit;
             game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
@@ -1501,8 +1484,8 @@ async function checkBiddingCompletion(game) {
                 await handleBotTurn(game);
             }
         } else {
-            // All players passed, start a new round
             console.log('All players passed - no bid made, starting new round');
+            // All players passed, start a new round
             game.round++;
             game.deck = createDeck();
 
@@ -1562,7 +1545,6 @@ async function handleBotTurn(game) {
 
     if (game.phase === 'bidding') {
         // Add 1 second delay for bot bidding to make it feel more natural
-        console.log(`Bot ${currentPlayer.name} is thinking about their bid...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const handValue = currentPlayer.cards.reduce((total, card) => total + getCardValue(card), 0);
@@ -1575,9 +1557,6 @@ async function handleBotTurn(game) {
         );
 
         console.log(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid: ${bidPoints} points`);
-
-        // Increment bidding round counter (tracks how many players have had a chance to bid)
-        game.biddingRound = (game.biddingRound || 0) + 1;
 
         if (bidPoints > 0) {
             // Trump suit selection is required for any bid
@@ -1616,6 +1595,9 @@ async function handleBotTurn(game) {
             await handleBotTurn(game);
         }
     } else if (game.phase === 'playing') {
+        // Add 1 second delay for bot card playing to make it feel more natural
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // Determine lead suit from current trick
         const leadSuit = game.currentTrick.cards.length > 0
             ? game.currentTrick.cards[0].card.suit
@@ -1775,6 +1757,12 @@ async function handleBotTurn(game) {
 
                         console.log(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                         io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
+
+                        // Reset table state after game completion
+                        setTimeout(() => {
+                            resetTableAfterGameCompletion(game.tableId);
+                        }, 3000); // Give players 3 seconds to see the game end message
+
                         return;
                     }
 
@@ -1867,8 +1855,11 @@ async function handleBotTurn(game) {
                     console.log(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                     io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
 
-                    // Remove all bots from the table after game ends
-                    cleanupBotsAfterGameEnd(game);
+                    // Reset table state after game completion
+                    setTimeout(() => {
+                        resetTableAfterGameCompletion(game.tableId);
+                    }, 3000); // Give players 3 seconds to see the game end message
+
                     return;
                 }
             }

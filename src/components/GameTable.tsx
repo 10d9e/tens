@@ -12,7 +12,6 @@ import { canPlayCard } from '../utils/gameLogic';
 const GameTable: React.FC = () => {
     const {
         currentGame,
-        currentTable,
         currentPlayer,
         isBidding,
         selectedCard,
@@ -20,7 +19,7 @@ const GameTable: React.FC = () => {
         setIsBidding
     } = useGameStore();
 
-    const { makeBid, playCard, leaveTable } = useSocketStore();
+    const { makeBid, playCard } = useSocketStore();
 
     // Automatically open bid dialog when it's the player's turn to bid
     useEffect(() => {
@@ -208,10 +207,10 @@ const GameTable: React.FC = () => {
 
                 {/* Center Trump Suit Display */}
                 {currentGame.trumpSuit && currentGame.phase === 'playing' && (
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-0">
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
                         <div className="text-center">
                             <div
-                                className="text-[4rem] font-bold"
+                                className="text-[2rem]"
                                 style={{
                                     color: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? '#dc2626' : '#1f2937'
                                 }}
@@ -322,8 +321,25 @@ const GameTable: React.FC = () => {
                         <button
                             className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
                             onClick={() => {
-                                if (currentTable?.id) {
-                                    leaveTable(currentTable.id);
+                                // When game is finished, directly clear the game state instead of trying to leave table
+                                // (player might already be removed from table by server)
+                                const gameStore = useGameStore.getState();
+                                const socketStore = useSocketStore.getState();
+
+                                // Store player name before clearing
+                                const playerName = gameStore.currentPlayer?.name;
+
+                                gameStore.setCurrentGame(null);
+                                gameStore.setCurrentTable(null);
+                                gameStore.setCurrentPlayer(null);
+
+                                // Also clear any bidding state
+                                gameStore.setIsBidding(false);
+                                gameStore.setSelectedCard(null);
+
+                                // Request fresh lobby data
+                                if (socketStore.socket && playerName) {
+                                    socketStore.socket.emit('join_lobby', { playerName });
                                 }
                             }}
                         >

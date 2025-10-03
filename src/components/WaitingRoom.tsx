@@ -12,7 +12,7 @@ const WaitingRoom: React.FC = () => {
         return <div>Loading...</div>;
     }
 
-    const isCreator = currentTable.creator === currentPlayer.id;
+    const isCreator = currentTable.creator === currentPlayer.name;
     const playersNeeded = currentTable.maxPlayers - currentTable.players.length;
     const canStartGame = currentTable.players.length === currentTable.maxPlayers;
 

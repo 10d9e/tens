@@ -5,10 +5,18 @@ import { useSocketStore } from '../store/socketStore';
 
 const Lobby: React.FC = () => {
     const { lobby, currentPlayer } = useGameStore();
-    const { joinTable, createTable, deleteTable } = useSocketStore();
+    const { joinTable, createTable, deleteTable, socket } = useSocketStore();
     const [newTableName, setNewTableName] = useState('');
 
     console.log('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
+
+    // If lobby data is not available, request it from the server
+    React.useEffect(() => {
+        if (socket && !lobby) {
+            console.log('Requesting lobby data from server');
+            socket.emit('join_lobby', { playerName: currentPlayer?.name || 'Player' });
+        }
+    }, [socket, lobby, currentPlayer]);
 
     const handleJoinTable = (tableId: string) => {
         joinTable(tableId);
@@ -31,6 +39,17 @@ const Lobby: React.FC = () => {
         deleteTable(tableId);
         //}
     };
+
+    // Show loading state if lobby data is not available
+    if (!lobby) {
+        return (
+            <div style={{ padding: '20px' }}>
+                <div className="text-center">
+                    <div className="text-white text-xl">Loading lobby...</div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div style={{ padding: '20px' }}>
@@ -103,7 +122,7 @@ const Lobby: React.FC = () => {
                                         <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
                                             {table.players.length}/{table.maxPlayers}
                                         </span>
-                                        {currentPlayer && table.creator === currentPlayer.id && !table.gameState && (
+                                        {currentPlayer && table.creator === currentPlayer.name && !table.gameState && (
                                             <button
                                                 onClick={() => handleDeleteTable(table.id)}
                                                 className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm"
