@@ -208,10 +208,10 @@ const GameTable: React.FC = () => {
 
                 {/* Center Trump Suit Display */}
                 {currentGame.trumpSuit && currentGame.phase === 'playing' && (
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-10">
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-0">
                         <div className="text-center">
                             <div
-                                className="text-[2rem]"
+                                className="text-[4rem] font-bold"
                                 style={{
                                     color: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? '#dc2626' : '#1f2937'
                                 }}

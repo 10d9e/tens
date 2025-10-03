@@ -571,6 +571,14 @@ function startGame(game) {
     game.dealer = game.players[0].id;
     game.round = 1;
 
+    // Initialize bidding state
+    game.currentBid = null;
+    game.trumpSuit = null;
+    game.biddingPasses = 0;
+    game.biddingRound = 0;
+    game.contractorTeam = null;
+    game.opposingTeamBid = false;
+
     console.log('Game started successfully. Players with cards:', game.players.map(p => ({
         id: p.id,
         name: p.name,
@@ -1039,6 +1047,9 @@ io.on('connection', (socket) => {
         const player = game.players.find(p => p.id === socket.id);
         if (!player || player.id !== game.currentPlayer) return;
 
+        // Increment bidding round counter (tracks how many players have had a chance to bid)
+        game.biddingRound = (game.biddingRound || 0) + 1;
+
         if (points === 0) {
             // Player passed
             game.biddingPasses++;
@@ -1459,10 +1470,22 @@ async function checkBiddingCompletion(game) {
         return;
     }
 
-    // If 3 players have passed, bidding ends
-    if (game.biddingPasses >= 3) {
+    // Check if bidding should end
+    // Bidding ends when:
+    // 1. Someone bids 100 (already handled above)
+    // 2. All 4 players have had a chance to bid and either:
+    //    - Someone made a bid and 3 others passed, OR
+    //    - All 4 players passed (no bid made)
+
+    // Count how many players have had a chance to bid in this round
+    const totalPlayers = game.players.length;
+    const playersWhoHaveBid = game.biddingRound || 0;
+
+    // If all players have had a chance to bid
+    if (playersWhoHaveBid >= totalPlayers) {
         if (game.currentBid) {
-            console.log(`3 players passed - bidding ends with current bid of ${game.currentBid.points} points`);
+            // Someone made a bid and others passed
+            console.log(`All players have bid - bidding ends with current bid of ${game.currentBid.points} points`);
             game.phase = 'playing';
             game.trumpSuit = game.currentBid.suit;
             game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
@@ -1478,8 +1501,8 @@ async function checkBiddingCompletion(game) {
                 await handleBotTurn(game);
             }
         } else {
-            console.log('All players passed - no bid made, starting new round');
             // All players passed, start a new round
+            console.log('All players passed - no bid made, starting new round');
             game.round++;
             game.deck = createDeck();
 
@@ -1538,6 +1561,10 @@ async function handleBotTurn(game) {
     }
 
     if (game.phase === 'bidding') {
+        // Add 1 second delay for bot bidding to make it feel more natural
+        console.log(`Bot ${currentPlayer.name} is thinking about their bid...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         const handValue = currentPlayer.cards.reduce((total, card) => total + getCardValue(card), 0);
         const bidPoints = currentPlayer.ai.makeBid(
             handValue,
@@ -1548,6 +1575,9 @@ async function handleBotTurn(game) {
         );
 
         console.log(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid: ${bidPoints} points`);
+
+        // Increment bidding round counter (tracks how many players have had a chance to bid)
+        game.biddingRound = (game.biddingRound || 0) + 1;
 
         if (bidPoints > 0) {
             // Trump suit selection is required for any bid

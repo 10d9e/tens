@@ -59,7 +59,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
         if (!bidder) return null;
 
         const team = bidder.position % 2 === 0 ? 'Team 1' : 'Team 2';
-        const playerName = bidder.isBot ? `Bot (${bidder.botSkill})` : bidder.name;
+        const playerName = bidder.name;
 
         return { team, playerName };
     };
@@ -129,12 +129,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                                     Current Bid: {currentBid.points} points
                                     {bidderInfo && (
                                         <span className="text-xs text-yellow-300 ml-2">
-                                            ({bidderInfo.team} - {bidderInfo.playerName}
-                                            {currentBid.suit && (
-                                                <span className={`ml-1 ${getSuitColor(currentBid.suit)}`}>
-                                                    {getSuitSymbol(currentBid.suit)}
-                                                </span>
-                                            )})
+                                            ({bidderInfo.team} - {bidderInfo.playerName})
                                         </span>
                                     )}
                                 </div>

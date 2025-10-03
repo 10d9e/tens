@@ -177,6 +177,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             const { game } = data;
             useGameStore.getState().setCurrentGame(game);
             useGameStore.getState().setLastTrick(null); // Clear last trick
+            useGameStore.getState().setIsBidding(false); // Reset bidding state for new round
 
             // Ensure trick area is cleared for new round
             const updatedGame = { ...game, currentTrick: { cards: [], winner: null, points: 0 } };

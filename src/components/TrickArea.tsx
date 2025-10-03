@@ -83,7 +83,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players }) => {
 
             {trick.cards.length === 0 && (
                 <div className="text-center text-white/60">
-                    <br /><br />
+                    <br /><br /><br />
                     <div className="text-lg font-medium">Waiting for cards...</div>
                 </div>
             )}
