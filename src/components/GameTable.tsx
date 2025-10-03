@@ -171,6 +171,20 @@ const GameTable: React.FC = () => {
                                     {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({getPlayerPosition(player)})
                                 </div>
 
+                                {/* Dealer marker positioned outside the player box */}
+                                {currentGame.dealer === player.id && currentGame.phase === 'bidding' && (
+                                    <div
+                                        className="absolute text-4xl text-orange-400 z-20"
+                                        style={{
+                                            [position === 'north' ? 'bottom' : position === 'south' ? 'top' : position === 'east' ? 'left' : 'right']: '-25px',
+                                            [position === 'north' || position === 'south' ? 'left' : 'top']: '50%',
+                                            transform: position === 'north' || position === 'south' ? 'translateX(-50%)' : 'translateY(-50%)'
+                                        }}
+                                    >
+                                        🃏
+                                    </div>
+                                )}
+
                                 {currentGame.currentBid && currentGame.currentBid.playerId === player.id && (
                                     <div className="text-yellow-300 text-xs font-bold mb-1">
                                         Bid: {currentGame.currentBid.points}

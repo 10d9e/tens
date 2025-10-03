@@ -504,7 +504,8 @@ function createGame(tableId) {
         contractorTeam: null, // Track which team is the contractor
         opposingTeamBid: false, // Track if opposing team made any bid
         biddingPasses: 0, // Track number of consecutive passes
-        biddingRound: 0 // Track which round of bidding we're in
+        biddingRound: 0, // Track which round of bidding we're in
+        playersWhoHavePassed: new Set() // Track which players have passed and cannot bid again
     };
 
     games.set(gameId, game);
@@ -1044,11 +1045,13 @@ io.on('connection', (socket) => {
         if (!player || player.id !== game.currentPlayer) return;
 
         if (points === 0) {
-            // Player passed
+            // Player passed - they cannot bid again until new round
+            game.playersWhoHavePassed.add(socket.id);
             game.biddingPasses++;
             console.log(`Player ${player.name} passed. Total passes: ${game.biddingPasses}`);
         } else {
-            // Player made a bid
+            // Player made a bid - remove them from passed list if they were there
+            game.playersWhoHavePassed.delete(socket.id);
             game.currentBid = { playerId: socket.id, points, suit };
             game.biddingPasses = 0; // Reset pass counter when someone bids
             console.log(`Player ${player.name} bid ${points} points with ${suit} as trump`);
@@ -1255,6 +1258,7 @@ io.on('connection', (socket) => {
                 game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
                 game.biddingPasses = 0; // Reset bidding passes
                 game.biddingRound = 0; // Reset bidding round
+                game.playersWhoHavePassed.clear(); // Reset the set for new round
 
                 console.log('Round reset complete - all bid parameters cleared for new round');
 
@@ -1465,64 +1469,69 @@ async function checkBiddingCompletion(game) {
         return;
     }
 
-    // If 3 players have passed, bidding ends
-    if (game.biddingPasses >= 3) {
-        if (game.currentBid) {
-            console.log(`3 players passed - bidding ends with current bid of ${game.currentBid.points} points`);
-            game.phase = 'playing';
-            game.trumpSuit = game.currentBid.suit;
-            game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
-            game.currentPlayer = game.currentBid.playerId;
-            console.log(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
+    // Check if bidding should end due to no counter-bids
+    if (game.currentBid && game.playersWhoHavePassed.size >= 3) {
+        // Someone has bid and all other players have passed - bidding ends
+        console.log(`Bid of ${game.currentBid.points} points stands - all other players passed, bidding ends`);
+        game.phase = 'playing';
+        game.trumpSuit = game.currentBid.suit;
+        game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+        game.currentPlayer = game.currentBid.playerId;
+        console.log(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
 
-            io.to(`table-${game.tableId}`).emit('game_updated', { game });
+        io.to(`table-${game.tableId}`).emit('game_updated', { game });
 
-            // Start the first bot turn in playing phase if current player is a bot
-            const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
-            if (currentPlayer?.isBot) {
-                console.log('Starting first bot turn in playing phase');
-                await handleBotTurn(game);
-            }
-        } else {
-            console.log('All players passed - no bid made, starting new round');
-            // All players passed, start a new round
-            game.round++;
-            game.deck = createDeck();
+        // Start the first bot turn in playing phase if current player is a bot
+        const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+        if (currentPlayer?.isBot) {
+            console.log('Starting first bot turn in playing phase');
+            await handleBotTurn(game);
+        }
+        return;
+    }
 
-            // Clear existing cards and deal new ones
+    // Check if all players have passed (bidding ends)
+    if (game.playersWhoHavePassed.size >= 4) {
+        console.log('All players passed - no bid made, starting new round');
+        // All players passed, start a new round
+        game.round++;
+        game.deck = createDeck();
+
+        // Clear existing cards and deal new ones
+        game.players.forEach(player => {
+            player.cards = [];
+        });
+
+        // Deal cards to players
+        let cardIndex = 0;
+        for (let i = 0; i < 9; i++) {
             game.players.forEach(player => {
-                player.cards = [];
+                if (cardIndex < game.deck.length) {
+                    player.cards.push(game.deck[cardIndex++]);
+                }
             });
+        }
 
-            // Deal cards to players
-            let cardIndex = 0;
-            for (let i = 0; i < 9; i++) {
-                game.players.forEach(player => {
-                    if (cardIndex < game.deck.length) {
-                        player.cards.push(game.deck[cardIndex++]);
-                    }
-                });
-            }
+        // Reset for new round
+        game.currentBid = null;
+        game.trumpSuit = null;
+        game.currentTrick = { cards: [], winner: null, points: 0 };
+        game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
+        game.dealer = game.currentPlayer;
+        game.contractorTeam = null;
+        game.opposingTeamBid = false;
+        game.roundScores = { team1: 0, team2: 0 };
+        game.biddingPasses = 0;
+        game.biddingRound = 0;
+        game.playersWhoHavePassed.clear(); // Reset the set for new round
 
-            // Reset for new round
-            game.currentBid = null;
-            game.trumpSuit = null;
-            game.currentTrick = { cards: [], winner: null, points: 0 };
-            game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
-            game.dealer = game.currentPlayer;
-            game.contractorTeam = null;
-            game.opposingTeamBid = false;
-            game.roundScores = { team1: 0, team2: 0 };
-            game.biddingPasses = 0;
-            game.biddingRound = 0;
+        io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
-            io.to(`table-${game.tableId}`).emit('round_completed', { game });
-
-            // Start bot turn handling for new bidding phase if current player is a bot
-            if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
-                console.log('Starting bot turn for new round bidding phase');
-                await handleBotTurn(game);
-            }
+        // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
+        const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+        if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
+            console.log('Starting bot turn for new round bidding phase');
+            await handleBotTurn(game);
         }
         return;
     }
@@ -1572,12 +1581,15 @@ async function handleBotTurn(game) {
             const bestSuit = Object.entries(suitCounts)
                 .sort(([, a], [, b]) => b - a)[0][0];
 
+            // Bot made a bid - remove them from passed list if they were there
+            game.playersWhoHavePassed.delete(currentPlayer.id);
             game.currentBid = { playerId: currentPlayer.id, points: bidPoints, suit: bestSuit };
             game.biddingPasses = 0; // Reset pass counter when someone bids
 
             console.log(`Bot ${currentPlayer.name} bid ${bidPoints} points with ${bestSuit} as trump suit`);
         } else {
-            // Bot passed
+            // Bot passed - they cannot bid again until new round
+            game.playersWhoHavePassed.add(currentPlayer.id);
             game.biddingPasses++;
             console.log(`Bot ${currentPlayer.name} passed. Total passes: ${game.biddingPasses}`);
         }
@@ -1590,8 +1602,9 @@ async function handleBotTurn(game) {
         // Check if bidding should end
         await checkBiddingCompletion(game);
 
-        // Handle next bot player if applicable
-        if (game.players.find(p => p.id === game.currentPlayer)?.isBot && game.phase === 'bidding') {
+        // Handle next bot player if applicable and they haven't passed
+        const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
+        if (nextPlayer?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed.has(game.currentPlayer)) {
             await handleBotTurn(game);
         }
     } else if (game.phase === 'playing') {
@@ -1795,11 +1808,15 @@ async function handleBotTurn(game) {
                     game.contractorTeam = null; // Reset contractor team
                     game.opposingTeamBid = false; // Reset opposing team bid flag
                     game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
+                    game.biddingPasses = 0; // Reset bidding passes
+                    game.biddingRound = 0; // Reset bidding round
+                    game.playersWhoHavePassed.clear(); // Reset passed players for new round
 
                     io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
-                    // Start bot turn handling for new bidding phase if current player is a bot
-                    if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+                    // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
+                    const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+                    if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
                         console.log('Starting bot turn for new round bidding phase');
                         await handleBotTurn(game);
                     }
@@ -1908,11 +1925,15 @@ async function handleBotTurn(game) {
                 game.trumpSuit = null;
                 game.opposingTeamBid = false; // Reset opposing team bid flag
                 game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
+                game.biddingPasses = 0; // Reset bidding passes
+                game.biddingRound = 0; // Reset bidding round
+                game.playersWhoHavePassed.clear(); // Reset passed players for new round
 
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
-                // Start bot turn handling for new bidding phase if current player is a bot
-                if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+                // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
+                const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+                if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
                     console.log('Starting bot turn for new round bidding phase');
                     await handleBotTurn(game);
                 }
