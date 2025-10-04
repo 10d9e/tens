@@ -6,13 +6,17 @@ interface RoundNotepadProps {
     currentBid?: { points: number; suit?: string };
     contractorTeam?: 'team1' | 'team2';
     round: number;
+    gamePhase?: string;
+    showGlow?: boolean;
 }
 
 const RoundNotepad: React.FC<RoundNotepadProps> = ({
     roundScores,
     currentBid,
     contractorTeam,
-    round
+    round,
+    gamePhase,
+    showGlow
 }) => {
     const getSuitSymbol = (suit: string) => {
         switch (suit) {
@@ -30,7 +34,7 @@ const RoundNotepad: React.FC<RoundNotepadProps> = ({
 
     return (
         <motion.div
-            className="round-notepad"
+            className={`round-notepad ${showGlow ? 'glow-effect' : ''}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
@@ -41,7 +45,7 @@ const RoundNotepad: React.FC<RoundNotepadProps> = ({
                     <div className="current-bid">
                         <span className="bid-label">Current Bid:</span>
                         <span className="bid-amount">{currentBid.points}</span>
-                        {currentBid.suit && (
+                        {currentBid.suit && gamePhase === 'playing' && (
                             <span className={`bid-suit ${getSuitColor(currentBid.suit)}`}>
                                 {getSuitSymbol(currentBid.suit)}
                             </span>

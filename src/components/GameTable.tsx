@@ -7,6 +7,7 @@ import TrickArea from './TrickArea';
 import BidInterface from './BidInterface';
 import RoundNotepad from './RoundNotepad';
 import BellAnimation from './BellAnimation';
+import ShuffleAnimation from './ShuffleAnimation';
 import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 
@@ -17,6 +18,9 @@ const GameTable: React.FC = () => {
         isBidding,
         selectedCard,
         bellAnimation,
+        completedRoundResults,
+        showShuffleAnimation,
+        showGlowEffect,
         setSelectedCard,
         setIsBidding
     } = useGameStore();
@@ -181,7 +185,7 @@ const GameTable: React.FC = () => {
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900">
             {/* Game Header */}
-            <div className="flex justify-between items-center p-6 bg-white/10 backdrop-blur-md border-b border-white/20">
+            <div className="flex justify-between items-center p-2 bg-white/10 backdrop-blur-md border-b border-white/20">
                 <div className="flex items-center gap-6">
                     <h2 className="text-2xl font-bold text-white">🎴 Two Hundred</h2>
                 </div>
@@ -190,6 +194,7 @@ const GameTable: React.FC = () => {
                     🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
                 </div>
             </div>
+            <br />
             {/* Table Center */}
             <div className="game-table relative w-full m-6">
                 {/* All Players (including human player) */}
@@ -239,6 +244,7 @@ const GameTable: React.FC = () => {
                                         style={{
                                             top: '-40px',
                                             left: '50%',
+                                            minWidth: '140px',
                                             transform: 'translateX(-50%)',
                                             color: timeRemaining <= 5 ? '#f87171' : timeRemaining <= 10 ? '#fbbf24' : '#4ade80'
                                         }}
@@ -293,7 +299,9 @@ const GameTable: React.FC = () => {
                     trick={currentGame.currentTrick}
                     players={currentGame.players}
                     trumpSuit={currentGame.trumpSuit!}
-                />
+                >
+                    <ShuffleAnimation isVisible={showShuffleAnimation} />
+                </TrickArea>
 
                 {/* Bid Interface */}
                 <BidInterface
@@ -324,19 +332,46 @@ const GameTable: React.FC = () => {
                     </div>
                 )}
 
-                {/* Game Information Display */}
-                <div style={{ padding: '10px' }}>
-                    <div className="text-white">
-                        Team 1: {getTeamScore('team1')} points
+                {/* Game Information Display - Team Scores */}
+                <div className={`team-scores-display ${showGlowEffect ? 'glow-effect' : ''}`}>
+                    <div className="team-scores-header">
+                        <h3>🏆 Team Scores</h3>
                     </div>
-                    <div className="text-white">
-                        Team 2: {getTeamScore('team2')} points
+
+                    <div className="team-scores-content">
+                        <div className="team-score-row">
+                            <div className="team-score-label">
+                                Team 1
+                                <span className="team-position">North & South</span>
+                            </div>
+                            <div className="team-score-value">{getTeamScore('team1')}</div>
+                        </div>
+
+                        <div className="team-score-row">
+                            <div className="team-score-label">
+                                Team 2
+                                <span className="team-position">East & West</span>
+                            </div>
+                            <div className="team-score-value">{getTeamScore('team2')}</div>
+                        </div>
+                    </div>
+
+                    <div className="team-scores-footer">
+                        <div className="team-score-status">
+                            {getTeamScore('team1') > getTeamScore('team2') ? (
+                                <span>Team 1 leads by {getTeamScore('team1') - getTeamScore('team2')} points</span>
+                            ) : getTeamScore('team2') > getTeamScore('team1') ? (
+                                <span>Team 2 leads by {getTeamScore('team2') - getTeamScore('team1')} points</span>
+                            ) : (
+                                <span>Teams are tied!</span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* My Hand */}
-            <div className="fixed left-0 right-0 p-6">
+            <div className="fixed left-0 right-0 p-1">
                 <PlayerHand
                     player={myPlayer}
                     currentPlayer={currentGame.currentPlayer}
@@ -362,15 +397,28 @@ const GameTable: React.FC = () => {
             </div>
 
 
-            {/* Round Notepad */}
-            {currentGame.phase === 'playing' && (
-                <RoundNotepad
-                    roundScores={currentGame.roundScores || { team1: 0, team2: 0 }}
-                    currentBid={currentGame.currentBid}
-                    contractorTeam={currentGame.contractorTeam}
-                    round={currentGame.round}
-                />
-            )}
+            {/* Round Notepad - Always visible during the game */}
+            <RoundNotepad
+                roundScores={
+                    completedRoundResults?.roundScores ||
+                    currentGame.roundScores ||
+                    { team1: 0, team2: 0 }
+                }
+                currentBid={
+                    completedRoundResults?.currentBid ||
+                    currentGame.currentBid
+                }
+                contractorTeam={
+                    completedRoundResults?.contractorTeam ||
+                    currentGame.contractorTeam
+                }
+                round={
+                    completedRoundResults?.round ||
+                    currentGame.round
+                }
+                gamePhase={currentGame.phase}
+                showGlow={showGlowEffect}
+            />
 
             {/* Game End Overlay */}
             {currentGame.phase === 'finished' && (

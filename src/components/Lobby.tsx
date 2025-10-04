@@ -87,7 +87,6 @@ const Lobby: React.FC = () => {
                             maxLength={30}
                         />
 
-
                         <button
                             onClick={handleCreateTable}
                             disabled={!newTableName.trim()}

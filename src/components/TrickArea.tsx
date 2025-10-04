@@ -7,9 +7,10 @@ interface TrickAreaProps {
     trick: { cards: { card: CardType; playerId: string }[] };
     players: any[];
     trumpSuit: string;
+    children?: React.ReactNode;
 }
 
-const TrickArea: React.FC<TrickAreaProps> = ({ trick, players }) => {
+const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, children }) => {
     // Debug logging
     console.log('TrickArea render - trick.cards:', trick.cards);
     console.log('TrickArea render - trick.cards.length:', trick.cards.length);
@@ -83,10 +84,13 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players }) => {
 
             {trick.cards.length === 0 && (
                 <div className="text-center text-white/60">
-                    <br /><br />
+                    <br /><br /><br /><br />
                     <div className="text-lg font-medium">Waiting for cards...</div>
                 </div>
             )}
+
+            {/* Render children (like ShuffleAnimation) */}
+            {children}
         </div>
     );
 };

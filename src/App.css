@@ -217,7 +217,7 @@ body {
     display: flex;
     flex-direction: column;
     position: relative;
-    background: radial-gradient(circle at center, #0f4c3a 0%, #1a5f4a 50%, #0f4c3a 100%);
+    /* background: radial-gradient(circle at center, #0f4c3a 0%, #1a5f4a 50%, #0f4c3a 100%); */
 }
 
 .table-center {
@@ -273,25 +273,25 @@ body {
 }
 
 .player-area.north {
-    top: 2rem;
+    top: calc(50% - 100px - 5em);
     left: 50%;
     transform: translateX(-50%);
 }
 
 .player-area.east {
-    right: 2rem;
+    right: calc(50% - 150px - 5em);
     top: 50%;
     transform: translateY(-50%);
 }
 
 .player-area.south {
-    bottom: 2rem;
+    bottom: calc(50% - 100px - 5em);
     left: 50%;
     transform: translateX(-50%);
 }
 
 .player-area.west {
-    left: 2rem;
+    left: calc(50% - 150px - 5em);
     top: 50%;
     transform: translateY(-50%);
 }
@@ -556,10 +556,20 @@ body {
         transform: translate(40px, 20px);
     }
 
-    .player-area {
-        position: static;
-        transform: none;
-        margin: 1rem;
+    .player-area.north {
+        top: calc(50% - 75px - 5em);
+    }
+
+    .player-area.east {
+        right: calc(50% - 125px - 5em);
+    }
+
+    .player-area.south {
+        bottom: calc(50% - 75px - 5em);
+    }
+
+    .player-area.west {
+        left: calc(50% - 125px - 5em);
     }
 
     .game-table {
@@ -618,7 +628,7 @@ body {
 /* Round Notepad Styles */
 .round-notepad {
     position: fixed;
-    top: 6rem;
+    top: 4rem;
     right: 1rem;
     background: rgba(0, 0, 0, 0.5);
     border: 1px solid rgba(255, 255, 255, 0.2);
@@ -639,6 +649,7 @@ body {
 
 .notepad-header h3 {
     font-size: 1rem;
+    font-weight: 600;
     margin-bottom: 0rem;
     color: #4ade80;
 }
@@ -715,6 +726,180 @@ body {
     opacity: 0.7;
 }
 
+/* Team Scores Display Styles - Matching RoundNotepad */
+.team-scores-display {
+    position: fixed;
+    top: 4rem;
+    left: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    backdrop-filter: blur(10px);
+    min-width: 200px;
+    z-index: 50;
+}
+
+.team-scores-header {
+    text-align: center;
+    margin-bottom: 0rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+}
+
+.team-scores-header h3 {
+    font-size: 1rem;
+    margin-bottom: 0;
+    color: #4ade80;
+    font-weight: 600;
+}
+
+.team-scores-content {
+    margin-bottom: 1rem;
+}
+
+.team-score-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.team-score-row:last-child {
+    border-bottom: none;
+}
+
+.team-score-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #e5e7eb;
+}
+
+.team-position {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+.team-score-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #4ade80;
+}
+
+.team-scores-footer {
+    text-align: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding-top: 0.5rem;
+}
+
+.team-score-status {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    font-weight: 400;
+}
+
+/* Glow Effect Styles */
+.glow-effect {
+    box-shadow: 0 0 8px rgba(255, 255, 0, 0.3),
+        0 0 16px rgba(255, 255, 0, 0.2),
+        0 0 24px rgba(255, 255, 0, 0.1);
+    animation: glow-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow-pulse {
+    0% {
+        box-shadow: 0 0 8px rgba(255, 255, 0, 0.3),
+            0 0 16px rgba(255, 255, 0, 0.2),
+            0 0 24px rgba(255, 255, 0, 0.1);
+    }
+
+    100% {
+        box-shadow: 0 0 12px rgba(255, 255, 0, 0.4),
+            0 0 20px rgba(255, 255, 0, 0.3),
+            0 0 28px rgba(255, 255, 0, 0.2);
+    }
+}
+
+/* Shuffle Animation Styles */
+.shuffle-animation {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 20px;
+    z-index: 10;
+}
+
+.shuffle-cards {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.shuffle-card {
+    position: absolute;
+    width: 40px;
+    height: 56px;
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transform-origin: center;
+}
+
+.card-back {
+    font-size: 24px;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.shuffle-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    color: white;
+}
+
+.shuffle-icon {
+    font-size: 2rem;
+    animation: pulse 1s ease-in-out infinite alternate;
+}
+
+.shuffle-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+}
+
 /* Responsive adjustments for round notepad */
 @media (max-width: 768px) {
     .round-notepad {
@@ -724,5 +909,31 @@ body {
         right: 1rem;
         left: 1rem;
         min-width: auto;
+    }
+
+    .team-scores-display {
+        position: fixed;
+        top: auto;
+        bottom: 1rem;
+        left: 1rem;
+        right: 1rem;
+        min-width: auto;
+    }
+
+    .shuffle-card {
+        width: 30px;
+        height: 42px;
+    }
+
+    .card-back {
+        font-size: 18px;
+    }
+
+    .shuffle-icon {
+        font-size: 1.5rem;
+    }
+
+    .shuffle-label {
+        font-size: 1rem;
     }
 }

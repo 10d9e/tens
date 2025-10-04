@@ -23,6 +23,7 @@ interface SocketStore {
     makeBid: (gameId: string, points: number, suit?: string) => void;
     playCard: (gameId: string, card: any) => void;
     sendChat: (message: string, tableId: string) => void;
+    updateTableTimeout: (tableId: string, timeoutDuration: number) => void;
 }
 
 export const useSocketStore = create<SocketStore>((set, get) => ({
@@ -232,15 +233,58 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('round_completed', (data) => {
             const { game } = data;
-            useGameStore.getState().setCurrentGame(game);
-            useGameStore.getState().setLastTrick(null); // Clear last trick
+            const gameStore = useGameStore.getState();
+
+            // Check if this was an actual play round (has meaningful round scores) or failed bidding
+            const previousGame = gameStore.currentGame;
+            const hasPlayRoundResults = previousGame?.roundScores &&
+                (previousGame.roundScores.team1 > 0 || previousGame.roundScores.team2 > 0);
+
+            // Check if this was a failed bidding round (no one bid)
+            const wasFailedBidding = !hasPlayRoundResults && !previousGame?.currentBid;
+
+            // Only preserve and show round results if there was an actual play round
+            if (hasPlayRoundResults) {
+                // Preserve the completed round results before clearing them
+                const completedResults = {
+                    roundScores: previousGame.roundScores,
+                    currentBid: previousGame.currentBid,
+                    contractorTeam: previousGame.contractorTeam,
+                    round: game.round - 1 // The round that just completed
+                };
+
+                // Store the completed round results and show glow effect
+                gameStore.setCompletedRoundResults(completedResults);
+                gameStore.setShowGlowEffect(true);
+
+                // Clear the completed round results and glow effect after 3.5 seconds (slightly after the server delay)
+                setTimeout(() => {
+                    gameStore.setCompletedRoundResults(null);
+                    gameStore.setShowGlowEffect(false);
+                }, 3500);
+            } else if (wasFailedBidding) {
+                // Show reshuffling message and animation for failed bidding
+                playShuffleSound();
+                gameStore.setShowShuffleAnimation(true);
+
+                toast.success('🃏 No one bid! Reshuffling cards for new round...', {
+                    duration: 3000,
+                    icon: '🔀'
+                });
+
+                // Hide shuffle animation after 3 seconds (matching the server delay)
+                setTimeout(() => {
+                    gameStore.setShowShuffleAnimation(false);
+                }, 3000);
+            }
+
+            // Update game state for new round
+            gameStore.setCurrentGame(game);
+            gameStore.setLastTrick(null); // Clear last trick
 
             // Ensure trick area is cleared for new round
             const updatedGame = { ...game, currentTrick: { cards: [], winner: null, points: 0 } };
-            useGameStore.getState().setCurrentGame(updatedGame);
-
-            // Show notification
-            toast.success(`Round ${game.round} complete! New round starting...`);
+            gameStore.setCurrentGame(updatedGame);
         });
 
         socket.on('game_ended', (data) => {
@@ -329,7 +373,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             const tableId = `table-${Date.now()}`;
             console.log('Creating table:', tableId, 'with name:', tableName);
-            socket.emit('create_table', { tableId, tableName });
+            socket.emit('create_table', { tableId, tableName, timeoutDuration: 30000 }); // Default 30 seconds
         } else {
             console.log('Socket not connected');
         }
@@ -413,6 +457,16 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         const { socket } = get();
         if (socket) {
             socket.emit('send_chat', { message, tableId });
+        }
+    },
+
+    updateTableTimeout: (tableId, timeoutDuration) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Updating table timeout:', tableId, 'to:', timeoutDuration);
+            socket.emit('update_table_timeout', { tableId, timeoutDuration });
+        } else {
+            console.log('Socket not connected');
         }
     }
 }));
@@ -535,5 +589,41 @@ function playPassTickSound() {
     oscillator.stop(audioContext.currentTime + 0.05);
 }
 
+function playShuffleSound() {
+    // Create a card shuffle sound effect
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+    // Create multiple quick sounds to simulate shuffling
+    const shuffleSounds = [
+        { freq: 200, time: 0, duration: 0.05 },
+        { freq: 150, time: 0.05, duration: 0.05 },
+        { freq: 250, time: 0.1, duration: 0.05 },
+        { freq: 180, time: 0.15, duration: 0.05 },
+        { freq: 220, time: 0.2, duration: 0.05 },
+        { freq: 160, time: 0.25, duration: 0.05 },
+        { freq: 240, time: 0.3, duration: 0.05 },
+        { freq: 190, time: 0.35, duration: 0.05 },
+    ];
+
+    shuffleSounds.forEach(({ freq, time, duration }) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + time);
+        oscillator.type = 'square'; // Square wave for more percussive shuffle sound
+
+        // Quick attack and decay for shuffle effect
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime + time);
+        gainNode.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + time + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + duration);
+
+        oscillator.start(audioContext.currentTime + time);
+        oscillator.stop(audioContext.currentTime + time + duration);
+    });
+}
+
 // Export sound functions for use in components
-export { playBidTurnSound, playCowbellSound, playPassTickSound };
+export { playBidTurnSound, playCowbellSound, playPassTickSound, playShuffleSound };

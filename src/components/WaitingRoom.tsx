@@ -1,12 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
 
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
-    const { leaveTable, addBot, removeBot, movePlayer, startGame } = useSocketStore();
+    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout } = useSocketStore();
     const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard'>('medium');
+    const [timeoutDuration, setTimeoutDuration] = useState(30); // Default to 30 seconds
+
+    // Initialize timeout duration from currentTable when it becomes available
+    useEffect(() => {
+        if (currentTable?.timeoutDuration) {
+            const tableTimeoutSeconds = Math.floor(currentTable.timeoutDuration / 1000);
+            // Ensure minimum timeout is 30 seconds
+            setTimeoutDuration(Math.max(tableTimeoutSeconds, 30));
+        }
+    }, [currentTable?.timeoutDuration]);
 
     if (!currentTable || !currentPlayer) {
         return <div>Loading...</div>;
@@ -41,6 +51,13 @@ const WaitingRoom: React.FC = () => {
     const handleStartGame = () => {
         if (currentTable) {
             startGame(currentTable.id);
+        }
+    };
+
+    const handleTimeoutChange = (newTimeout: number) => {
+        setTimeoutDuration(newTimeout);
+        if (currentTable) {
+            updateTableTimeout(currentTable.id, newTimeout * 1000); // Convert to milliseconds
         }
     };
 
@@ -82,25 +99,68 @@ const WaitingRoom: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Bot Configuration for Creator */}
+                    {/* Table Settings for Creator */}
                     {isCreator && (
                         <div className="bg-white/5 rounded-xl p-6 mb-6">
-                            <h3 className="text-xl font-bold text-white mb-4">🤖 Bot Configuration</h3>
-                            <div className="flex items-center gap-4 mb-4">
-                                <label className="text-white font-medium">Bot Skill Level:</label>
-                                <select
-                                    value={selectedSkill}
-                                    onChange={(e) => setSelectedSkill(e.target.value as 'easy' | 'medium' | 'hard')}
-                                    className="px-3 py-2 rounded-lg bg-white/10 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
-                                >
-                                    <option value="easy">Easy</option>
-                                    <option value="medium">Medium</option>
-                                    <option value="hard">Hard</option>
-                                </select>
+                            <h3 className="text-xl font-bold text-white mb-4">⚙️ Table Settings</h3>
+
+                            {/* Bot Configuration */}
+                            <div className="mb-6">
+                                <h4 className="text-lg font-semibold text-white mb-3">🤖 Bot Configuration</h4>
+                                <div className="flex items-center gap-4 mb-4">
+                                    <label className="text-white font-medium">Bot Skill Level:</label>
+                                    <select
+                                        value={selectedSkill}
+                                        onChange={(e) => setSelectedSkill(e.target.value as 'easy' | 'medium' | 'hard')}
+                                        className="px-3 py-2 rounded-lg bg-white/10 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                                    >
+                                        <option value="easy">Easy</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="hard">Hard</option>
+                                    </select>
+                                </div>
+                                <p className="text-white/70 text-sm">
+                                    Click on empty slots below to add bots, or click on existing bots to remove them.
+                                </p>
                             </div>
-                            <p className="text-white/70 text-sm">
-                                Click on empty slots below to add bots, or click on existing bots to remove them.
-                            </p>
+
+                            {/* Timeout Configuration */}
+                            <div>
+                                <h4 className="text-lg font-semibold text-white mb-3">⏱️ Turn Timeout</h4>
+                                <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-white font-medium">
+                                            {timeoutDuration} seconds
+                                        </label>
+                                        <span className="text-white/60 text-sm">
+                                            {timeoutDuration <= 60 ? `${timeoutDuration}s` : `${Math.floor(timeoutDuration / 60)}m ${timeoutDuration % 60}s`}
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="30"
+                                        max="300"
+                                        step="10"
+                                        value={timeoutDuration}
+                                        onChange={(e) => handleTimeoutChange(parseInt(e.target.value))}
+                                        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                                        style={{
+                                            background: `linear-gradient(to right, #4ade80 0%, #4ade80 ${((timeoutDuration - 30) / (300 - 30)) * 100}%, rgba(255,255,255,0.2) ${((timeoutDuration - 30) / (300 - 30)) * 100}%, rgba(255,255,255,0.2) 100%)`
+                                        }}
+                                    />
+                                    <div className="flex justify-between text-xs text-white/60">
+                                        <span>30s</span>
+                                        <span>1m</span>
+                                        <span>2m</span>
+                                        <span>3m</span>
+                                        <span>4m</span>
+                                        <span>5m</span>
+                                    </div>
+                                </div>
+                                <p className="text-white/70 text-sm mt-2">
+                                    Time limit for each player's turn during bidding and playing phases.
+                                </p>
+                            </div>
                         </div>
                     )}
 

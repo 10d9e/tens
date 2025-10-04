@@ -478,7 +478,7 @@ function calculateRoundScores(game, contractorTeam, contractorCardPoints, opposi
     };
 }
 
-function createGame(tableId) {
+function createGame(tableId, timeoutDuration = 30000) {
     const gameId = uuidv4();
 
     // Get the table to copy players from
@@ -507,7 +507,7 @@ function createGame(tableId) {
         biddingRound: 0, // Track which round of bidding we're in
         playersWhoHavePassed: new Set(), // Track which players have passed and cannot bid again
         playerTurnStartTime: {}, // Track when each player's turn started: {playerId: timestamp}
-        timeoutDuration: 30000 // 30 seconds timeout in milliseconds
+        timeoutDuration: timeoutDuration // Custom timeout duration in milliseconds
     };
 
     games.set(gameId, game);
@@ -642,7 +642,7 @@ io.on('connection', (socket) => {
 
     socket.on('create_table', (data) => {
         console.log('create_table received:', data);
-        const { tableId, lobbyId = 'default', tableName } = data;
+        const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000 } = data;
         const player = players.get(socket.id);
         if (!player) {
             console.log('Player not found for socket:', socket.id);
@@ -669,7 +669,8 @@ io.on('connection', (socket) => {
             gameState: null,
             maxPlayers: 4,
             isPrivate: false,
-            creator: player.name
+            creator: player.name,
+            timeoutDuration: timeoutDuration
         };
 
         // Add the creator as the first player
@@ -900,7 +901,7 @@ io.on('connection', (socket) => {
         }
 
         console.log('Starting game manually for table:', tableId);
-        const game = createGame(tableId);
+        const game = createGame(tableId, table.timeoutDuration);
         table.gameState = startGame(game);
         games.set(game.id, game);
 
@@ -1278,10 +1279,9 @@ io.on('connection', (socket) => {
 
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
-                // Pause for a variable time (1-2 seconds) to let players see the final trick
-                const pauseDelay = Math.random() * 1000 + 1000; // Random delay between 1000-2000ms
-                console.log(`Pausing for ${Math.round(pauseDelay)}ms before starting new round...`);
-                await new Promise(resolve => setTimeout(resolve, pauseDelay));
+                // Pause for 3 seconds to let players see the round results in the notepad
+                console.log('Pausing for 3 seconds to let players review round results...');
+                await new Promise(resolve => setTimeout(resolve, 3000));
 
                 // Start bot turn handling for new bidding phase if current player is a bot
                 if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
@@ -1368,6 +1368,33 @@ io.on('connection', (socket) => {
         };
 
         socket.to(`table-${tableId}`).emit('chat_message', chatMessage);
+    });
+
+    socket.on('update_table_timeout', (data) => {
+        const { tableId, timeoutDuration } = data;
+        const player = players.get(socket.id);
+        if (!player) return;
+
+        const lobby = lobbies.get('default');
+        const table = lobby?.tables.get(tableId);
+        if (!table) return;
+
+        // Check if player is the table creator
+        if (table.creator !== player.name) {
+            socket.emit('error', { message: 'Only the table creator can update timeout settings' });
+            return;
+        }
+
+        // Update timeout duration
+        table.timeoutDuration = timeoutDuration;
+        console.log(`Table ${tableId} timeout updated to ${timeoutDuration}ms by ${player.name}`);
+
+        // Notify all players in the table about the update
+        io.to(`table-${tableId}`).emit('table_updated', { table });
+
+        // Also update lobby for players not in the table
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
     });
 
     socket.on('delete_table', (data) => {
@@ -1610,6 +1637,10 @@ async function checkBiddingCompletion(game) {
         game.playersWhoHavePassed.clear(); // Reset the set for new round
 
         io.to(`table-${game.tableId}`).emit('round_completed', { game });
+
+        // Pause for 3 seconds to let players see the round results in the notepad
+        console.log('Pausing for 3 seconds to let players review round results...');
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
         // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
         const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
@@ -1909,6 +1940,10 @@ async function handleBotTurn(game) {
 
                     io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
+                    // Pause for 3 seconds to let players see the round results in the notepad
+                    console.log('Pausing for 3 seconds to let players review round results...');
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
                     // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
                     const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
                     if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
@@ -2026,6 +2061,10 @@ async function handleBotTurn(game) {
                 game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
 
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
+
+                // Pause for 3 seconds to let players see the round results in the notepad
+                console.log('Pausing for 3 seconds to let players review round results...');
+                await new Promise(resolve => setTimeout(resolve, 3000));
 
                 // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
                 const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
