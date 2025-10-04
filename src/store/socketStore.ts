@@ -632,39 +632,25 @@ function playPassTickSound() {
 }
 
 function playShuffleSound() {
-    // Create a card shuffle sound effect
+    // Create a simple single shuffle sound effect
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
 
-    // Create multiple quick sounds to simulate shuffling
-    const shuffleSounds = [
-        { freq: 200, time: 0, duration: 0.05 },
-        { freq: 150, time: 0.05, duration: 0.05 },
-        { freq: 250, time: 0.1, duration: 0.05 },
-        { freq: 180, time: 0.15, duration: 0.05 },
-        { freq: 220, time: 0.2, duration: 0.05 },
-        { freq: 160, time: 0.25, duration: 0.05 },
-        { freq: 240, time: 0.3, duration: 0.05 },
-        { freq: 190, time: 0.35, duration: 0.05 },
-    ];
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
 
-    shuffleSounds.forEach(({ freq, time, duration }) => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+    // Single frequency shuffle sound
+    oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+    oscillator.type = 'square'; // Square wave for percussive sound
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+    // Quick attack and decay
+    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.01);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
 
-        oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + time);
-        oscillator.type = 'square'; // Square wave for more percussive shuffle sound
-
-        // Quick attack and decay for shuffle effect
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime + time);
-        gainNode.gain.linearRampToValueAtTime(0.08, audioContext.currentTime + time + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + duration);
-
-        oscillator.start(audioContext.currentTime + time);
-        oscillator.stop(audioContext.currentTime + time + duration);
-    });
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.15);
 }
 
 // Export sound functions for use in components
