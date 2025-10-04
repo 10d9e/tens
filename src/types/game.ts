@@ -46,6 +46,8 @@ export interface GameState {
     spectatorIds: string[];
     contractorTeam?: 'team1' | 'team2'; // Track which team is the contractor
     biddingPasses?: number; // Track number of consecutive passes
+    playerTurnStartTime?: { [playerId: string]: number }; // Track when each player's turn started
+    timeoutDuration?: number; // Timeout duration in milliseconds
 }
 
 export interface LobbyTable {

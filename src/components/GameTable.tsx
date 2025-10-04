@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore, playBidTurnSound } from '../store/socketStore';
@@ -22,6 +22,8 @@ const GameTable: React.FC = () => {
     } = useGameStore();
 
     const { makeBid, playCard } = useSocketStore();
+    const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+    const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
 
     // Automatically open bid dialog when it's the player's turn to bid
     useEffect(() => {
@@ -31,6 +33,65 @@ const GameTable: React.FC = () => {
             playBidTurnSound();
         }
     }, [currentGame, currentPlayer, isBidding, setIsBidding]);
+
+    // Countdown timer effect
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+
+        if (currentGame && currentGame.playerTurnStartTime && currentGame.timeoutDuration) {
+            const updateTimer = () => {
+                const currentPlayerId = currentGame.currentPlayer;
+                const turnStartTime = currentGame.playerTurnStartTime?.[currentPlayerId];
+
+                if (turnStartTime) {
+                    const elapsed = Date.now() - turnStartTime;
+                    const remaining = Math.max(0, currentGame.timeoutDuration - elapsed);
+                    const seconds = Math.ceil(remaining / 1000);
+                    setTimeRemaining(seconds);
+
+                    // Play tick sound for last 5 seconds
+                    if (seconds <= 5 && seconds > 0 && seconds !== lastPlayedSecond) {
+                        // Create a simple beep sound using Web Audio API
+                        try {
+                            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                            const oscillator = audioContext.createOscillator();
+                            const gainNode = audioContext.createGain();
+
+                            oscillator.connect(gainNode);
+                            gainNode.connect(audioContext.destination);
+
+                            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Higher pitch for urgency
+                            oscillator.type = 'sine';
+
+                            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+
+                            oscillator.start(audioContext.currentTime);
+                            oscillator.stop(audioContext.currentTime + 0.1);
+
+                            setLastPlayedSecond(seconds);
+                        } catch (error) {
+                            console.log('Audio not available:', error);
+                        }
+                    }
+                } else {
+                    setTimeRemaining(null);
+                    setLastPlayedSecond(null);
+                }
+            };
+
+            updateTimer(); // Initial update
+            interval = setInterval(updateTimer, 1000); // Update every second
+        } else {
+            setTimeRemaining(null);
+        }
+
+        return () => {
+            if (interval) {
+                clearInterval(interval);
+            }
+        };
+    }, [currentGame?.currentPlayer, currentGame?.playerTurnStartTime, currentGame?.timeoutDuration]);
 
     // Early returns after all hooks
     if (!currentGame || !currentPlayer) {
@@ -170,6 +231,21 @@ const GameTable: React.FC = () => {
                                 <div className="text-white font-medium mb-1">
                                     {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({getPlayerPosition(player)})
                                 </div>
+
+                                {/* Countdown timer positioned below/above player box */}
+                                {currentGame.currentPlayer === player.id && timeRemaining !== null && (
+                                    <div
+                                        className="absolute text-xl font-bold z-20"
+                                        style={{
+                                            top: '-40px',
+                                            left: '50%',
+                                            transform: 'translateX(-50%)',
+                                            color: timeRemaining <= 5 ? '#f87171' : timeRemaining <= 10 ? '#fbbf24' : '#4ade80'
+                                        }}
+                                    >
+                                        ⏱️ {timeRemaining}s
+                                    </div>
+                                )}
 
                                 {/* Dealer marker positioned outside the player box */}
                                 {currentGame.dealer === player.id && currentGame.phase === 'bidding' && (

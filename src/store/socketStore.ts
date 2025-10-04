@@ -56,6 +56,20 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().setCurrentPlayer(player);
         });
 
+        socket.on('game_timeout', (data) => {
+            const { message } = data;
+            console.log('Game timeout:', message);
+
+            toast.error(message);
+
+            const gameStore = useGameStore.getState();
+            gameStore.setCurrentGame(null);
+            gameStore.setCurrentTable(null);
+            gameStore.setCurrentPlayer(null);
+            gameStore.setIsBidding(false);
+            gameStore.setSelectedCard(null);
+        });
+
         socket.on('name_taken', (data) => {
             console.log('Name taken error:', data);
             toast.error(data.message);

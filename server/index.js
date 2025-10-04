@@ -505,7 +505,9 @@ function createGame(tableId) {
         opposingTeamBid: false, // Track if opposing team made any bid
         biddingPasses: 0, // Track number of consecutive passes
         biddingRound: 0, // Track which round of bidding we're in
-        playersWhoHavePassed: new Set() // Track which players have passed and cannot bid again
+        playersWhoHavePassed: new Set(), // Track which players have passed and cannot bid again
+        playerTurnStartTime: {}, // Track when each player's turn started: {playerId: timestamp}
+        timeoutDuration: 30000 // 30 seconds timeout in milliseconds
     };
 
     games.set(gameId, game);
@@ -576,6 +578,7 @@ function startGame(game) {
     game.currentPlayer = game.players[0].id;
     game.dealer = game.players[0].id;
     game.round = 1;
+    game.playerTurnStartTime = { [game.players[0].id]: Date.now() };
 
     console.log('Game started successfully. Players with cards:', game.players.map(p => ({
         id: p.id,
@@ -1057,8 +1060,13 @@ io.on('connection', (socket) => {
             console.log(`Player ${player.name} bid ${points} points with ${suit} as trump`);
         }
 
+        // Reset timeout for current player since they just made a move
+        game.playerTurnStartTime[socket.id] = Date.now();
+
         // Move to next player
-        game.currentPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+        const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+        game.currentPlayer = nextPlayer;
+        game.playerTurnStartTime[nextPlayer] = Date.now();
 
         io.to(`table-${game.tableId}`).emit('bid_made', { game });
 
@@ -1087,8 +1095,13 @@ io.on('connection', (socket) => {
         game.currentTrick.cards.push({ card, playerId: socket.id });
         console.log(`Trick now has ${game.currentTrick.cards.length} cards`);
 
+        // Reset timeout for current player since they just played a card
+        game.playerTurnStartTime[socket.id] = Date.now();
+
         // Move to next player
-        game.currentPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+        const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+        game.currentPlayer = nextPlayer;
+        game.playerTurnStartTime[nextPlayer] = Date.now();
 
         io.to(`table-${game.tableId}`).emit('card_played', { game, card, playerId: socket.id });
 
@@ -1253,6 +1266,7 @@ io.on('connection', (socket) => {
                 game.lastTrick = null; // Clear last trick for new round
                 game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                 game.dealer = game.currentPlayer;
+                game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
                 game.contractorTeam = null; // Reset contractor team
                 game.opposingTeamBid = false; // Reset opposing team bid flag
                 game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
@@ -1444,6 +1458,75 @@ io.on('connection', (socket) => {
     });
 });
 
+// Periodic timeout check for all active games
+setInterval(() => {
+    games.forEach((game, gameId) => {
+        if (checkPlayerTimeout(game)) {
+            console.log(`Game ${gameId} was cleaned up due to timeout`);
+        }
+    });
+}, 1000); // Check every second
+
+function checkPlayerTimeout(game) {
+    const currentPlayerId = game.currentPlayer;
+    const turnStartTime = game.playerTurnStartTime[currentPlayerId];
+
+    if (!turnStartTime) return false;
+
+    const elapsed = Date.now() - turnStartTime;
+    const timeRemaining = game.timeoutDuration - elapsed;
+
+    if (timeRemaining <= 0) {
+        // Player has timed out
+        const currentPlayer = game.players.find(p => p.id === currentPlayerId);
+        const playerName = currentPlayer ? currentPlayer.name : 'Unknown player';
+
+        console.log(`Player ${playerName} (${currentPlayerId}) timed out after ${game.timeoutDuration}ms`);
+
+        // Clean up game and force all players back to lobby
+        cleanupGameDueToTimeout(game, playerName);
+        return true;
+    }
+
+    return false;
+}
+
+function cleanupGameDueToTimeout(game, timeoutPlayerName) {
+    // Get all players in this game
+    const gamePlayers = Array.from(game.players);
+
+    // Remove game from memory
+    games.delete(game.id);
+
+    // Get the lobby and table
+    const lobby = lobbies.get('default');
+    const table = lobby?.tables.get(game.tableId);
+
+    if (table) {
+        // Keep only AI players on the table, remove human players
+        const botPlayers = gamePlayers.filter(player => player.isBot);
+        table.players = botPlayers;
+        table.gameState = null;
+
+        // Notify all table members about the updated table
+        io.to(`table-${game.tableId}`).emit('table_updated', { table });
+
+        // Force only human players back to lobby with timeout message
+        gamePlayers.forEach(player => {
+            if (!player.isBot) {
+                // For human players, emit to their socket
+                io.to(player.id).emit('game_timeout', {
+                    message: `Game ended due to ${timeoutPlayerName} timing out. Returning to lobby.`
+                });
+                io.to(player.id).emit('lobby_joined', {
+                    lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
+                    player: player
+                });
+            }
+        });
+    }
+}
+
 async function checkBiddingCompletion(game) {
     // Check if bidding should end based on the rules:
     // 1. If someone bids 100 (highest possible bid)
@@ -1518,6 +1601,7 @@ async function checkBiddingCompletion(game) {
         game.currentTrick = { cards: [], winner: null, points: 0 };
         game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
         game.dealer = game.currentPlayer;
+        game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
         game.contractorTeam = null;
         game.opposingTeamBid = false;
         game.roundScores = { team1: 0, team2: 0 };
@@ -1594,8 +1678,13 @@ async function handleBotTurn(game) {
             console.log(`Bot ${currentPlayer.name} passed. Total passes: ${game.biddingPasses}`);
         }
 
+        // Reset timeout for current bot since they just made a move
+        game.playerTurnStartTime[currentPlayer.id] = Date.now();
+
         // Always move to next player after bot makes decision (bid or pass)
-        game.currentPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+        const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+        game.currentPlayer = nextPlayer;
+        game.playerTurnStartTime[nextPlayer] = Date.now();
 
         io.to(`table-${game.tableId}`).emit('bid_made', { game });
 
@@ -1603,8 +1692,8 @@ async function handleBotTurn(game) {
         await checkBiddingCompletion(game);
 
         // Handle next bot player if applicable and they haven't passed
-        const nextPlayer = game.players.find(p => p.id === game.currentPlayer);
-        if (nextPlayer?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed.has(game.currentPlayer)) {
+        const currentPlayerForBot = game.players.find(p => p.id === game.currentPlayer);
+        if (currentPlayerForBot?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed.has(game.currentPlayer)) {
             await handleBotTurn(game);
         }
     } else if (game.phase === 'playing') {
@@ -1640,8 +1729,13 @@ async function handleBotTurn(game) {
             game.currentTrick.cards.push({ card, playerId: currentPlayer.id });
             console.log(`Trick now has ${game.currentTrick.cards.length} cards`);
 
+            // Reset timeout for current bot since they just played a card
+            game.playerTurnStartTime[currentPlayer.id] = Date.now();
+
             // Move to next player
-            game.currentPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+            const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+            game.currentPlayer = nextPlayer;
+            game.playerTurnStartTime[nextPlayer] = Date.now();
 
             io.to(`table-${game.tableId}`).emit('card_played', { game, card, playerId: currentPlayer.id });
 
@@ -1805,6 +1899,7 @@ async function handleBotTurn(game) {
                     game.currentTrick = { cards: [], winner: null, points: 0 };
                     game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                     game.dealer = game.currentPlayer;
+                    game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
                     game.contractorTeam = null; // Reset contractor team
                     game.opposingTeamBid = false; // Reset opposing team bid flag
                     game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
@@ -1928,6 +2023,7 @@ async function handleBotTurn(game) {
                 game.biddingPasses = 0; // Reset bidding passes
                 game.biddingRound = 0; // Reset bidding round
                 game.playersWhoHavePassed.clear(); // Reset passed players for new round
+                game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
 
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
