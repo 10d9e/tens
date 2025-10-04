@@ -43,7 +43,7 @@ const GameTable: React.FC = () => {
                 const currentPlayerId = currentGame.currentPlayer;
                 const turnStartTime = currentGame.playerTurnStartTime?.[currentPlayerId];
 
-                if (turnStartTime) {
+                if (turnStartTime && currentGame.timeoutDuration) {
                     const elapsed = Date.now() - turnStartTime;
                     const remaining = Math.max(0, currentGame.timeoutDuration - elapsed);
                     const seconds = Math.ceil(remaining / 1000);
