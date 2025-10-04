@@ -10,10 +10,11 @@ export const CARD_VALUES: Record<Rank, number> = {
     '9': 0,
     '8': 0,
     '7': 0,
+    '6': 0,
     '5': 5
 };
 
-// Create the modified deck (removing 2s, 3s, 4s, 6s)
+// Create the modified deck (removing 2s, 3s, 4s)
 export function createDeck(): Card[] {
     const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
     const ranks: Rank[] = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '5'];
@@ -106,6 +107,7 @@ export function getCardRank(rank: Rank): number {
         '9': 9,
         '8': 8,
         '7': 7,
+        '6': 6,
         '5': 5
     };
     return ranks[rank];
@@ -135,15 +137,17 @@ export function getPlayerTeam(playerId: string, players: Player[]): 'team1' | 't
 }
 
 export function isGameOver(gameState: GameState): boolean {
-    return gameState.teamScores.team1 >= 200 || gameState.teamScores.team2 >= 200 ||
-        gameState.teamScores.team1 <= -200 || gameState.teamScores.team2 <= -200;
+    const target = gameState.scoreTarget || 200;
+    return gameState.teamScores.team1 >= target || gameState.teamScores.team2 >= target ||
+        gameState.teamScores.team1 <= -target || gameState.teamScores.team2 <= -target;
 }
 
 export function getWinningTeam(gameState: GameState): 'team1' | 'team2' | null {
-    if (gameState.teamScores.team1 >= 200) return 'team1';
-    if (gameState.teamScores.team2 >= 200) return 'team2';
-    if (gameState.teamScores.team1 <= -200) return 'team2'; // team1 loses
-    if (gameState.teamScores.team2 <= -200) return 'team1'; // team2 loses
+    const target = gameState.scoreTarget || 200;
+    if (gameState.teamScores.team1 >= target) return 'team1';
+    if (gameState.teamScores.team2 >= target) return 'team2';
+    if (gameState.teamScores.team1 <= -target) return 'team2'; // team1 loses
+    if (gameState.teamScores.team2 <= -target) return 'team1'; // team2 loses
     return null;
 }
 

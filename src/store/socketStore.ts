@@ -19,6 +19,8 @@ interface SocketStore {
     movePlayer: (tableId: string, newPosition: number) => void;
     startGame: (tableId: string) => void;
     leaveTable: (tableId: string) => void;
+    updateTableDeckVariant: (tableId: string, deckVariant: '36' | '40') => void;
+    updateTableScoreTarget: (tableId: string, scoreTarget: 200 | 300 | 500 | 1000) => void;
     deleteTable: (tableId: string) => void;
     makeBid: (gameId: string, points: number, suit?: string) => void;
     playCard: (gameId: string, card: any) => void;
@@ -494,6 +496,26 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             console.log('Updating table timeout:', tableId, 'to:', timeoutDuration);
             socket.emit('update_table_timeout', { tableId, timeoutDuration });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    updateTableDeckVariant: (tableId, deckVariant) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Updating table deck variant:', tableId, 'to:', deckVariant);
+            socket.emit('update_table_deck_variant', { tableId, deckVariant });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    updateTableScoreTarget: (tableId, scoreTarget) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Updating table score target:', tableId, 'to:', scoreTarget);
+            socket.emit('update_table_score_target', { tableId, scoreTarget });
         } else {
             console.log('Socket not connected');
         }

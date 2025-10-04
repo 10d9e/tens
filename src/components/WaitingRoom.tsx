@@ -5,9 +5,11 @@ import { useSocketStore } from '../store/socketStore';
 
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
-    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout } = useSocketStore();
+    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget } = useSocketStore();
     const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard'>('medium');
     const [timeoutDuration, setTimeoutDuration] = useState(30); // Default to 30 seconds
+    const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
+    const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
 
     // Initialize timeout duration from currentTable when it becomes available
     useEffect(() => {
@@ -17,6 +19,20 @@ const WaitingRoom: React.FC = () => {
             setTimeoutDuration(Math.max(tableTimeoutSeconds, 30));
         }
     }, [currentTable?.timeoutDuration]);
+
+    // Initialize deck variant from currentTable when it becomes available
+    useEffect(() => {
+        if (currentTable?.deckVariant) {
+            setDeckVariant(currentTable.deckVariant);
+        }
+    }, [currentTable?.deckVariant]);
+
+    // Initialize score target from currentTable when it becomes available
+    useEffect(() => {
+        if (currentTable?.scoreTarget) {
+            setScoreTarget(currentTable.scoreTarget);
+        }
+    }, [currentTable?.scoreTarget]);
 
     if (!currentTable || !currentPlayer) {
         return <div>Loading...</div>;
@@ -58,6 +74,20 @@ const WaitingRoom: React.FC = () => {
         setTimeoutDuration(newTimeout);
         if (currentTable) {
             updateTableTimeout(currentTable.id, newTimeout * 1000); // Convert to milliseconds
+        }
+    };
+
+    const handleDeckVariantChange = (newDeckVariant: '36' | '40') => {
+        setDeckVariant(newDeckVariant);
+        if (currentTable) {
+            updateTableDeckVariant(currentTable.id, newDeckVariant);
+        }
+    };
+
+    const handleScoreTargetChange = (newScoreTarget: 200 | 300 | 500 | 1000) => {
+        setScoreTarget(newScoreTarget);
+        if (currentTable) {
+            updateTableScoreTarget(currentTable.id, newScoreTarget);
         }
     };
 
@@ -122,6 +152,96 @@ const WaitingRoom: React.FC = () => {
                                 <p className="text-white/70 text-sm">
                                     Click on empty slots below to add bots, or click on existing bots to remove them.
                                 </p>
+                            </div>
+
+                            {/* Deck Variant Configuration */}
+                            <div className="mb-6">
+                                <h4 className="text-lg font-semibold text-white mb-3">🃏 Deck Variant</h4>
+                                <div className="space-y-2">
+                                    <div className="flex gap-4">
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="deckVariant"
+                                                value="36"
+                                                checked={deckVariant === '36'}
+                                                onChange={(e) => handleDeckVariantChange(e.target.value as '36' | '40')}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                            />
+                                            <span className="text-white">36 Cards (Standard)</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="deckVariant"
+                                                value="40"
+                                                checked={deckVariant === '40'}
+                                                onChange={(e) => handleDeckVariantChange(e.target.value as '36' | '40')}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                            />
+                                            <span className="text-white">40 Cards (with 6s)</span>
+                                        </label>
+                                    </div>
+                                    <p className="text-white/70 text-sm">
+                                        Choose between standard 36-card deck or 40-card deck with 6s included.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Score Target Configuration */}
+                            <div className="mb-6">
+                                <h4 className="text-lg font-semibold text-white mb-3">🎯 Score Target</h4>
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="scoreTarget"
+                                                value="200"
+                                                checked={scoreTarget === 200}
+                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                            />
+                                            <span className="text-white">200 Points (Standard)</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="scoreTarget"
+                                                value="300"
+                                                checked={scoreTarget === 300}
+                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                            />
+                                            <span className="text-white">300 Points</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="scoreTarget"
+                                                value="500"
+                                                checked={scoreTarget === 500}
+                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                            />
+                                            <span className="text-white">500 Points</span>
+                                        </label>
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="scoreTarget"
+                                                value="1000"
+                                                checked={scoreTarget === 1000}
+                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                            />
+                                            <span className="text-white">1000 Points</span>
+                                        </label>
+                                    </div>
+                                    <p className="text-white/70 text-sm">
+                                        Choose the score target for winning the game. Teams can also lose by going negative the target amount.
+                                    </p>
+                                </div>
                             </div>
 
                             {/* Timeout Configuration */}

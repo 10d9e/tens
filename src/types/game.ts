@@ -1,5 +1,5 @@
 export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
-export type Rank = 'A' | 'K' | 'Q' | 'J' | '10' | '9' | '8' | '7' | '5';
+export type Rank = 'A' | 'K' | 'Q' | 'J' | '10' | '9' | '8' | '7' | '6' | '5';
 
 export interface Card {
     suit: Suit;
@@ -48,6 +48,8 @@ export interface GameState {
     biddingPasses?: number; // Track number of consecutive passes
     playerTurnStartTime?: { [playerId: string]: number }; // Track when each player's turn started
     timeoutDuration?: number; // Timeout duration in milliseconds
+    deckVariant?: '36' | '40'; // Track which deck variant is being used
+    scoreTarget?: 200 | 300 | 500 | 1000; // Track the score target for winning
 }
 
 export interface LobbyTable {
@@ -60,6 +62,8 @@ export interface LobbyTable {
     password?: string;
     creator?: string;
     timeoutDuration?: number;
+    deckVariant?: '36' | '40';
+    scoreTarget?: 200 | 300 | 500 | 1000;
 }
 
 export interface ChatMessage {

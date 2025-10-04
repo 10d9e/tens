@@ -66,7 +66,9 @@ function create3BotTables(numTables = 1) {
             players: [],
             gameState: null,
             maxPlayers: 4,
-            isPrivate: false
+            isPrivate: false,
+            deckVariant: '36', // Default to 36-card deck
+            scoreTarget: 200 // Default to 200 points
         };
 
         // Add 3 bot players (without AI for now, will be added when game starts)
@@ -353,7 +355,9 @@ function createBigBubTable() {
         players: [],
         gameState: null,
         maxPlayers: 4,
-        isPrivate: false
+        isPrivate: false,
+        deckVariant: '36', // Default to 36-card deck
+        scoreTarget: 200 // Default to 200 points
     };
 
     // Add 2 bot players at North (0) and South (2), leaving East (1) and West (3) for human players
@@ -383,9 +387,11 @@ create3BotTables(5); // Create 2 default tables with 3 bots each
 createBigBubTable();
 
 // Game logic functions
-function createDeck() {
+function createDeck(deckVariant = '36') {
     const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-    const ranks = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '5'];
+    const ranks = deckVariant === '40'
+        ? ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5']  // 40 cards with 6s
+        : ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '5'];      // 36 cards standard
     const deck = [];
 
     suits.forEach(suit => {
@@ -422,12 +428,12 @@ function dealCards(deck, players) {
 }
 
 function getCardValue(card) {
-    const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '5': 5 };
+    const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
     return values[card.rank] || 0;
 }
 
 function getCardRank(rank) {
-    const ranks = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '5': 5 };
+    const ranks = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5 };
     return ranks[rank] || 0;
 }
 
@@ -478,7 +484,24 @@ function calculateRoundScores(game, contractorTeam, contractorCardPoints, opposi
     };
 }
 
-function createGame(tableId, timeoutDuration = 30000) {
+// Helper function to check if game has ended
+function isGameEnded(game) {
+    const target = game.scoreTarget || 200;
+    return game.teamScores.team1 >= target || game.teamScores.team2 >= target ||
+        game.teamScores.team1 <= -target || game.teamScores.team2 <= -target;
+}
+
+// Helper function to determine winning team
+function getWinningTeam(game) {
+    const target = game.scoreTarget || 200;
+    if (game.teamScores.team1 >= target) return { team: 'team1', name: 'Team 1' };
+    if (game.teamScores.team2 >= target) return { team: 'team2', name: 'Team 2' };
+    if (game.teamScores.team1 <= -target) return { team: 'team2', name: 'Team 2' }; // team1 loses
+    if (game.teamScores.team2 <= -target) return { team: 'team1', name: 'Team 1' }; // team2 loses
+    return null;
+}
+
+function createGame(tableId, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200) {
     const gameId = uuidv4();
 
     // Get the table to copy players from
@@ -500,7 +523,9 @@ function createGame(tableId, timeoutDuration = 30000) {
         roundScores: { team1: 0, team2: 0 }, // Points accumulated during current round
         dealer: null,
         spectatorIds: [],
-        deck: createDeck(),
+        deck: createDeck(deckVariant),
+        deckVariant: deckVariant, // Store the deck variant in the game
+        scoreTarget: scoreTarget, // Store the score target in the game
         contractorTeam: null, // Track which team is the contractor
         opposingTeamBid: false, // Track if opposing team made any bid
         biddingPasses: 0, // Track number of consecutive passes
@@ -557,16 +582,17 @@ function startGame(game) {
         }
     }
 
-    game.deck = createDeck();
+    game.deck = createDeck(game.deckVariant || '36');
 
     // Clear existing cards and deal new ones
     game.players.forEach(player => {
         player.cards = [];
     });
 
-    // Deal cards to players
+    // Deal cards to players - 9 cards for 36-card deck, 10 cards for 40-card deck
+    const cardsPerPlayer = game.deckVariant === '40' ? 10 : 9;
     let cardIndex = 0;
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < cardsPerPlayer; i++) {
         game.players.forEach(player => {
             if (cardIndex < game.deck.length) {
                 player.cards.push(game.deck[cardIndex++]);
@@ -670,7 +696,9 @@ io.on('connection', (socket) => {
             maxPlayers: 4,
             isPrivate: false,
             creator: player.name,
-            timeoutDuration: timeoutDuration
+            timeoutDuration: timeoutDuration,
+            deckVariant: '36', // Default to 36-card deck
+            scoreTarget: 200 // Default to 200 points
         };
 
         // Add the creator as the first player
@@ -901,7 +929,7 @@ io.on('connection', (socket) => {
         }
 
         console.log('Starting game manually for table:', tableId);
-        const game = createGame(tableId, table.timeoutDuration);
+        const game = createGame(tableId, table.timeoutDuration, table.deckVariant || '36', table.scoreTarget || 200);
         table.gameState = startGame(game);
         games.set(game.id, game);
 
@@ -1022,7 +1050,7 @@ io.on('connection', (socket) => {
 
             if (table.players.length === 4) {
                 console.log('Table is full - auto-starting game...');
-                const game = createGame(tableId);
+                const game = createGame(tableId, table.timeoutDuration, table.deckVariant || '36', table.scoreTarget || 200);
                 table.gameState = startGame(game);
                 games.set(game.id, game);
 
@@ -1077,6 +1105,32 @@ io.on('connection', (socket) => {
         // Handle bot players if bidding continues
         if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot) {
             await handleBotTurn(game);
+        } else if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot && game.playersWhoHavePassed.has(game.currentPlayer)) {
+            // Bot has already passed, move to next player
+            const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+            game.currentPlayer = nextPlayer;
+            game.playerTurnStartTime[nextPlayer] = Date.now();
+
+            // Check if bidding should end if we've gone through all players
+            const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed.has(p.id));
+            if (nonPassedPlayers.length === 1 && game.currentBid) {
+                // Only the bidder remains - bidding ends
+                console.log(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
+                game.phase = 'playing';
+                game.trumpSuit = game.currentBid.suit;
+                game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+                game.currentPlayer = game.currentBid.playerId;
+                console.log(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
+
+                io.to(`table-${game.tableId}`).emit('game_updated', { game });
+
+                // Start the first bot turn in playing phase if current player is a bot
+                const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+                if (currentPlayer?.isBot) {
+                    console.log('Starting first bot turn in playing phase');
+                    await handleBotTurn(game);
+                }
+            }
         }
     });
 
@@ -1199,25 +1253,13 @@ io.on('connection', (socket) => {
                 }
 
                 // Check for game end before starting a new round
-                if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200 ||
-                    game.teamScores.team1 <= -200 || game.teamScores.team2 <= -200) {
+                if (isGameEnded(game)) {
                     game.phase = 'finished';
 
                     // Determine winning team and create detailed game end info
-                    let winningTeam, winningTeamName;
-                    if (game.teamScores.team1 >= 200) {
-                        winningTeam = 'team1';
-                        winningTeamName = 'Team 1';
-                    } else if (game.teamScores.team2 >= 200) {
-                        winningTeam = 'team2';
-                        winningTeamName = 'Team 2';
-                    } else if (game.teamScores.team1 <= -200) {
-                        winningTeam = 'team2'; // team1 loses
-                        winningTeamName = 'Team 2';
-                    } else if (game.teamScores.team2 <= -200) {
-                        winningTeam = 'team1'; // team2 loses
-                        winningTeamName = 'Team 1';
-                    }
+                    const winningTeamInfo = getWinningTeam(game);
+                    const winningTeam = winningTeamInfo.team;
+                    const winningTeamName = winningTeamInfo.name;
 
                     const winningPlayers = game.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
 
@@ -1242,16 +1284,17 @@ io.on('connection', (socket) => {
 
                 // Start a new round
                 game.round++;
-                game.deck = createDeck();
+                game.deck = createDeck(game.deckVariant || '36');
 
                 // Clear existing cards and deal new ones
                 game.players.forEach(player => {
                     player.cards = [];
                 });
 
-                // Deal cards to players
+                // Deal cards to players - 9 cards for 36-card deck, 10 cards for 40-card deck
+                const cardsPerPlayer = game.deckVariant === '40' ? 10 : 9;
                 let cardIndex = 0;
-                for (let i = 0; i < 9; i++) {
+                for (let i = 0; i < cardsPerPlayer; i++) {
                     game.players.forEach(player => {
                         if (cardIndex < game.deck.length) {
                             player.cards.push(game.deck[cardIndex++]);
@@ -1307,25 +1350,13 @@ io.on('connection', (socket) => {
             }
 
             // Check for game end
-            if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200 ||
-                game.teamScores.team1 <= -200 || game.teamScores.team2 <= -200) {
+            if (isGameEnded(game)) {
                 game.phase = 'finished';
 
                 // Determine winning team and create detailed game end info
-                let winningTeam, winningTeamName;
-                if (game.teamScores.team1 >= 200) {
-                    winningTeam = 'team1';
-                    winningTeamName = 'Team 1';
-                } else if (game.teamScores.team2 >= 200) {
-                    winningTeam = 'team2';
-                    winningTeamName = 'Team 2';
-                } else if (game.teamScores.team1 <= -200) {
-                    winningTeam = 'team2'; // team1 loses
-                    winningTeamName = 'Team 2';
-                } else if (game.teamScores.team2 <= -200) {
-                    winningTeam = 'team1'; // team2 loses
-                    winningTeamName = 'Team 1';
-                }
+                const winningTeamInfo = getWinningTeam(game);
+                const winningTeam = winningTeamInfo.team;
+                const winningTeamName = winningTeamInfo.name;
 
                 const winningPlayers = game.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
 
@@ -1388,6 +1419,72 @@ io.on('connection', (socket) => {
         // Update timeout duration
         table.timeoutDuration = timeoutDuration;
         console.log(`Table ${tableId} timeout updated to ${timeoutDuration}ms by ${player.name}`);
+
+        // Notify all players in the table about the update
+        io.to(`table-${tableId}`).emit('table_updated', { table });
+
+        // Also update lobby for players not in the table
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+    });
+
+    socket.on('update_table_deck_variant', (data) => {
+        const { tableId, deckVariant } = data;
+        const player = players.get(socket.id);
+        if (!player) return;
+
+        const lobby = lobbies.get('default');
+        const table = lobby?.tables.get(tableId);
+        if (!table) return;
+
+        // Check if player is the table creator
+        if (table.creator !== player.name) {
+            socket.emit('error', { message: 'Only the table creator can update deck variant settings' });
+            return;
+        }
+
+        // Check if game has already started
+        if (table.gameState) {
+            socket.emit('error', { message: 'Cannot change deck variant after game has started' });
+            return;
+        }
+
+        // Update deck variant
+        table.deckVariant = deckVariant;
+        console.log(`Table ${tableId} deck variant updated to ${deckVariant} by ${player.name}`);
+
+        // Notify all players in the table about the update
+        io.to(`table-${tableId}`).emit('table_updated', { table });
+
+        // Also update lobby for players not in the table
+        const tablesArray = Array.from(lobby.tables.values());
+        io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+    });
+
+    socket.on('update_table_score_target', (data) => {
+        const { tableId, scoreTarget } = data;
+        const player = players.get(socket.id);
+        if (!player) return;
+
+        const lobby = lobbies.get('default');
+        const table = lobby?.tables.get(tableId);
+        if (!table) return;
+
+        // Check if player is the table creator
+        if (table.creator !== player.name) {
+            socket.emit('error', { message: 'Only the table creator can update score target settings' });
+            return;
+        }
+
+        // Check if game has already started
+        if (table.gameState) {
+            socket.emit('error', { message: 'Cannot change score target after game has started' });
+            return;
+        }
+
+        // Update score target
+        table.scoreTarget = scoreTarget;
+        console.log(`Table ${tableId} score target updated to ${scoreTarget} by ${player.name}`);
 
         // Notify all players in the table about the update
         io.to(`table-${tableId}`).emit('table_updated', { table });
@@ -1667,21 +1764,46 @@ async function checkBiddingCompletion(game) {
         return;
     }
 
+    // Check if only the bidder remains (bidding should end)
+    if (game.currentBid) {
+        const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed.has(p.id));
+        if (nonPassedPlayers.length === 1 && nonPassedPlayers[0].id === game.currentBid.playerId) {
+            // Only the bidder remains - bidding ends
+            console.log(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
+            game.phase = 'playing';
+            game.trumpSuit = game.currentBid.suit;
+            game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+            game.currentPlayer = game.currentBid.playerId;
+            console.log(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
+
+            io.to(`table-${game.tableId}`).emit('game_updated', { game });
+
+            // Start the first bot turn in playing phase if current player is a bot
+            const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+            if (currentPlayer?.isBot) {
+                console.log('Starting first bot turn in playing phase');
+                await handleBotTurn(game);
+            }
+            return;
+        }
+    }
+
     // Check if all players have passed (bidding ends)
     if (game.playersWhoHavePassed.size >= 4) {
         console.log('All players passed - no bid made, starting new round');
         // All players passed, start a new round
         game.round++;
-        game.deck = createDeck();
+        game.deck = createDeck(game.deckVariant || '36');
 
         // Clear existing cards and deal new ones
         game.players.forEach(player => {
             player.cards = [];
         });
 
-        // Deal cards to players
+        // Deal cards to players - 9 cards for 36-card deck, 10 cards for 40-card deck
+        const cardsPerPlayer = game.deckVariant === '40' ? 10 : 9;
         let cardIndex = 0;
-        for (let i = 0; i < 9; i++) {
+        for (let i = 0; i < cardsPerPlayer; i++) {
             game.players.forEach(player => {
                 if (cardIndex < game.deck.length) {
                     player.cards.push(game.deck[cardIndex++]);
@@ -1793,6 +1915,35 @@ async function handleBotTurn(game) {
         const currentPlayerForBot = game.players.find(p => p.id === game.currentPlayer);
         if (currentPlayerForBot?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed.has(game.currentPlayer)) {
             await handleBotTurn(game);
+        } else if (currentPlayerForBot?.isBot && game.phase === 'bidding' && game.playersWhoHavePassed.has(game.currentPlayer)) {
+            // Bot has already passed, move to next player
+            const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+            game.currentPlayer = nextPlayer;
+            game.playerTurnStartTime[nextPlayer] = Date.now();
+
+            // Check if bidding should end if we've gone through all players
+            const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed.has(p.id));
+            if (nonPassedPlayers.length === 1 && game.currentBid) {
+                // Only the bidder remains - bidding ends
+                console.log(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
+                game.phase = 'playing';
+                game.trumpSuit = game.currentBid.suit;
+                game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+                game.currentPlayer = game.currentBid.playerId;
+                console.log(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
+
+                io.to(`table-${game.tableId}`).emit('game_updated', { game });
+
+                // Start the first bot turn in playing phase if current player is a bot
+                const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
+                if (currentPlayer?.isBot) {
+                    console.log('Starting first bot turn in playing phase');
+                    await handleBotTurn(game);
+                }
+            } else if (currentPlayerForBot?.isBot && game.phase === 'bidding') {
+                // Continue with next bot
+                await handleBotTurn(game);
+            }
         }
     } else if (game.phase === 'playing') {
         // Add 1 second delay for bot card playing to make it feel more natural
@@ -1930,25 +2081,13 @@ async function handleBotTurn(game) {
                     }
 
                     // Check for game end before starting a new round
-                    if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200 ||
-                        game.teamScores.team1 <= -200 || game.teamScores.team2 <= -200) {
+                    if (isGameEnded(game)) {
                         game.phase = 'finished';
 
                         // Determine winning team and create detailed game end info
-                        let winningTeam, winningTeamName;
-                        if (game.teamScores.team1 >= 200) {
-                            winningTeam = 'team1';
-                            winningTeamName = 'Team 1';
-                        } else if (game.teamScores.team2 >= 200) {
-                            winningTeam = 'team2';
-                            winningTeamName = 'Team 2';
-                        } else if (game.teamScores.team1 <= -200) {
-                            winningTeam = 'team2'; // team1 loses
-                            winningTeamName = 'Team 2';
-                        } else if (game.teamScores.team2 <= -200) {
-                            winningTeam = 'team1'; // team2 loses
-                            winningTeamName = 'Team 1';
-                        }
+                        const winningTeamInfo = getWinningTeam(game);
+                        const winningTeam = winningTeamInfo.team;
+                        const winningTeamName = winningTeamInfo.name;
 
                         const winningPlayers = game.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
 
@@ -1973,16 +2112,17 @@ async function handleBotTurn(game) {
 
                     // Start a new round
                     game.round++;
-                    game.deck = createDeck();
+                    game.deck = createDeck(game.deckVariant || '36');
 
                     // Clear existing cards and deal new ones
                     game.players.forEach(player => {
                         player.cards = [];
                     });
 
-                    // Deal cards to players
+                    // Deal cards to players - 9 cards for 36-card deck, 10 cards for 40-card deck
+                    const cardsPerPlayer = game.deckVariant === '40' ? 10 : 9;
                     let cardIndex = 0;
-                    for (let i = 0; i < 9; i++) {
+                    for (let i = 0; i < cardsPerPlayer; i++) {
                         game.players.forEach(player => {
                             if (cardIndex < game.deck.length) {
                                 player.cards.push(game.deck[cardIndex++]);
@@ -2036,25 +2176,13 @@ async function handleBotTurn(game) {
                 }
 
                 // Check for game end
-                if (game.teamScores.team1 >= 200 || game.teamScores.team2 >= 200 ||
-                    game.teamScores.team1 <= -200 || game.teamScores.team2 <= -200) {
+                if (isGameEnded(game)) {
                     game.phase = 'finished';
 
                     // Determine winning team and create detailed game end info
-                    let winningTeam, winningTeamName;
-                    if (game.teamScores.team1 >= 200) {
-                        winningTeam = 'team1';
-                        winningTeamName = 'Team 1';
-                    } else if (game.teamScores.team2 >= 200) {
-                        winningTeam = 'team2';
-                        winningTeamName = 'Team 2';
-                    } else if (game.teamScores.team1 <= -200) {
-                        winningTeam = 'team2'; // team1 loses
-                        winningTeamName = 'Team 2';
-                    } else if (game.teamScores.team2 <= -200) {
-                        winningTeam = 'team1'; // team2 loses
-                        winningTeamName = 'Team 1';
-                    }
+                    const winningTeamInfo = getWinningTeam(game);
+                    const winningTeam = winningTeamInfo.team;
+                    const winningTeamName = winningTeamInfo.name;
 
                     const winningPlayers = game.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
 
