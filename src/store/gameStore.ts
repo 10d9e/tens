@@ -19,6 +19,7 @@ interface GameStore {
     } | null;
     showShuffleAnimation: boolean;
     showGlowEffect: boolean;
+    gameEndedByExit: boolean;
 
     // Actions
     setCurrentGame: (game: GameState | null) => void;
@@ -35,6 +36,7 @@ interface GameStore {
     setCompletedRoundResults: (results: any) => void;
     setShowShuffleAnimation: (show: boolean) => void;
     setShowGlowEffect: (show: boolean) => void;
+    setGameEndedByExit: (ended: boolean) => void;
 }
 
 export const useGameStore = create<GameStore>((set) => ({
@@ -50,6 +52,7 @@ export const useGameStore = create<GameStore>((set) => ({
     completedRoundResults: null,
     showShuffleAnimation: false,
     showGlowEffect: false,
+    gameEndedByExit: false,
 
     setCurrentGame: (game) => set({ currentGame: game }),
     setCurrentTable: (table) => set({ currentTable: table }),
@@ -91,5 +94,7 @@ export const useGameStore = create<GameStore>((set) => ({
 
     setShowShuffleAnimation: (show) => set({ showShuffleAnimation: show }),
 
-    setShowGlowEffect: (show) => set({ showGlowEffect: show })
+    setShowGlowEffect: (show) => set({ showGlowEffect: show }),
+
+    setGameEndedByExit: (ended) => set({ gameEndedByExit: ended })
 }));

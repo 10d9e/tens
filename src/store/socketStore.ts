@@ -24,6 +24,7 @@ interface SocketStore {
     playCard: (gameId: string, card: any) => void;
     sendChat: (message: string, tableId: string) => void;
     updateTableTimeout: (tableId: string, timeoutDuration: number) => void;
+    exitGame: (gameId: string, playerName: string) => void;
 }
 
 export const useSocketStore = create<SocketStore>((set, get) => ({
@@ -288,37 +289,45 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('game_ended', (data) => {
-            const { game, winningTeam, winningTeamName, winningPlayers, finalScores } = data;
-            useGameStore.getState().setCurrentGame(game);
-            useGameStore.getState().setLastTrick(null); // Clear last trick
+            const { game, winningTeam, winningTeamName, winningPlayers, finalScores, reason } = data;
 
-            // Ensure trick area is cleared when game ends
-            const updatedGame = { ...game, currentTrick: { cards: [], winner: null, points: 0 } };
-            useGameStore.getState().setCurrentGame(updatedGame);
+            // Check if this is a legitimate game end or due to player exit
+            const gameStore = useGameStore.getState();
+            const isExit = reason === 'Player disconnected' || gameStore.gameEndedByExit;
 
-            // Create detailed win notification
-            const winningPlayerNames = winningPlayers.map((p: any) => p.name).join(' & ');
-            const teamScore = finalScores[winningTeam];
-            const otherTeam = winningTeam === 'team1' ? 'team2' : 'team1';
-            const otherTeamScore = finalScores[otherTeam];
+            if (!isExit) {
+                // Only process legitimate game ends (not exits)
+                gameStore.setCurrentGame(game);
+                gameStore.setLastTrick(null); // Clear last trick
 
-            console.log('Game end details:', { winningTeam, winningTeamName, teamScore, otherTeam, otherTeamScore });
+                // Ensure trick area is cleared when game ends
+                const updatedGame = { ...game, currentTrick: { cards: [], winner: null, points: 0 } };
+                gameStore.setCurrentGame(updatedGame);
 
+                // Create detailed win notification
+                const winningPlayerNames = winningPlayers.map((p: any) => p.name).join(' & ');
+                const teamScore = finalScores[winningTeam];
+                const otherTeam = winningTeam === 'team1' ? 'team2' : 'team1';
+                const otherTeamScore = finalScores[otherTeam];
 
+                console.log('Game end details:', { winningTeam, winningTeamName, teamScore, otherTeam, otherTeamScore });
 
-            // Add system message to chat
-            const systemMessage = {
-                id: `game-end-${Date.now()}`,
-                playerId: 'system',
-                playerName: 'System',
-                message: `🏆 Game Over! ${winningTeamName} wins with ${teamScore} points! Winners: ${winningPlayerNames}`,
-                timestamp: Date.now(),
-                type: 'system' as const
-            };
-            useGameStore.getState().addChatMessage(systemMessage);
+                // Add system message to chat
+                const systemMessage = {
+                    id: `game-end-${Date.now()}`,
+                    playerId: 'system',
+                    playerName: 'System',
+                    message: `🏆 Game Over! ${winningTeamName} wins with ${teamScore} points! Winners: ${winningPlayerNames}`,
+                    timestamp: Date.now(),
+                    type: 'system' as const
+                };
+                gameStore.addChatMessage(systemMessage);
 
-            // Set a flag to indicate the game has ended
-            useGameStore.getState().updateGameState({ phase: 'finished' });
+                // Set a flag to indicate the game has ended
+                gameStore.updateGameState({ phase: 'finished' });
+            } else {
+                console.log('Game ended due to exit/disconnect - not showing winning dialog');
+            }
         });
 
         socket.on('chat_message', (message) => {
@@ -338,6 +347,26 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             if (currentTable && currentTable.id === data.tableId) {
                 useGameStore.getState().setCurrentTable(null);
             }
+        });
+
+        socket.on('player_exited_game', (data) => {
+            const { message } = data;
+            console.log('Player exited game:', message);
+            toast(message, { icon: '🚪' });
+
+            // Set flag to indicate game ended by exit (prevents winning dialog from showing)
+            const gameStore = useGameStore.getState();
+            gameStore.setGameEndedByExit(true);
+
+            // Clear game state and return to lobby
+            gameStore.setCurrentGame(null);
+            gameStore.setCurrentTable(null);
+            gameStore.setCurrentPlayer(null);
+            gameStore.setIsBidding(false);
+            gameStore.setSelectedCard(null);
+
+            // Reset the flag after clearing game state
+            gameStore.setGameEndedByExit(false);
         });
 
         set({ socket });
@@ -465,6 +494,19 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             console.log('Updating table timeout:', tableId, 'to:', timeoutDuration);
             socket.emit('update_table_timeout', { tableId, timeoutDuration });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    exitGame: (gameId, playerName) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Exiting game:', gameId, 'by player:', playerName);
+            // Set flag immediately to prevent any race conditions
+            const gameStore = useGameStore.getState();
+            gameStore.setGameEndedByExit(true);
+            socket.emit('exit_game', { gameId, playerName });
         } else {
             console.log('Socket not connected');
         }

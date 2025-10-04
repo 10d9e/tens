@@ -21,13 +21,15 @@ const GameTable: React.FC = () => {
         completedRoundResults,
         showShuffleAnimation,
         showGlowEffect,
+        gameEndedByExit,
         setSelectedCard,
         setIsBidding
     } = useGameStore();
 
-    const { makeBid, playCard } = useSocketStore();
+    const { makeBid, playCard, exitGame } = useSocketStore();
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
+    const [showExitDialog, setShowExitDialog] = useState(false);
 
     // Automatically open bid dialog when it's the player's turn to bid
     useEffect(() => {
@@ -166,6 +168,24 @@ const GameTable: React.FC = () => {
         setIsBidding(false);
     };
 
+    const handleExitGame = () => {
+        if (!currentGame || !currentPlayer) return;
+
+        // Show confirmation dialog
+        setShowExitDialog(true);
+    };
+
+    const confirmExitGame = () => {
+        if (!currentGame || !currentPlayer) return;
+
+        exitGame(currentGame.id, currentPlayer.name);
+        setShowExitDialog(false);
+    };
+
+    const cancelExitGame = () => {
+        setShowExitDialog(false);
+    };
+
 
     const getPlayerPosition = (player: any) => {
         // Map position numbers to position names
@@ -189,9 +209,19 @@ const GameTable: React.FC = () => {
                 <div className="flex items-center gap-6">
                     <h2 className="text-2xl font-bold text-white">🎴 Two Hundred</h2>
                 </div>
-                {/* Right justify username with emoji */}
-                <div className="text-white text-right">
-                    🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
+                <div className="flex items-center gap-4">
+                    {/* Exit Game Button */}
+                    <button
+                        onClick={handleExitGame}
+                        className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
+                        title="Exit Game"
+                    >
+                        🚪 Exit Game
+                    </button>
+                    {/* Username with emoji */}
+                    <div className="text-white text-right">
+                        🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
+                    </div>
                 </div>
             </div>
             <br />
@@ -421,7 +451,7 @@ const GameTable: React.FC = () => {
             />
 
             {/* Game End Overlay */}
-            {currentGame.phase === 'finished' && (
+            {currentGame.phase === 'finished' && !gameEndedByExit && (
                 <motion.div
                     className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
                     style={{
@@ -493,6 +523,49 @@ const GameTable: React.FC = () => {
                         >
                             🏠 Exit to Lobby
                         </button>
+                    </motion.div>
+                </motion.div>
+            )}
+
+            {/* Exit Game Confirmation Dialog */}
+            {showExitDialog && (
+                <motion.div
+                    className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
+                    style={{
+                        backgroundColor: 'rgba(0, 0, 0, 0.9)'
+                    }}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                >
+                    <motion.div
+                        className="bg-gradient-to-br from-red-900 to-red-800 rounded-2xl p-8 border-2 border-red-500 shadow-2xl max-w-md w-full mx-4 text-center"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <div className="text-6xl mb-4">⚠️</div>
+                        <h2 className="text-3xl font-bold text-white mb-4">Exit Game?</h2>
+                        <p className="text-lg text-red-200 mb-6">
+                            This will end the game for all players and return everyone to the lobby.
+                        </p>
+                        <p className="text-sm text-red-300 mb-8">
+                            Are you sure you want to exit?
+                        </p>
+
+                        <div className="flex gap-4 justify-center">
+                            <button
+                                onClick={cancelExitGame}
+                                className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={confirmExitGame}
+                                className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                            >
+                                Exit Game
+                            </button>
+                        </div>
                     </motion.div>
                 </motion.div>
             )}

@@ -1432,6 +1432,73 @@ io.on('connection', (socket) => {
         io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
     });
 
+    socket.on('exit_game', (data) => {
+        console.log('exit_game received:', data);
+        const { gameId, playerName } = data;
+        const player = players.get(socket.id);
+        if (!player) {
+            console.log('Player not found for socket:', socket.id);
+            return;
+        }
+
+        const game = games.get(gameId);
+        if (!game) {
+            console.log('Game not found:', gameId);
+            socket.emit('error', { message: 'Game not found' });
+            return;
+        }
+
+        // Verify the player is in this game
+        const gamePlayer = game.players.find(p => p.id === player.id);
+        if (!gamePlayer) {
+            console.log('Player not in game:', player.name);
+            socket.emit('error', { message: 'You are not in this game' });
+            return;
+        }
+
+        console.log(`Player ${player.name} is exiting game ${gameId}`);
+
+        // End the game for all players
+        game.phase = 'finished';
+
+        // Get the lobby and table
+        const lobby = lobbies.get('default');
+        const table = lobby?.tables.get(game.tableId);
+
+        // Remove the game from memory
+        games.delete(gameId);
+
+        if (table) {
+            // Keep only AI players on the table, remove human players
+            const botPlayers = game.players.filter(player => player.isBot);
+            table.players = botPlayers;
+            table.gameState = null;
+
+            // Notify all table members about the updated table
+            io.to(`table-${game.tableId}`).emit('table_updated', { table });
+
+            // Force all human players back to lobby with exit message
+            const humanPlayers = game.players.filter(p => !p.isBot);
+            humanPlayers.forEach(humanPlayer => {
+                // For human players, emit to their socket
+                io.to(humanPlayer.id).emit('player_exited_game', {
+                    message: `${playerName} has exited the game. Returning to lobby.`,
+                    exitedPlayerName: playerName
+                });
+                io.to(humanPlayer.id).emit('lobby_joined', {
+                    lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
+                    player: humanPlayer
+                });
+            });
+
+            // Update lobby for all players
+            const tablesArray = Array.from(lobby.tables.values());
+            io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+        }
+
+        console.log(`Game ${gameId} ended due to player exit by ${player.name}`);
+    });
+
     socket.on('disconnect', () => {
         console.log('Player disconnected:', socket.id);
         const player = players.get(socket.id);
