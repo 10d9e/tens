@@ -42,7 +42,7 @@ const KittyArea: React.FC<KittyAreaProps> = ({
         <div className="kitty-area">
             <div>
 
-                <div className="flex justify-center gap-1" style={{ zIndex: 9999 }}>
+                <div className="flex justify-center gap-1" style={{ zIndex: showKittyDiscards && kittyDiscards && kittyDiscards.length > 0 ? 40 : 0 }}>
                     {showKittyDiscards && kittyDiscards && kittyDiscards.length > 0 ? (
                         // Show actual discarded cards
                         kittyDiscards.map((card, index) => {
@@ -67,7 +67,7 @@ const KittyArea: React.FC<KittyAreaProps> = ({
                                     <Card
                                         card={card}
                                         size="medium"
-                                        className="shadow-lg"
+                                        className="shadow-lg kitty-card"
                                         style={isPoint ? { boxShadow: getKittyDiscardTeamGlow() } : undefined}
                                     />
                                 </motion.div>

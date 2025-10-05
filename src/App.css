@@ -665,19 +665,15 @@ body {
     animation: cardPlay 0.2s ease-out;
 }
 
-
-
-/* Round Notepad Styles */
+/* Kitty Area Styles */
 .kitty-area {
     position: fixed;
     top: 5rem;
     right: 15rem;
     padding: 1rem;
     min-width: 220px;
-    z-index: 999;
-
+    z-index: 40;
 }
-
 
 /* Round Notepad Styles */
 .round-notepad {
