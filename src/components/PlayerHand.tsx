@@ -45,7 +45,7 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     const playableCards = getPlayableCards();
     const playableCardIds = new Set(playableCards.map(c => c.id));
 
-    // Sort cards by suit first, then by rank
+    // Sort cards by suit first, then by face value (5, 6, 7, 8, 9, 10, J, Q, K, A)
     const sortedCards = [...player.cards].sort((a, b) => {
         // Define suit order (hearts, clubs, diamonds, spades)
         const suitOrder = { hearts: 0, clubs: 1, diamonds: 2, spades: 3 };
@@ -56,8 +56,8 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
             return suitA - suitB;
         }
 
-        // Within same suit, sort by rank
-        const rankOrder = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '5': 5 };
+        // Within same suit, sort by face value (5, 6, 7, 8, 9, 10, J, Q, K, A)
+        const rankOrder = { '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
         const rankA = rankOrder[a.rank as keyof typeof rankOrder];
         const rankB = rankOrder[b.rank as keyof typeof rankOrder];
 

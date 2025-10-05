@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameState, Player, LobbyTable, ChatMessage } from '../types/game';
+import { GameState, Player, LobbyTable, ChatMessage, Card } from '../types/game';
 
 interface GameStore {
     currentGame: GameState | null;
@@ -16,6 +16,7 @@ interface GameStore {
         currentBid?: { points: number; suit?: string };
         contractorTeam?: 'team1' | 'team2';
         round: number;
+        kittyDiscards?: Card[];
     } | null;
     showShuffleAnimation: boolean;
     showGlowEffect: boolean;

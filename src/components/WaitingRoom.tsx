@@ -5,11 +5,12 @@ import { useSocketStore } from '../store/socketStore';
 
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
-    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget } = useSocketStore();
+    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget, updateTableKitty } = useSocketStore();
     const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard'>('medium');
     const [timeoutDuration, setTimeoutDuration] = useState(30); // Default to 30 seconds
     const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
     const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
+    const [hasKitty, setHasKitty] = useState(false);
 
     // Initialize timeout duration from currentTable when it becomes available
     useEffect(() => {
@@ -33,6 +34,13 @@ const WaitingRoom: React.FC = () => {
             setScoreTarget(currentTable.scoreTarget);
         }
     }, [currentTable?.scoreTarget]);
+
+    // Initialize kitty setting from currentTable when it becomes available
+    useEffect(() => {
+        if (currentTable?.hasKitty !== undefined) {
+            setHasKitty(currentTable.hasKitty);
+        }
+    }, [currentTable?.hasKitty]);
 
     if (!currentTable || !currentPlayer) {
         return <div>Loading...</div>;
@@ -88,6 +96,13 @@ const WaitingRoom: React.FC = () => {
         setScoreTarget(newScoreTarget);
         if (currentTable) {
             updateTableScoreTarget(currentTable.id, newScoreTarget);
+        }
+    };
+
+    const handleKittyChange = (newHasKitty: boolean) => {
+        setHasKitty(newHasKitty);
+        if (currentTable) {
+            updateTableKitty(currentTable.id, newHasKitty);
         }
     };
 
@@ -187,6 +202,28 @@ const WaitingRoom: React.FC = () => {
                                     </p>
                                 </div>
                             </div>
+
+                            {/* Kitty Configuration - Only shown when 40-card deck is selected */}
+                            {deckVariant === '40' && (
+                                <div className="mb-6">
+                                    <h4 className="text-lg font-semibold text-white mb-3">🐱 Kitty Feature</h4>
+                                    <div className="space-y-2">
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={hasKitty}
+                                                onChange={(e) => handleKittyChange(e.target.checked)}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400 rounded"
+                                            />
+                                            <span className="text-white">Enable Kitty</span>
+                                        </label>
+                                        <p className="text-white/70 text-sm">
+                                            When enabled, the winning bidder takes 4 cards from a kitty and discards 4 cards back.
+                                            The discarded cards' points go to the defending team at the end of the hand.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Score Target Configuration */}
                             <div className="mb-6">

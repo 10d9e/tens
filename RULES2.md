@@ -55,3 +55,10 @@ The first team to achieve a score of 200 points or more wins the game. If both t
 
 The game also ends if one team reaches a negative score of 200 or worse while the other team's score is positive or zero. In that case the team with minus 200 or worse loses the game.
 
+200 with a Kitty
+
+If the standard rules are not followed, 200 With a Kitty (Two-Hundred with a Kitty) is one of the most popular variants of 200 currently adhered to. It slightly increases the normal deck as used for the game 200 by using a 40 card deck. This deck is formed by removing all cards of four and under from a standard deck. The ranking of the cards in this deck, are as follows (from highest to lowest): Ace, King, Queen, Jack, 10, 9, 8, 7, 6, 5. Similar to the parent game, 200 With a Kitty is also played by four players playing in two partnerships.
+
+This variant is played identically to the standard game of 200 save the following differences:
+- The method of dealing is modified from the standard variant. In this version, the dealer first deals each player receives a three card packet. After this the dealer deals two cards to the middle of the table for formation of a kitty. The dealer then deals another packet consisting of three cards to each player, and then two more face-down to complete the kitty. After this, the dealer then deals a final three card packet to each player. Each player should thus have nine face-down cards and a four card face-down kitty is in the middle of the table.
+- The bidding is as normal, however the winning high bidder is entitled to take the four cards from the kitty into his hand upon completion of the bidding. The player then selects any four cards from his hand to discard to form a new face-down kitty in the middle of the table. After doing this, he then declares his choice of trump suit for the hand. At the end of the hand any card points found amongst the discarded four card kitty, are awarded to the defending team.

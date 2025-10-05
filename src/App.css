@@ -93,8 +93,8 @@ body {
 
 /* Card Styles */
 .card {
-    width: 60px;
-    height: 84px;
+    width: 90px;
+    height: 126px;
     border-radius: 8px;
     position: relative;
     cursor: pointer;
@@ -105,7 +105,7 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    padding: 4px;
+    padding: 6px;
     user-select: none;
 }
 
@@ -131,13 +131,13 @@ body {
 }
 
 .card-rank {
-    font-size: 12px;
+    font-size: 24px !important;
     font-weight: bold;
     line-height: 1;
 }
 
 .card-suit {
-    font-size: 16px;
+    font-size: 32px !important;
     text-align: center;
     flex: 1;
     display: flex;
@@ -146,10 +146,17 @@ body {
 }
 
 .card-rank-bottom {
-    font-size: 12px;
+    font-size: 24px !important;
     font-weight: bold;
     line-height: 1;
     transform: rotate(180deg);
+    text-align: right;
+}
+
+.card-value-indicator {
+    color: #1e40af;
+    font-size: 14px;
+    font-weight: bold;
     text-align: right;
 }
 
@@ -230,16 +237,12 @@ body {
 }
 
 .trick-area {
-    width: 300px;
-    height: 200px;
+    width: 675px;
+    height: 450px;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
 }
 
 .trick-card {
@@ -325,9 +328,28 @@ body {
 }
 
 .player-cards .card {
-    width: 30px;
-    height: 42px;
-    font-size: 8px;
+    width: 45px;
+    height: 63px;
+    font-size: 12px;
+}
+
+/* Tiny card size for KittyInterface */
+.card.w-3.h-4 {
+    width: 12px !important;
+    height: 16px !important;
+    padding: 1px !important;
+}
+
+.card.w-3.h-4 .card-rank {
+    font-size: 16px !important;
+}
+
+.card.w-3.h-4 .card-suit {
+    font-size: 20px !important;
+}
+
+.card.w-3.h-4 .card-rank-bottom {
+    font-size: 16px !important;
 }
 
 /* Game Controls */
@@ -525,35 +547,53 @@ body {
 /* Responsive Design */
 @media (max-width: 768px) {
     .card {
-        width: 45px;
-        height: 63px;
+        width: 67px;
+        height: 94px;
     }
 
     .player-cards .card {
-        width: 25px;
-        height: 35px;
-        font-size: 6px;
+        width: 37px;
+        height: 52px;
+        font-size: 9px;
+    }
+
+    .card.w-3.h-4 {
+        width: 9px !important;
+        height: 12px !important;
+        padding: 0.5px !important;
+    }
+
+    .card.w-3.h-4 .card-rank {
+        font-size: 12px !important;
+    }
+
+    .card.w-3.h-4 .card-suit {
+        font-size: 16px !important;
+    }
+
+    .card.w-3.h-4 .card-rank-bottom {
+        font-size: 12px !important;
     }
 
     .trick-area {
-        width: 250px;
-        height: 150px;
+        width: 562px;
+        height: 337px;
     }
 
     .trick-card:nth-child(1) {
-        transform: translate(-40px, -20px);
+        transform: translate(-90px, -45px);
     }
 
     .trick-card:nth-child(2) {
-        transform: translate(40px, -20px);
+        transform: translate(90px, -45px);
     }
 
     .trick-card:nth-child(3) {
-        transform: translate(-40px, 20px);
+        transform: translate(-90px, 45px);
     }
 
     .trick-card:nth-child(4) {
-        transform: translate(40px, 20px);
+        transform: translate(90px, 45px);
     }
 
     .player-area.north {
@@ -625,6 +665,20 @@ body {
     animation: cardPlay 0.2s ease-out;
 }
 
+
+
+/* Round Notepad Styles */
+.kitty-area {
+    position: fixed;
+    top: 5rem;
+    right: 15rem;
+    padding: 1rem;
+    min-width: 220px;
+    z-index: 999;
+
+}
+
+
 /* Round Notepad Styles */
 .round-notepad {
     position: fixed;
@@ -635,7 +689,7 @@ body {
     border-radius: 12px;
     padding: 1rem;
     backdrop-filter: blur(10px);
-    min-width: 200px;
+    min-width: 220px;
     z-index: 50;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -851,8 +905,8 @@ body {
 
 .shuffle-card {
     position: absolute;
-    width: 40px;
-    height: 56px;
+    width: 70px;
+    height: 98px;
     background: linear-gradient(135deg, #1e40af, #3b82f6);
     border: 2px solid rgba(255, 255, 255, 0.3);
     border-radius: 8px;
@@ -921,8 +975,8 @@ body {
     }
 
     .shuffle-card {
-        width: 30px;
-        height: 42px;
+        width: 52px;
+        height: 73px;
     }
 
     .card-back {

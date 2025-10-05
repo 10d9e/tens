@@ -34,7 +34,7 @@ export interface GameState {
     id: string;
     players: Player[];
     currentPlayer: string;
-    phase: 'waiting' | 'bidding' | 'playing' | 'finished';
+    phase: 'waiting' | 'bidding' | 'kitty' | 'playing' | 'finished';
     trumpSuit?: Suit;
     currentBid?: Bid;
     currentTrick: Trick;
@@ -50,6 +50,10 @@ export interface GameState {
     timeoutDuration?: number; // Timeout duration in milliseconds
     deckVariant?: '36' | '40'; // Track which deck variant is being used
     scoreTarget?: 200 | 300 | 500 | 1000; // Track the score target for winning
+    // Kitty-related fields
+    hasKitty?: boolean; // Whether this game uses kitty
+    kitty?: Card[]; // The kitty cards
+    kittyDiscards?: Card[]; // Cards discarded to kitty by winning bidder
 }
 
 export interface LobbyTable {
@@ -64,6 +68,7 @@ export interface LobbyTable {
     timeoutDuration?: number;
     deckVariant?: '36' | '40';
     scoreTarget?: 200 | 300 | 500 | 1000;
+    hasKitty?: boolean; // Whether this table uses kitty (only available with 40-card deck)
 }
 
 export interface ChatMessage {

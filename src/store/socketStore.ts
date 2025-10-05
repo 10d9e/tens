@@ -21,9 +21,12 @@ interface SocketStore {
     leaveTable: (tableId: string) => void;
     updateTableDeckVariant: (tableId: string, deckVariant: '36' | '40') => void;
     updateTableScoreTarget: (tableId: string, scoreTarget: 200 | 300 | 500 | 1000) => void;
+    updateTableKitty: (tableId: string, hasKitty: boolean) => void;
     deleteTable: (tableId: string) => void;
     makeBid: (gameId: string, points: number, suit?: string) => void;
     playCard: (gameId: string, card: any) => void;
+    takeKitty: (gameId: string) => void;
+    discardToKitty: (gameId: string, discardedCards: any[], trumpSuit?: string) => void;
     sendChat: (message: string, tableId: string) => void;
     updateTableTimeout: (tableId: string, timeoutDuration: number) => void;
     exitGame: (gameId: string, playerName: string) => void;
@@ -209,6 +212,13 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('game_updated', (data) => {
             const { game } = data;
+            console.log('Received game_updated:', {
+                phase: game.phase,
+                currentPlayer: game.currentPlayer,
+                hasKitty: game.hasKitty,
+                kittyLength: game.kitty?.length || 0,
+                round: game.round
+            });
             useGameStore.getState().setCurrentGame(game);
 
             if (game.phase === 'playing') {
@@ -253,7 +263,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                     roundScores: previousGame.roundScores,
                     currentBid: previousGame.currentBid,
                     contractorTeam: previousGame.contractorTeam,
-                    round: game.round - 1 // The round that just completed
+                    round: game.round - 1, // The round that just completed
+                    kittyDiscards: previousGame.kittyDiscards // Include kitty discards for display
                 };
 
                 // Store the completed round results and show glow effect
@@ -484,6 +495,22 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         }
     },
 
+    takeKitty: (gameId) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Taking kitty for game:', gameId);
+            socket.emit('take_kitty', { gameId });
+        }
+    },
+
+    discardToKitty: (gameId, discardedCards, trumpSuit) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Discarding to kitty for game:', gameId, 'cards:', discardedCards.length, 'trump:', trumpSuit);
+            socket.emit('discard_to_kitty', { gameId, discardedCards, trumpSuit });
+        }
+    },
+
     sendChat: (message, tableId) => {
         const { socket } = get();
         if (socket) {
@@ -516,6 +543,16 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             console.log('Updating table score target:', tableId, 'to:', scoreTarget);
             socket.emit('update_table_score_target', { tableId, scoreTarget });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    updateTableKitty: (tableId, hasKitty) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Updating table kitty setting:', tableId, 'to:', hasKitty);
+            socket.emit('update_table_kitty', { tableId, hasKitty });
         } else {
             console.log('Socket not connected');
         }
