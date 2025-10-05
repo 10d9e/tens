@@ -11,7 +11,7 @@ export interface Player {
     id: string;
     name: string;
     isBot: boolean;
-    botSkill?: 'easy' | 'medium' | 'hard';
+    botSkill?: 'easy' | 'medium' | 'hard' | 'acadien';
     position: 0 | 1 | 2 | 3; // 0=North, 1=East, 2=South, 3=West
     cards: Card[];
     score: number;

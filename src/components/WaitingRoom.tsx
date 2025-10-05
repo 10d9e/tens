@@ -6,7 +6,7 @@ import { useSocketStore } from '../store/socketStore';
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
     const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget, updateTableKitty } = useSocketStore();
-    const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard'>('medium');
+    const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard' | 'acadien'>('medium');
     const [timeoutDuration, setTimeoutDuration] = useState(30); // Default to 30 seconds
     const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
     const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
@@ -156,12 +156,13 @@ const WaitingRoom: React.FC = () => {
                                     <label className="text-white font-medium">Bot Skill Level:</label>
                                     <select
                                         value={selectedSkill}
-                                        onChange={(e) => setSelectedSkill(e.target.value as 'easy' | 'medium' | 'hard')}
+                                        onChange={(e) => setSelectedSkill(e.target.value as 'easy' | 'medium' | 'hard' | 'acadien')}
                                         className="px-3 py-2 rounded-lg bg-white/10 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
                                     >
-                                        <option value="easy">Easy</option>
-                                        <option value="medium">Medium</option>
-                                        <option value="hard">Hard</option>
+                                        <option value="easy">Easy 🤖</option>
+                                        <option value="medium">Medium 🤖🤖</option>
+                                        <option value="hard">Hard 🤖🤖🤖</option>
+                                        <option value="acadien">Acadien 🧠</option>
                                     </select>
                                 </div>
                                 <p className="text-white/70 text-sm">

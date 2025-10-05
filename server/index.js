@@ -76,7 +76,7 @@ function create3BotTables(numTables = 1) {
 
         // Add 3 bot players (without AI for now, will be added when game starts)
         // Position them sequentially (0, 1, 2) leaving position 3 for human player
-        const botSkills = ['easy', 'medium', 'hard'];
+        const botSkills = ['easy', 'medium', 'hard', 'acadien'];
         for (let i = 0; i < 3; i++) {
             const botId = `bot-${uuidv4()}`;
             const bot = {
@@ -438,7 +438,7 @@ class SimpleBotAI {
 
         // Simple strategy: prefer playing high-value cards if we have the lead suit
         // or low-value cards if we don't
-        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '5': 5 };
+        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
 
         if (leadSuit) {
             // If we have the lead suit, try to win with a high card
@@ -462,6 +462,512 @@ class SimpleBotAI {
             // First card of trick - play a medium value card
             return playableCards[Math.floor(Math.random() * playableCards.length)];
         }
+    }
+}
+
+// Advanced Acadien Bot AI - Expert level with card tracking
+class AcadienBotAI {
+    constructor() {
+        this.skill = 'acadien';
+        this.playedCards = new Set(); // Track all cards that have been played
+        this.knownCards = new Set(); // Cards we know about (our hand + played cards)
+        this.partnerBehavior = {
+            biddingStyle: 'unknown', // conservative, aggressive, balanced
+            playingStyle: 'unknown', // cautious, bold, calculated
+            cardSignals: [], // Track signals partner gives
+            tricksWon: 0,
+            pointsContributed: 0
+        };
+        this.gameHistory = {
+            rounds: [],
+            teamScores: { team1: 0, team2: 0 },
+            biddingHistory: []
+        };
+        this.cardProbabilities = new Map(); // Track probability of each card being in each player's hand
+    }
+
+    // Initialize card tracking at start of round
+    initializeCardTracking(game, myPlayerId) {
+        const myPlayer = game.players.find(p => p.id === myPlayerId);
+        if (!myPlayer) return;
+
+        // Reset tracking for new round
+        this.playedCards.clear();
+        this.knownCards.clear();
+        this.cardProbabilities.clear();
+
+        // Add our own cards to known cards
+        myPlayer.cards.forEach(card => {
+            this.knownCards.add(`${card.suit}-${card.rank}`);
+        });
+
+        // Initialize card probabilities for all players
+        const allCards = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5'];
+        const allSuits = ['hearts', 'diamonds', 'clubs', 'spades'];
+
+        game.players.forEach(player => {
+            this.cardProbabilities.set(player.id, new Map());
+            allSuits.forEach(suit => {
+                allCards.forEach(rank => {
+                    const cardKey = `${suit}-${rank}`;
+                    if (!this.knownCards.has(cardKey)) {
+                        // Equal probability for unknown cards
+                        this.cardProbabilities.get(player.id).set(cardKey, 1.0 / (3 * 9)); // 3 other players, 9 cards each
+                    } else {
+                        this.cardProbabilities.get(player.id).set(cardKey, 0); // We have this card
+                    }
+                });
+            });
+        });
+    }
+
+    // Update card tracking when a card is played
+    updateCardTracking(playedCard, playerId) {
+        const cardKey = `${playedCard.suit}-${playedCard.rank}`;
+        this.playedCards.add(cardKey);
+        this.knownCards.add(cardKey);
+
+        // Update probabilities - the card is no longer in anyone's hand
+        this.cardProbabilities.forEach((playerProbs, pid) => {
+            playerProbs.set(cardKey, 0);
+        });
+    }
+
+    // Advanced bidding logic based on hand analysis and game state
+    makeBid(handValue, currentBid, currentBidderId, myPlayerId, players, game) {
+        const myPlayer = players.find(p => p.id === myPlayerId);
+        if (!myPlayer) return 0;
+
+        // Initialize card tracking if not done yet
+        if (this.knownCards.size === 0) {
+            this.initializeCardTracking(game, myPlayerId);
+        }
+
+        // Advanced hand evaluation
+        const handAnalysis = this.analyzeHand(myPlayer.cards, game.trumpSuit);
+        const adjustedHandValue = handAnalysis.totalValue + handAnalysis.trumpValue + handAnalysis.positionBonus;
+
+        // Team dynamics analysis
+        const teamAnalysis = this.analyzeTeamSituation(game, myPlayer, players);
+
+        // Game state analysis
+        const gameStateAnalysis = this.analyzeGameState(game, myPlayer);
+
+        // Calculate theoretical maximum based on comprehensive analysis
+        let theoreticalMax = Math.min(adjustedHandValue + 20, 100); // More aggressive than simple bots
+
+        // If there's a current bid, check if it's from a teammate
+        if (currentBid && currentBidderId) {
+            const currentBidder = players.find(p => p.id === currentBidderId);
+            const isTeammate = (currentBidder.position % 2) === (myPlayer.position % 2);
+
+            if (isTeammate) {
+                // Analyze if we should support partner's bid or let them handle it
+                const shouldSupport = this.shouldSupportPartner(currentBid, handAnalysis, teamAnalysis);
+                if (!shouldSupport) {
+                    console.log(`Acadien bot won't outbid teammate - partner can handle it`);
+                    return 0;
+                }
+                // If supporting, be more conservative in our bid
+                theoreticalMax = Math.min(currentBid.points + 10, theoreticalMax);
+            }
+
+            // Don't bid if current bid is already at or above theoretical maximum
+            if (currentBid.points >= theoreticalMax) {
+                console.log(`Acadien bot won't bid - current bid ${currentBid.points} >= theoretical max ${theoreticalMax}`);
+                return 0;
+            }
+        }
+
+        // Calculate suggested bid based on comprehensive analysis
+        let suggestedBid = 0;
+
+        if (adjustedHandValue >= 60) {
+            suggestedBid = Math.min(adjustedHandValue, 100);
+        } else if (adjustedHandValue >= 50) {
+            suggestedBid = Math.min(adjustedHandValue + 5, 90);
+        } else if (adjustedHandValue >= 40) {
+            suggestedBid = Math.min(adjustedHandValue + 10, 80);
+        } else if (adjustedHandValue >= 35) {
+            suggestedBid = Math.min(adjustedHandValue + 15, 70);
+        } else {
+            return 0; // Don't bid with less than 35 points
+        }
+
+        // Adjust based on game state
+        if (gameStateAnalysis.teamBehind) {
+            suggestedBid += 5; // Be more aggressive if behind
+        }
+        if (gameStateAnalysis.lateInGame) {
+            suggestedBid -= 5; // Be more conservative if late in game
+        }
+
+        // Ensure minimum bid is 50
+        suggestedBid = Math.max(suggestedBid, 50);
+
+        // If there's a current bid, only bid if we can beat it reasonably
+        if (currentBid) {
+            const minBidToBeat = currentBid.points + 5;
+            if (minBidToBeat > suggestedBid) {
+                console.log(`Acadien bot won't bid - would need ${minBidToBeat} but only suggests ${suggestedBid}`);
+                return 0;
+            }
+            suggestedBid = minBidToBeat;
+        }
+
+        // Ensure bid is multiple of 5 and within reasonable limits
+        const finalBid = Math.min(Math.floor(suggestedBid / 5) * 5, theoreticalMax);
+
+        // Final safety check
+        if (finalBid < 50) {
+            console.log(`Acadien bot won't bid - final bid ${finalBid} is below minimum of 50`);
+            return 0;
+        }
+
+        console.log(`Acadien bot suggests bid: ${finalBid} (hand value: ${adjustedHandValue}, theoretical max: ${theoreticalMax})`);
+        return finalBid;
+    }
+
+    // Analyze hand for advanced bidding decisions
+    analyzeHand(cards, trumpSuit) {
+        const suitCounts = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
+        const suitValues = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
+        let totalValue = 0;
+        let trumpValue = 0;
+        let positionBonus = 0;
+
+        cards.forEach(card => {
+            suitCounts[card.suit]++;
+            const value = getCardValue(card);
+            suitValues[card.suit] += value;
+            totalValue += value;
+
+            if (card.suit === trumpSuit) {
+                trumpValue += value;
+                // Bonus for trump cards
+                if (['A', 'K', 'Q'].includes(card.rank)) {
+                    trumpValue += 5;
+                }
+            }
+        });
+
+        // Position bonus based on suit distribution
+        const maxSuitCount = Math.max(...Object.values(suitCounts));
+        const maxSuitValue = Math.max(...Object.values(suitValues));
+
+        if (maxSuitCount >= 4) {
+            positionBonus += 10; // Strong suit
+        }
+        if (maxSuitValue >= 20) {
+            positionBonus += 5; // High-value suit
+        }
+
+        return {
+            totalValue,
+            trumpValue,
+            positionBonus,
+            suitCounts,
+            suitValues,
+            maxSuitCount,
+            maxSuitValue
+        };
+    }
+
+    // Analyze team situation for bidding decisions
+    analyzeTeamSituation(game, myPlayer, players) {
+        const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
+        const partner = players.find(p => p.id !== myPlayer.id && (p.position % 2) === (myPlayer.position % 2));
+
+        return {
+            teamScore: game.teamScores[myTeam],
+            partnerBid: this.gameHistory.biddingHistory.filter(bid => bid.playerId === partner?.id).pop(),
+            teamBehind: game.teamScores[myTeam] < game.teamScores[myTeam === 'team1' ? 'team2' : 'team1']
+        };
+    }
+
+    // Analyze overall game state
+    analyzeGameState(game, myPlayer) {
+        const target = game.scoreTarget || 200;
+        const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
+        const myScore = game.teamScores[myTeam];
+        const opponentScore = game.teamScores[myTeam === 'team1' ? 'team2' : 'team1'];
+
+        return {
+            teamBehind: myScore < opponentScore,
+            lateInGame: Math.max(myScore, opponentScore) > target * 0.7,
+            criticalStage: Math.max(Math.abs(myScore), Math.abs(opponentScore)) > target * 0.8
+        };
+    }
+
+    // Determine if we should support partner's bid
+    shouldSupportPartner(currentBid, handAnalysis, teamAnalysis) {
+        // Don't support if partner's bid is already very high
+        if (currentBid.points >= 85) {
+            return false;
+        }
+
+        // Support if we have a strong hand and team is behind
+        if (handAnalysis.totalValue >= 40 && teamAnalysis.teamBehind) {
+            return true;
+        }
+
+        // Support if we have strong trump support
+        if (handAnalysis.trumpValue >= 15) {
+            return true;
+        }
+
+        return false;
+    }
+
+    // Advanced card playing strategy
+    async playCard(playableCards, leadSuit, trumpSuit, game, myPlayerId) {
+        if (playableCards.length === 0) return null;
+
+        const myPlayer = game.players.find(p => p.id === myPlayerId);
+        if (!myPlayer) return playableCards[0];
+
+        // Initialize tracking if needed
+        if (this.knownCards.size === 0) {
+            this.initializeCardTracking(game, myPlayerId);
+        }
+
+        // Analyze current trick situation
+        const trickAnalysis = this.analyzeTrick(game, myPlayer);
+
+        // Determine playing strategy based on game state
+        const strategy = this.determinePlayingStrategy(game, myPlayer, trickAnalysis);
+
+        let selectedCard;
+
+        switch (strategy) {
+            case 'win_trick':
+                selectedCard = this.selectCardToWin(playableCards, leadSuit, trumpSuit, trickAnalysis);
+                break;
+            case 'lose_trick':
+                selectedCard = this.selectCardToLose(playableCards, leadSuit, trumpSuit, trickAnalysis);
+                break;
+            case 'signal_partner':
+                selectedCard = this.selectCardToSignal(playableCards, leadSuit, trumpSuit, trickAnalysis);
+                break;
+            case 'conserve_trump':
+                selectedCard = this.selectCardToConserveTrump(playableCards, leadSuit, trumpSuit, trickAnalysis);
+                break;
+            default:
+                selectedCard = this.selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis);
+        }
+
+        // Update card tracking
+        if (selectedCard) {
+            this.updateCardTracking(selectedCard, myPlayerId);
+        }
+
+        return selectedCard || playableCards[0];
+    }
+
+    // Analyze current trick for playing decisions
+    analyzeTrick(game, myPlayer) {
+        const currentTrick = game.currentTrick;
+        const cardsPlayed = currentTrick.cards || [];
+        const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
+        const isContractorTeam = game.contractorTeam === myTeam;
+
+        let currentWinningCard = null;
+        let currentWinningPlayer = null;
+        let pointsInTrick = 0;
+
+        if (cardsPlayed.length > 0) {
+            const leadSuit = cardsPlayed[0].card.suit;
+            currentWinningCard = cardsPlayed[0];
+            currentWinningPlayer = cardsPlayed[0].playerId;
+
+            cardsPlayed.forEach(play => {
+                const card = play.card;
+                pointsInTrick += getCardValue(card);
+
+                // Determine if this card wins the trick so far
+                if (card.suit === leadSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.rank)) {
+                    currentWinningCard = card;
+                    currentWinningPlayer = play.playerId;
+                } else if (card.suit === game.trumpSuit && currentWinningCard.suit !== game.trumpSuit) {
+                    currentWinningCard = card;
+                    currentWinningPlayer = play.playerId;
+                }
+            });
+        }
+
+        return {
+            cardsPlayed,
+            currentWinningCard,
+            currentWinningPlayer,
+            pointsInTrick,
+            leadSuit: cardsPlayed.length > 0 ? cardsPlayed[0].card.suit : null,
+            isContractorTeam,
+            trickPosition: cardsPlayed.length, // 0 = first, 1 = second, etc.
+            isLastToPlay: cardsPlayed.length === 3
+        };
+    }
+
+    // Determine overall playing strategy
+    determinePlayingStrategy(game, myPlayer, trickAnalysis) {
+        const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
+        const isContractorTeam = game.contractorTeam === myTeam;
+        const pointsInTrick = trickAnalysis.pointsInTrick;
+
+        // If we're the contractor team and need points
+        if (isContractorTeam && game.currentBid) {
+            const pointsNeeded = game.currentBid.points - this.getTeamPointsSoFar(game, myTeam);
+            if (pointsNeeded > 0 && pointsInTrick >= 10) {
+                return 'win_trick';
+            }
+        }
+
+        // If opponent is winning with high-value cards, try to win
+        if (trickAnalysis.currentWinningPlayer && pointsInTrick >= 15) {
+            const winningPlayer = game.players.find(p => p.id === trickAnalysis.currentWinningPlayer);
+            const isOpponent = (winningPlayer.position % 2) !== (myPlayer.position % 2);
+            if (isOpponent) {
+                return 'win_trick';
+            }
+        }
+
+        // If we're last to play and can't win, try to lose cheaply
+        if (trickAnalysis.isLastToPlay && trickAnalysis.pointsInTrick < 10) {
+            return 'lose_trick';
+        }
+
+        // If we have few trump cards left, conserve them
+        const trumpCards = myPlayer.cards.filter(c => c.suit === game.trumpSuit);
+        if (trumpCards.length <= 2 && trickAnalysis.leadSuit !== game.trumpSuit) {
+            return 'conserve_trump';
+        }
+
+        // Default strategy
+        return 'default';
+    }
+
+    // Select card to win the trick
+    selectCardToWin(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+        if (!leadSuit) {
+            // First to play - play a strong card but not necessarily our strongest
+            return this.selectStrongCard(playableCards, trumpSuit);
+        }
+
+        const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
+        const trumpCards = playableCards.filter(c => c.suit === trumpSuit);
+
+        // If we have the lead suit, play high card
+        if (leadSuitCards.length > 0) {
+            const currentWinningRank = trickAnalysis.currentWinningCard ?
+                getCardRank(trickAnalysis.currentWinningCard.rank) : 0;
+
+            const winningCards = leadSuitCards.filter(c =>
+                getCardRank(c.rank) > currentWinningRank
+            );
+
+            if (winningCards.length > 0) {
+                // Play the lowest winning card
+                return winningCards.reduce((lowest, current) =>
+                    getCardRank(current.rank) < getCardRank(lowest.rank) ? current : lowest
+                );
+            }
+        }
+
+        // If we don't have winning lead suit, use trump if available and beneficial
+        if (trumpCards.length > 0 && trickAnalysis.currentWinningCard?.suit !== trumpSuit) {
+            return trumpCards.reduce((lowest, current) =>
+                getCardRank(current.rank) < getCardRank(lowest.rank) ? current : lowest
+            );
+        }
+
+        // Can't win, play low card
+        return this.selectLowCard(playableCards, leadSuit, trumpSuit);
+    }
+
+    // Select card to lose the trick cheaply
+    selectCardToLose(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+        const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
+
+        if (leadSuitCards.length > 0) {
+            // Play lowest lead suit card
+            return leadSuitCards.reduce((lowest, current) =>
+                getCardValue(current) < getCardValue(lowest) ? current : lowest
+            );
+        }
+
+        // Play lowest value card
+        return playableCards.reduce((lowest, current) =>
+            getCardValue(current) < getCardValue(lowest) ? current : lowest
+        );
+    }
+
+    // Select card to signal partner
+    selectCardToSignal(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+        // For now, use default selection but could implement signaling logic
+        return this.selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis);
+    }
+
+    // Select card to conserve trump
+    selectCardToConserveTrump(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+        // Avoid playing trump cards unless absolutely necessary
+        const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
+        if (nonTrumpCards.length > 0) {
+            return this.selectLowCard(nonTrumpCards, leadSuit, trumpSuit);
+        }
+
+        // Must play trump, play lowest trump
+        const trumpCards = playableCards.filter(c => c.suit === trumpSuit);
+        return trumpCards.reduce((lowest, current) =>
+            getCardValue(current) < getCardValue(lowest) ? current : lowest
+        );
+    }
+
+    // Select strong card for opening
+    selectStrongCard(playableCards, trumpSuit) {
+        // Prefer high-value non-trump cards for opening
+        const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
+        if (nonTrumpCards.length > 0) {
+            return nonTrumpCards.reduce((strongest, current) =>
+                getCardValue(current) > getCardValue(strongest) ? current : strongest
+            );
+        }
+
+        // Fallback to any strong card
+        return playableCards.reduce((strongest, current) =>
+            getCardValue(current) > getCardValue(strongest) ? current : strongest
+        );
+    }
+
+    // Select low-value card
+    selectLowCard(playableCards, leadSuit, trumpSuit) {
+        return playableCards.reduce((lowest, current) =>
+            getCardValue(current) < getCardValue(lowest) ? current : lowest
+        );
+    }
+
+    // Default card selection
+    selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+        if (!leadSuit) {
+            // First to play - play medium value card
+            const mediumCards = playableCards.filter(c => getCardValue(c) >= 5 && getCardValue(c) <= 15);
+            if (mediumCards.length > 0) {
+                return mediumCards[Math.floor(Math.random() * mediumCards.length)];
+            }
+        }
+
+        // Follow suit if possible, otherwise play low
+        const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
+        if (leadSuitCards.length > 0) {
+            return this.selectLowCard(leadSuitCards, leadSuit, trumpSuit);
+        }
+
+        return this.selectLowCard(playableCards, leadSuit, trumpSuit);
+    }
+
+    // Helper method to get team points so far in current round
+    getTeamPointsSoFar(game, team) {
+        // This would need to be implemented based on how points are tracked during the round
+        // For now, return 0 as a placeholder
+        return 0;
     }
 }
 
@@ -538,6 +1044,44 @@ function createAcadieTable() {
 
     defaultLobby.tables.set(tableId, table);
     console.log('Created Acadie test table with 3 hard bots, 40-card deck, kitty enabled');
+}
+
+// Create an Acadien test table with advanced bots
+function createAcadienTestTable() {
+    const tableId = 'acadien-test-table';
+    const table = {
+        id: tableId,
+        name: 'Acadien Test Table',
+        players: [],
+        gameState: null,
+        maxPlayers: 4,
+        isPrivate: false,
+        deckVariant: '36', // 36-card variant
+        scoreTarget: 200,
+        hasKitty: false,
+        timeoutDuration: 300000 // 5 minutes
+    };
+
+    // Add 3 acadien bot players
+    const botSkills = ['acadien', 'acadien', 'acadien'];
+    for (let i = 0; i < 3; i++) {
+        const botId = `bot-${uuidv4()}`;
+        const bot = {
+            id: botId,
+            name: getRandomHumanName(),
+            isBot: true,
+            botSkill: botSkills[i],
+            position: i,
+            cards: [],
+            score: 0,
+            isReady: true,
+            ai: new AcadienBotAI()
+        };
+        table.players.push(bot);
+    }
+
+    defaultLobby.tables.set(tableId, table);
+    console.log('Created Acadien test table with 3 acadien bots');
 }
 
 // Game logic functions
@@ -721,7 +1265,7 @@ function addBotPlayer(game, skill = 'medium') {
         cards: [],
         score: 0,
         isReady: true,
-        ai: new SimpleBotAI(skill)
+        ai: skill === 'acadien' ? new AcadienBotAI() : new SimpleBotAI(skill)
     };
 
     game.players.push(bot);
@@ -732,7 +1276,11 @@ function addAItoExistingBots(game) {
     // Add AI to existing bot players
     game.players.forEach(player => {
         if (player.isBot && !player.ai) {
-            player.ai = new SimpleBotAI(player.botSkill);
+            if (player.botSkill === 'acadien') {
+                player.ai = new AcadienBotAI();
+            } else {
+                player.ai = new SimpleBotAI(player.botSkill);
+            }
         }
     });
 }
@@ -747,7 +1295,7 @@ function startGame(game) {
         console.log('Adding bots to fill table. Current players:', game.players.length);
         // Add bots to fill the table
         while (game.players.length < 4) {
-            const skills = ['easy', 'medium', 'hard'];
+            const skills = ['easy', 'medium', 'hard', 'acadien'];
             const skill = skills[Math.floor(Math.random() * skills.length)];
             addBotPlayer(game, skill);
         }
@@ -1195,13 +1743,9 @@ async function handleBotTurn(game) {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         const handValue = currentPlayer.cards.reduce((total, card) => total + getCardValue(card), 0);
-        const bidPoints = currentPlayer.ai.makeBid(
-            handValue,
-            game.currentBid,
-            game.currentBid?.playerId,
-            currentPlayer.id,
-            game.players
-        );
+        const bidPoints = currentPlayer.botSkill === 'acadien'
+            ? currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players, game)
+            : currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players);
 
         console.log(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid: ${bidPoints} points`);
 
@@ -1331,7 +1875,9 @@ async function handleBotTurn(game) {
 
         console.log(`Bot ${currentPlayer.name} has ${currentPlayer.cards.length} total cards, ${playableCards.length} playable cards`);
         console.log(`Lead suit: ${leadSuit}, Trump suit: ${game.trumpSuit}`);
-        const card = await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit);
+        const card = currentPlayer.botSkill === 'acadien'
+            ? await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit, game, currentPlayer.id)
+            : await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit);
 
         if (card) {
             // Check if bot has any cards left
@@ -1837,6 +2383,12 @@ io.on('connection', (socket) => {
         try {
             console.log('add_bot received:', data);
             const { tableId, position, skill = 'medium' } = data;
+
+            // Validate skill level
+            const validSkills = ['easy', 'medium', 'hard', 'acadien'];
+            if (!validSkills.includes(skill)) {
+                throw new Error('Invalid bot skill level');
+            }
             const player = players.get(socket.id);
             if (!player) {
                 console.log('Player not found for socket:', socket.id);
@@ -1879,7 +2431,8 @@ io.on('connection', (socket) => {
                 position: position,
                 cards: [],
                 score: 0,
-                isReady: true
+                isReady: true,
+                ai: skill === 'acadien' ? new AcadienBotAI() : new SimpleBotAI(skill)
             };
 
             table.players.push(bot);
@@ -3091,6 +3644,7 @@ io.on('connection', (socket) => {
 create3BotTables(5); // Create 2 default tables with 3 bots each
 createBigBubTable();
 createAcadieTable();
+createAcadienTestTable();
 
 /* start server */
 const PORT = process.env.PORT || 3001;
