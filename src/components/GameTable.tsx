@@ -7,6 +7,7 @@ import TrickArea from './TrickArea';
 import BidInterface from './BidInterface';
 import KittyInterface from './KittyInterface';
 import RoundNotepad from './RoundNotepad';
+import KittyArea from './KittyArea';
 import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
 import { Card as CardType } from '../types/game';
@@ -384,14 +385,14 @@ const GameTable: React.FC = () => {
                     );
                 })}
 
+
+
                 {/* Trick Area */}
                 <TrickArea
                     trick={currentGame.currentTrick}
                     players={currentGame.players}
                     trumpSuit={currentGame.trumpSuit!}
                     currentPlayerId={currentPlayer.id}
-                    kittyDiscards={(completedRoundResults as any)?.kittyDiscards || currentGame.kittyDiscards}
-                    showKittyDiscards={showGlowEffect && ((completedRoundResults as any)?.kittyDiscards || currentGame.kittyDiscards)}
                 >
                     <ShuffleAnimation isVisible={showShuffleAnimation} />
                 </TrickArea>
@@ -469,7 +470,13 @@ const GameTable: React.FC = () => {
                     </div>
                 )}
 
-
+                {/* Kitty Area */}
+                <KittyArea
+                    kittyDiscards={(completedRoundResults as any)?.kittyDiscards || currentGame.kittyDiscards}
+                    showKittyDiscards={showGlowEffect && ((completedRoundResults as any)?.kittyDiscards || currentGame.kittyDiscards)}
+                    contractorTeam={currentGame.contractorTeam}
+                    hasKitty={currentGame.hasKitty}
+                />
 
             </div>
 
@@ -534,6 +541,8 @@ const GameTable: React.FC = () => {
                         </div>
                     </div>
                 </div>
+
+
 
                 {/* Round Notepad - Always visible during the game */}
                 <RoundNotepad

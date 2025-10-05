@@ -9,11 +9,9 @@ interface TrickAreaProps {
     trumpSuit: string;
     currentPlayerId: string;
     children?: React.ReactNode;
-    kittyDiscards?: CardType[];
-    showKittyDiscards?: boolean;
 }
 
-const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, children, kittyDiscards, showKittyDiscards }) => {
+const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, children }) => {
     // Debug logging
     console.log('TrickArea render - trick.cards:', trick.cards);
     console.log('TrickArea render - trick.cards.length:', trick.cards.length);
@@ -39,6 +37,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
 
         return positions[relativePos] || { x: 0, y: 0 };
     };
+
 
 
     return (
@@ -98,42 +97,6 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
                 />
             </div>
 
-            {/* Kitty Discards Display - shown during round transition */}
-            {showKittyDiscards && kittyDiscards && kittyDiscards.length > 0 && (
-                <AnimatePresence>
-                    <motion.div
-                        className="absolute inset-0 flex items-center justify-center"
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.8 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        <div className="text-center">
-                            <div className="text-white/80 text-sm mb-2 font-medium">Discarded to Kitty:</div>
-                            <div className="flex justify-center gap-1">
-                                {kittyDiscards.map((card, index) => (
-                                    <motion.div
-                                        key={card.id}
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{
-                                            duration: 0.3,
-                                            delay: index * 0.1
-                                        }}
-                                        className="relative"
-                                    >
-                                        <Card
-                                            card={card}
-                                            size="small"
-                                            className="shadow-lg border-2 border-red-400"
-                                        />
-                                    </motion.div>
-                                ))}
-                            </div>
-                        </div>
-                    </motion.div>
-                </AnimatePresence>
-            )}
 
 
 

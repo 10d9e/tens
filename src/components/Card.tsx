@@ -10,6 +10,7 @@ interface CardProps {
     isPlayable?: boolean;
     size?: 'tiny' | 'small' | 'medium' | 'large';
     className?: string;
+    style?: React.CSSProperties;
 }
 
 const Card: React.FC<CardProps> = ({
@@ -19,7 +20,8 @@ const Card: React.FC<CardProps> = ({
     isSelected = false,
     isPlayable = true,
     size = 'medium',
-    className = ''
+    className = '',
+    style
 }) => {
     const getSuitSymbol = (suit: string) => {
         switch (suit) {
@@ -66,7 +68,8 @@ const Card: React.FC<CardProps> = ({
       `}
             style={{
                 filter: !isPlayable ? 'grayscale(80%) brightness(0.6)' : undefined,
-                opacity: !isPlayable ? 0.7 : undefined
+                opacity: !isPlayable ? 0.7 : undefined,
+                ...style
             }}
             onClick={isPlayable ? onClick : undefined}
             onDoubleClick={isPlayable ? onDoubleClick : undefined}

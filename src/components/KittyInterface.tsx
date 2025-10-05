@@ -170,12 +170,8 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-black';
     };
 
-    const getCardValue = (card: CardType) => {
-        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
-        return values[card.rank as keyof typeof values] || 0;
-    };
 
-    // Organize cards by suit into 4 rows, each ordered by point value
+    // Organize cards by suit into 4 rows, each ordered by face value
     const organizeCardsBySuit = (cards: CardType[]) => {
         const suits = ['hearts', 'clubs', 'diamonds', 'spades'] as const;
 
@@ -185,22 +181,14 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
             cardsBySuit[suit] = cards.filter(card => card.suit === suit);
         });
 
-        // Sort each suit by point value (A=10, 10=10, 5=5, others=0)
+        // Sort each suit by face value (5, 6, 7, 8, 9, 10, J, Q, K, A)
         suits.forEach(suit => {
             cardsBySuit[suit].sort((a, b) => {
-                const valueA = getCardValue(a);
-                const valueB = getCardValue(b);
-
-                if (valueA !== valueB) {
-                    return valueA - valueB; // Lower point values first
-                }
-
-                // If same point value, sort by rank (A, K, Q, J, 10, 9, 8, 7, 6, 5)
-                const rankOrder = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5 };
+                const rankOrder = { '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
                 const rankA = rankOrder[a.rank as keyof typeof rankOrder];
                 const rankB = rankOrder[b.rank as keyof typeof rankOrder];
 
-                return rankA - rankB; // Lower ranks first
+                return rankA - rankB; // Lower face values first
             });
         });
 
@@ -208,7 +196,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         return suits.map(suit => cardsBySuit[suit]);
     };
 
-    // Legacy sort function for kitty display (keep existing behavior)
+    // Sort function for kitty display - sort by suit and face value
     const sortCards = (cards: CardType[]) => {
         return [...cards].sort((a, b) => {
             // Define suit order (hearts, clubs, diamonds, spades)
@@ -220,8 +208,8 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
                 return suitA - suitB;
             }
 
-            // Within same suit, sort by rank
-            const rankOrder = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '5': 5 };
+            // Within same suit, sort by face value (5, 6, 7, 8, 9, 10, J, Q, K, A)
+            const rankOrder = { '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
             const rankA = rankOrder[a.rank as keyof typeof rankOrder];
             const rankB = rankOrder[b.rank as keyof typeof rankOrder];
 
