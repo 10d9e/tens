@@ -16,6 +16,7 @@ import { canPlayCard } from '../utils/gameLogic';
 const GameTable: React.FC = () => {
     const {
         currentGame,
+        currentTable,
         currentPlayer,
         isBidding,
         selectedCard,
@@ -260,7 +261,21 @@ const GameTable: React.FC = () => {
             {/* Game Header */}
             <div className="flex justify-between items-center p-2 bg-white/10 backdrop-blur-md border-b border-white/20">
                 <div className="flex items-center gap-6">
-                    <h2 className="text-2xl font-bold text-white">🎴 Two Hundred</h2>
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-2xl font-bold text-white">🎴 200</h2>
+                        {currentTable && (
+                            <div className="flex items-center gap-4 text-sm text-white/80">
+                                <span className="font-medium">{currentTable.name}</span>
+                                <span>•</span>
+                                <span>{currentGame?.scoreTarget || 200} Points to Win</span>
+                                <span>•</span>
+                                <span>
+                                    {currentGame?.hasKitty ? '🐱 Kitty Play' :
+                                        currentGame?.deckVariant === '40' ? '40 Cards (Standard)' : '36 Cards (Standard)'}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <div className="flex items-center gap-4">
                     {/* Exit Game Button */}
