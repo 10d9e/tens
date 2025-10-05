@@ -119,7 +119,7 @@ const Lobby: React.FC = () => {
                                     <div>
                                         <h3 className="text-xl font-bold text-white">{table.name}</h3>
                                         <div className="text-sm text-white/70 mt-1">
-                                            🃏 {table.deckVariant === '40' ? '40 Cards (with 6s)' : '36 Cards (Standard)'} • 🎯 {table.scoreTarget || 200} Points
+                                            🃏 {table.deckVariant === '40' ? '40 Cards (with 6s)' : '36 Cards (Standard)'} • 🎯 {table.scoreTarget || 200} Points{table.hasKitty && ' • 🐱 Kitty'}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">

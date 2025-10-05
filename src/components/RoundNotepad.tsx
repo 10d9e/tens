@@ -56,23 +56,23 @@ const RoundNotepad: React.FC<RoundNotepadProps> = ({
 
             <div className="round-scores">
                 <div className="score-row">
-                    <div className="team-label">
-                        Team 1
+                    <div className="team-label" style={{ color: '#ef4444' }}>
+                        🔴 Team 1
                         {contractorTeam === 'team1' && (
                             <span className="contractor-badge">Contractor</span>
                         )}
                     </div>
-                    <div className="score-value">{roundScores.team1}</div>
+                    <div className="score-value" style={{ color: '#ef4444' }}>{roundScores.team1}</div>
                 </div>
 
                 <div className="score-row">
-                    <div className="team-label">
-                        Team 2
+                    <div className="team-label" style={{ color: '#3b82f6' }}>
+                        🔵 Team 2
                         {contractorTeam === 'team2' && (
                             <span className="contractor-badge">Contractor</span>
                         )}
                     </div>
-                    <div className="score-value">{roundScores.team2}</div>
+                    <div className="score-value" style={{ color: '#3b82f6' }}>{roundScores.team2}</div>
                 </div>
             </div>
 

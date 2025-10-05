@@ -2032,7 +2032,10 @@ async function handleBotTurn(game) {
 
                 // Add delay to let players see the final card before completing trick
                 // Variable pause to show final card (1.5-2.5 seconds)
-                const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
+
+                // jcl
+                // const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
+                const finalCardDelay = 2000;
                 console.log(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
                 await new Promise(resolve => setTimeout(resolve, finalCardDelay));
 
@@ -2148,8 +2151,9 @@ async function handleBotTurn(game) {
                     io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
                     // Pause for 3 seconds to let players see the round results in the notepad
-                    console.log('Pausing for 3 seconds to let players review round results...');
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    // jcl
+                    //console.log('Pausing for 3 seconds to let players review round results...');
+                    //await new Promise(resolve => setTimeout(resolve, 3000));
 
                     // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
                     const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
@@ -2258,8 +2262,9 @@ async function handleBotTurn(game) {
                 io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
                 // Pause for 3 seconds to let players see the round results in the notepad
-                console.log('Pausing for 3 seconds to let players review round results...');
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // jcl
+                // console.log('Pausing for 3 seconds to let players review round results...');
+                // await new Promise(resolve => setTimeout(resolve, 3000));
 
                 // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
                 const currentPlayer = game.players.find(p => p.id === game.currentPlayer);

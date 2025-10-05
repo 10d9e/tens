@@ -5,6 +5,7 @@ import { useSocketStore, playBidTurnSound } from '../store/socketStore';
 import PlayerHand from './PlayerHand';
 import TrickArea from './TrickArea';
 import BidInterface from './BidInterface';
+import KittyInterface from './KittyInterface';
 import RoundNotepad from './RoundNotepad';
 import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
@@ -30,6 +31,7 @@ const GameTable: React.FC = () => {
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
+    const [showKittyInterface, setShowKittyInterface] = useState(false);
 
     // Automatically open bid dialog when it's the player's turn to bid
     useEffect(() => {
@@ -39,6 +41,34 @@ const GameTable: React.FC = () => {
             playBidTurnSound();
         }
     }, [currentGame, currentPlayer, isBidding, setIsBidding]);
+
+    // Reset kitty interface when phase changes away from kitty
+    useEffect(() => {
+        if (currentGame && currentGame.phase !== 'kitty' && showKittyInterface) {
+            console.log('Resetting kitty interface - phase changed to:', currentGame.phase);
+            setShowKittyInterface(false);
+        }
+    }, [currentGame?.phase, showKittyInterface]);
+
+    // Automatically open kitty interface when it's the player's turn in kitty phase
+    useEffect(() => {
+        console.log('Kitty phase check:', {
+            currentGame: !!currentGame,
+            currentPlayer: !!currentPlayer,
+            isMyTurn: currentGame?.currentPlayer === currentPlayer?.id,
+            phase: currentGame?.phase,
+            showKittyInterface,
+            hasKitty: currentGame?.hasKitty,
+            kittyLength: currentGame?.kitty?.length,
+            round: currentGame?.round,
+            deckVariant: currentGame?.deckVariant
+        });
+
+        if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'kitty' && !showKittyInterface) {
+            console.log('Opening kitty interface for player:', currentPlayer.name, 'round:', currentGame.round);
+            setShowKittyInterface(true);
+        }
+    }, [currentGame, currentPlayer, showKittyInterface]);
 
     // Countdown timer effect
     useEffect(() => {
@@ -198,6 +228,28 @@ const GameTable: React.FC = () => {
         return positionMap[player.position] || 'north';
     };
 
+    const getVisualPosition = (player: any) => {
+        // Always orient from the current player's perspective
+        // Current player should always appear at 'bottom'
+        const currentPlayerPos = currentPlayer.position;
+        const playerPos = player.position;
+
+        // Calculate relative position from current player's perspective
+        const relativePos = (playerPos - currentPlayerPos + 4) % 4;
+
+        // Map to visual positions (current player = bottom)
+        // Looking at the table from current player's perspective:
+        // Current player is at bottom, so relative positions are:
+        const visualMap: { [key: number]: string } = {
+            0: 'bottom',  // Current player (always bottom)
+            1: 'left',    // To the left of current player (counter-clockwise)
+            2: 'top',     // Opposite of current player
+            3: 'right'    // To the right of current player (clockwise)
+        };
+
+        return visualMap[relativePos] || 'bottom';
+    };
+
     const getTeamScore = (team: 'team1' | 'team2') => {
         return currentGame.teamScores[team];
     };
@@ -230,18 +282,26 @@ const GameTable: React.FC = () => {
                 {/* All Players (including human player) */}
                 {currentGame.players.map(player => {
                     const position = getPlayerPosition(player);
-                    // Use inline styles for more reliable positioning
+                    const visualPosition = getVisualPosition(player);
+
+                    // Use inline styles for more reliable positioning based on visual perspective
                     const positionStyles: { [key: string]: any } = {
-                        'north': { top: '16px', left: '50%', transform: 'translateX(-50%)' },
-                        'east': { right: '16px', top: '50%', transform: 'translateY(-50%)' },
-                        'south': { bottom: '16px', left: '50%', transform: 'translateX(-50%)' },
-                        'west': { left: '16px', top: '50%', transform: 'translateY(-50%)' }
+                        'top': { top: '16px', left: '50%', transform: 'translateX(-50%)' },
+                        'right': { right: '16px', top: '50%', transform: 'translateY(-50%)' },
+                        'bottom': { bottom: '16px', left: '50%', transform: 'translateX(-50%)' },
+                        'left': { left: '16px', top: '50%', transform: 'translateY(-50%)' }
                     };
 
-                    const appliedStyle = positionStyles[position] || positionStyles['north'];
+                    const appliedStyle = positionStyles[visualPosition] || positionStyles['bottom'];
 
                     const isCurrentPlayer = player.id === currentGame.currentPlayer;
                     const isHumanPlayer = player.id === currentPlayer.id;
+
+                    // Determine team based on position (North & South = Team 1, East & West = Team 2)
+                    const isTeam1 = player.position === 0 || player.position === 2; // North or South
+                    const teamBgColor = isTeam1 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)';
+                    const teamBorderColor = isTeam1 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)';
+                    const teamGlowColor = isTeam1 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)';
 
                     return (
                         <div
@@ -249,14 +309,14 @@ const GameTable: React.FC = () => {
                             className="absolute"
                             style={{
                                 ...appliedStyle, // Apply position-specific styles
-                                backgroundColor: isHumanPlayer ? 'rgba(59, 130, 246, 0.3)' : 'rgba(0, 0, 0, 0.3)',
-                                border: isCurrentPlayer ? '2px solid rgba(251, 191, 36, 0.8)' : isHumanPlayer ? '2px solid rgba(59, 130, 246, 0.8)' : '1px solid rgba(255, 255, 255, 0.2)',
+                                backgroundColor: isCurrentPlayer ? 'rgba(251, 191, 36, 0.3)' : teamBgColor,
+                                border: isCurrentPlayer ? '2px solid rgba(251, 191, 36, 0.8)' : `2px solid ${teamBorderColor}`,
                                 zIndex: 10,
                                 minWidth: '120px',
                                 padding: '8px',
                                 borderRadius: '8px',
                                 backdropFilter: 'blur(4px)',
-                                boxShadow: isCurrentPlayer ? '0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2)' : isHumanPlayer ? '0 0 20px rgba(59, 130, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.2)' : 'none',
+                                boxShadow: isCurrentPlayer ? '0 0 20px rgba(251, 191, 36, 0.4), 0 0 40px rgba(251, 191, 36, 0.2)' : `0 0 20px ${teamGlowColor}, 0 0 40px ${teamGlowColor.replace('0.4', '0.2')}`,
                                 transition: 'all 0.3s ease'
                             }}
                             data-position={position}
@@ -264,7 +324,7 @@ const GameTable: React.FC = () => {
                         >
                             <div className={`player-info ${position}`}>
                                 <div className="text-white font-medium mb-1">
-                                    {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({getPlayerPosition(player)})
+                                    {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({position})
                                 </div>
 
                                 {/* Countdown timer positioned below/above player box */}
@@ -288,9 +348,9 @@ const GameTable: React.FC = () => {
                                     <div
                                         className="absolute text-4xl text-orange-400 z-20"
                                         style={{
-                                            [position === 'north' ? 'bottom' : position === 'south' ? 'top' : position === 'east' ? 'left' : 'right']: '-25px',
-                                            [position === 'north' || position === 'south' ? 'left' : 'top']: '50%',
-                                            transform: position === 'north' || position === 'south' ? 'translateX(-50%)' : 'translateY(-50%)'
+                                            [visualPosition === 'top' ? 'bottom' : visualPosition === 'bottom' ? 'top' : visualPosition === 'right' ? 'left' : 'right']: '-25px',
+                                            [visualPosition === 'top' || visualPosition === 'bottom' ? 'left' : 'top']: '50%',
+                                            transform: visualPosition === 'top' || visualPosition === 'bottom' ? 'translateX(-50%)' : 'translateY(-50%)'
                                         }}
                                     >
                                         🃏
@@ -316,7 +376,7 @@ const GameTable: React.FC = () => {
                                 {player.cards.map((_, index) => (
                                     <div
                                         key={index}
-                                        className="w-3 h-4 bg-white/20 rounded border border-white/30"
+                                        className="w-4 h-6 bg-white/20 rounded border border-white/30"
                                     />
                                 ))}
                             </div>
@@ -329,6 +389,9 @@ const GameTable: React.FC = () => {
                     trick={currentGame.currentTrick}
                     players={currentGame.players}
                     trumpSuit={currentGame.trumpSuit!}
+                    currentPlayerId={currentPlayer.id}
+                    kittyDiscards={(completedRoundResults as any)?.kittyDiscards || currentGame.kittyDiscards}
+                    showKittyDiscards={showGlowEffect && ((completedRoundResults as any)?.kittyDiscards || currentGame.kittyDiscards)}
                 >
                     <ShuffleAnimation isVisible={showShuffleAnimation} />
                 </TrickArea>
@@ -343,14 +406,58 @@ const GameTable: React.FC = () => {
                     playerCards={myPlayer?.cards || []}
                 />
 
-                {/* Center Trump Suit Display */}
+                {/* Kitty Interface */}
+                <KittyInterface
+                    isOpen={showKittyInterface && isMyTurn && currentGame.phase === 'kitty'}
+                    onClose={() => setShowKittyInterface(false)}
+                    gameId={currentGame.id}
+                    kitty={currentGame.kitty || []}
+                    playerCards={myPlayer?.cards || []}
+                    currentPlayer={currentGame.currentPlayer}
+                    playerId={currentPlayer?.id || ''}
+                    currentBid={currentGame.currentBid}
+                    gameState={{
+                        timeoutDuration: currentGame.timeoutDuration,
+                        playerTurnStartTime: currentGame.playerTurnStartTime,
+                        currentPlayer: currentGame.currentPlayer
+                    }}
+                />
+
+                {/* Center Phase Display */}
+                {currentGame.phase === 'kitty' && (
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-0">
+                        <div className="text-center">
+                            <div
+                                className="text-[4rem]"
+                                style={{
+                                    filter: 'drop-shadow(0 0 10px rgba(255, 255, 255, 0.3))'
+                                }}
+                            >
+                                🐱
+                            </div>
+                            <div className="text-white text-lg font-semibold mt-2">
+                                Kitty Phase
+                            </div>
+                            <div className="text-green-200 text-sm mt-1">
+                                {currentGame.currentPlayer === currentPlayer?.id
+                                    ? "Your turn to handle kitty"
+                                    : "Waiting for bid winner to handle kitty"
+                                }
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {currentGame.trumpSuit && currentGame.phase === 'playing' && (
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-0">
                         <div className="text-center">
                             <div
                                 className="text-[4rem]"
                                 style={{
-                                    color: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? '#dc2626' : '#1f2937'
+                                    color: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? '#dc2626' : '#1f2937',
+                                    textShadow: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds'
+                                        ? '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(220, 38, 38, 0.3)' // Shadow for red suits
+                                        : '0 0 25px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.5)' // Glow for black suits
                                 }}
                             >
                                 {currentGame.trumpSuit === 'hearts' && '♥'}
@@ -362,42 +469,8 @@ const GameTable: React.FC = () => {
                     </div>
                 )}
 
-                {/* Game Information Display - Team Scores */}
-                <div className={`team-scores-display ${showGlowEffect ? 'glow-effect' : ''}`}>
-                    <div className="team-scores-header">
-                        <h3>🏆 Team Scores</h3>
-                    </div>
 
-                    <div className="team-scores-content">
-                        <div className="team-score-row">
-                            <div className="team-score-label">
-                                Team 1
-                                <span className="team-position">North & South</span>
-                            </div>
-                            <div className="team-score-value">{getTeamScore('team1')}</div>
-                        </div>
 
-                        <div className="team-score-row">
-                            <div className="team-score-label">
-                                Team 2
-                                <span className="team-position">East & West</span>
-                            </div>
-                            <div className="team-score-value">{getTeamScore('team2')}</div>
-                        </div>
-                    </div>
-
-                    <div className="team-scores-footer">
-                        <div className="team-score-status">
-                            {getTeamScore('team1') > getTeamScore('team2') ? (
-                                <span>Team 1 leads by {getTeamScore('team1') - getTeamScore('team2')} points</span>
-                            ) : getTeamScore('team2') > getTeamScore('team1') ? (
-                                <span>Team 2 leads by {getTeamScore('team2') - getTeamScore('team1')} points</span>
-                            ) : (
-                                <span>Teams are tied!</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
             </div>
 
             {/* My Hand */}
@@ -424,31 +497,72 @@ const GameTable: React.FC = () => {
                         </button>
                     )}
                 </div>
+
+                {/* Game Information Display - Team Scores */}
+                <div className={`team-scores-display ${showGlowEffect ? 'glow-effect' : ''}`}>
+                    <div className="team-scores-header">
+                        <h3>🏆 Team Scores</h3>
+                    </div>
+
+                    <div className="team-scores-content">
+                        <div className="team-score-row">
+                            <div className="team-score-label" style={{ color: '#ef4444' }}>
+                                🔴 Team 1
+                                <span className="team-position">North & South</span>
+                            </div>
+                            <div className="team-score-value" style={{ color: '#ef4444' }}>{getTeamScore('team1')}</div>
+                        </div>
+
+                        <div className="team-score-row">
+                            <div className="team-score-label" style={{ color: '#3b82f6' }}>
+                                🔵 Team 2
+                                <span className="team-position">East & West</span>
+                            </div>
+                            <div className="team-score-value" style={{ color: '#3b82f6' }}>{getTeamScore('team2')}</div>
+                        </div>
+                    </div>
+
+                    <div className="team-scores-footer">
+                        <div className="team-score-status">
+                            {getTeamScore('team1') > getTeamScore('team2') ? (
+                                <span style={{ color: '#ef4444' }}>🔴 Team 1 leads by {getTeamScore('team1') - getTeamScore('team2')} points</span>
+                            ) : getTeamScore('team2') > getTeamScore('team1') ? (
+                                <span style={{ color: '#3b82f6' }}>🔵 Team 2 leads by {getTeamScore('team2') - getTeamScore('team1')} points</span>
+                            ) : (
+                                <span>Teams are tied!</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Round Notepad - Always visible during the game */}
+                <RoundNotepad
+                    roundScores={
+                        completedRoundResults?.roundScores ||
+                        currentGame.roundScores ||
+                        { team1: 0, team2: 0 }
+                    }
+                    currentBid={
+                        completedRoundResults?.currentBid ||
+                        currentGame.currentBid
+                    }
+                    contractorTeam={
+                        completedRoundResults?.contractorTeam ||
+                        currentGame.contractorTeam
+                    }
+                    round={
+                        completedRoundResults?.round ||
+                        currentGame.round
+                    }
+                    gamePhase={currentGame.phase}
+                    showGlow={showGlowEffect}
+                />
+
+
+
             </div>
 
 
-            {/* Round Notepad - Always visible during the game */}
-            <RoundNotepad
-                roundScores={
-                    completedRoundResults?.roundScores ||
-                    currentGame.roundScores ||
-                    { team1: 0, team2: 0 }
-                }
-                currentBid={
-                    completedRoundResults?.currentBid ||
-                    currentGame.currentBid
-                }
-                contractorTeam={
-                    completedRoundResults?.contractorTeam ||
-                    currentGame.contractorTeam
-                }
-                round={
-                    completedRoundResults?.round ||
-                    currentGame.round
-                }
-                gamePhase={currentGame.phase}
-                showGlow={showGlowEffect}
-            />
 
             {/* Game End Overlay */}
             {currentGame.phase === 'finished' && !gameEndedByExit && (

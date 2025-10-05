@@ -8,7 +8,7 @@ interface CardProps {
     onDoubleClick?: () => void;
     isSelected?: boolean;
     isPlayable?: boolean;
-    size?: 'small' | 'medium' | 'large';
+    size?: 'tiny' | 'small' | 'medium' | 'large';
     className?: string;
 }
 
@@ -33,12 +33,14 @@ const Card: React.FC<CardProps> = ({
 
     const getSizeClasses = () => {
         switch (size) {
+            case 'tiny':
+                return 'w-3 h-4 text-[6px]';
             case 'small':
-                return 'w-8 h-11 text-xs';
+                return 'w-12 h-16 text-lg';
             case 'large':
-                return 'w-16 h-22 text-sm';
+                return 'w-24 h-33 text-xl';
             default:
-                return 'w-14 h-20 text-sm';
+                return 'w-21 h-30 text-lg';
         }
     };
 
@@ -77,7 +79,7 @@ const Card: React.FC<CardProps> = ({
             <div className="card-rank flex items-center justify-between">
                 <span>{card.rank}</span>
                 {isPointCard && (
-                    <span className="text-blue-800 text-[10px] font-medium text-right">
+                    <span className="card-value-indicator">
                         ({cardValue})
                     </span>
                 )}
