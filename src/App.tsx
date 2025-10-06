@@ -6,6 +6,7 @@ import GameTable from './components/GameTable';
 import WaitingRoom from './components/WaitingRoom';
 import { useGameStore } from './store/gameStore';
 import { useSocketStore } from './store/socketStore';
+import { getStoredUsername, storeUsername } from './utils/cookieUtils';
 import './App.css';
 
 function App() {
@@ -13,6 +14,15 @@ function App() {
     const { socket, isConnected } = useSocketStore();
     const [playerName, setPlayerName] = useState('');
     const [showNameInput, setShowNameInput] = useState(true);
+
+    // Check for stored username on component mount
+    useEffect(() => {
+        const storedUsername = getStoredUsername();
+        if (storedUsername) {
+            setPlayerName(storedUsername);
+            setShowNameInput(false);
+        }
+    }, []);
 
     useEffect(() => {
         // Initialize socket connection
@@ -32,7 +42,15 @@ function App() {
 
     const handleNameSubmit = (name: string) => {
         setPlayerName(name);
+        storeUsername(name); // Save username to cookie
         setShowNameInput(false);
+    };
+
+    const handleResetUsername = () => {
+        setPlayerName('');
+        setShowNameInput(true);
+        // Clear the current player from the game store
+        useGameStore.getState().setCurrentPlayer(null);
     };
 
     if (showNameInput) {
@@ -58,6 +76,7 @@ function App() {
                             type="text"
                             name="name"
                             placeholder="Your name"
+                            defaultValue={playerName}
                             maxLength={20}
                             required
                             autoFocus
@@ -101,7 +120,7 @@ function App() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.3 }}
                     >
-                        <Lobby />
+                        <Lobby onResetUsername={handleResetUsername} />
                     </motion.div>
                 )}
             </AnimatePresence>

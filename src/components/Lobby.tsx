@@ -2,8 +2,13 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
+import UsernameEditor from './UsernameEditor';
 
-const Lobby: React.FC = () => {
+interface LobbyProps {
+    onResetUsername: () => void;
+}
+
+const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
     const { lobby, currentPlayer } = useGameStore();
     const { joinTable, createTable, deleteTable, socket } = useSocketStore();
     const [newTableName, setNewTableName] = useState('');
@@ -14,9 +19,9 @@ const Lobby: React.FC = () => {
 
     // If lobby data is not available, request it from the server
     React.useEffect(() => {
-        if (socket && !lobby) {
+        if (socket && !lobby && currentPlayer?.name) {
             console.log('Requesting lobby data from server');
-            socket.emit('join_lobby', { playerName: currentPlayer?.name || 'Player' });
+            socket.emit('join_lobby', { playerName: currentPlayer.name });
         }
     }, [socket, lobby, currentPlayer]);
 
@@ -81,7 +86,25 @@ const Lobby: React.FC = () => {
                     <div className="flex items-center gap-4">
                         <h2 className="text-2xl font-bold text-white">🎴 200 Lobby</h2>
                         <div className="flex items-center gap-4 text-sm text-white/80">
-                            <span>Welcome, {currentPlayer?.name}!</span>
+                            {currentPlayer?.name ? (
+                                <UsernameEditor
+                                    currentUsername={currentPlayer.name}
+                                    onUsernameUpdate={(newUsername) => {
+                                        // Update the current player in the store
+                                        useGameStore.getState().setCurrentPlayer({
+                                            ...currentPlayer,
+                                            name: newUsername
+                                        });
+                                        // Re-emit join_lobby with the new username
+                                        if (socket) {
+                                            socket.emit('join_lobby', { playerName: newUsername });
+                                        }
+                                    }}
+                                    onClearUsername={onResetUsername}
+                                />
+                            ) : (
+                                <span>Welcome, Player!</span>
+                            )}
                         </div>
                     </div>
                 </div>
