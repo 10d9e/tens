@@ -1008,7 +1008,7 @@ export function setupSocketEvents(): void {
 
                     // Add delay to let players see the final card before completing trick
                     // Variable pause to show final card (1.5-2.5 seconds)
-                    const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
+                    const finalCardDelay = 2000; // 2 seconds
                     logger.debug(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
                     await new Promise(resolve => setTimeout(resolve, finalCardDelay));
 
