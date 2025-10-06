@@ -95,3 +95,11 @@ export interface GameEvent {
     data: any;
     timestamp: number;
 }
+
+export interface Lobby {
+    id: string;
+    name: string;
+    tables: Map<string, LobbyTable>;
+    players: Map<string, Player>;
+    chatMessages: ChatMessage[];
+}
