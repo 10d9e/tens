@@ -8,7 +8,7 @@ if (process.env.NODE_ENV === 'production') {
         format: combine(
             timestamp(),
             errors({ stack: true }), // Include stack traces for errors
-            json(), // Crucial for Railway's log processing
+            winston.format.json(), // Crucial for Railway's log processing
         ),
         transports: [
             new winston.transports.Console(),
