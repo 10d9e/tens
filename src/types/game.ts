@@ -17,6 +17,7 @@ export interface Player {
     score: number;
     isReady: boolean;
     isSpectator?: boolean; // New field to identify spectators
+    ai?: any; // AI instance for bot players
 }
 
 export interface Bid {
@@ -27,42 +28,48 @@ export interface Bid {
 
 export interface Trick {
     cards: { card: Card; playerId: string }[];
-    winner?: string;
+    winner?: string | undefined;
     points: number;
 }
 
 export interface GameState {
     id: string;
+    tableId: string; // Add tableId property
     players: Player[];
     currentPlayer: string;
     phase: 'waiting' | 'bidding' | 'kitty' | 'playing' | 'finished';
-    trumpSuit?: Suit;
-    currentBid?: Bid;
+    trumpSuit?: Suit | undefined;
+    currentBid?: Bid | undefined;
     currentTrick: Trick;
-    lastTrick?: Trick;
+    lastTrick?: Trick | undefined;
     round: number;
     teamScores: { team1: number; team2: number };
     roundScores: { team1: number; team2: number }; // Points accumulated during current round
     dealer: string;
     spectatorIds: string[];
-    contractorTeam?: 'team1' | 'team2'; // Track which team is the contractor
+    contractorTeam?: 'team1' | 'team2' | undefined; // Track which team is the contractor
     biddingPasses?: number; // Track number of consecutive passes
-    playersWhoHavePassed?: string[]; // Track which players have passed during current bidding round
+    biddingRound?: number; // Track which round of bidding we're in
+    playersWhoHavePassed?: Set<string>; // Track which players have passed during current bidding round
     playerTurnStartTime?: { [playerId: string]: number }; // Track when each player's turn started
     timeoutDuration?: number; // Timeout duration in milliseconds
     deckVariant?: '36' | '40'; // Track which deck variant is being used
     scoreTarget?: 200 | 300 | 500 | 1000; // Track the score target for winning
     // Kitty-related fields
     hasKitty?: boolean; // Whether this game uses kitty
-    kitty?: Card[]; // The kitty cards
-    kittyDiscards?: Card[]; // Cards discarded to kitty by winning bidder
+    kitty?: Card[] | undefined; // The kitty cards
+    kittyDiscards?: Card[] | undefined; // Cards discarded to kitty by winning bidder
+    kittyPhaseCompleted?: boolean; // Track if kitty phase is completed
+    // Additional game properties
+    deck?: Card[]; // The game deck
+    opposingTeamBid?: number; // Track opposing team's bid
 }
 
 export interface LobbyTable {
     id: string;
     name: string;
     players: Player[];
-    gameState?: GameState;
+    gameState?: GameState | undefined;
     maxPlayers: number;
     isPrivate: boolean;
     password?: string;
