@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore, playBidTurnSound } from '../store/socketStore';
 import PlayerHand from './PlayerHand';
@@ -298,18 +299,19 @@ const GameTable: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    {/* Username with emoji */}
-                    <div className="text-white text-right">
-                        🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
-                    </div>
-                    {/* Exit Game Button */}
-                    <button
-                        onClick={handleExitGame}
-                        className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
-                        title="Exit Game"
-                    >
-                        🚪 Exit Game
-                    </button>
+
+                    {/* Exit Game Button - rendered in portal to ensure it's above bid interface */}
+                    {createPortal(
+                        <button
+                            onClick={handleExitGame}
+                            className="fixed top-2 right-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
+                            style={{ zIndex: 10001 }}
+                            title="Exit Game"
+                        >
+                            🚪 Exit Game
+                        </button>,
+                        document.body
+                    )}
 
                 </div>
             </div>
@@ -698,7 +700,7 @@ const GameTable: React.FC = () => {
                     className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
                     style={{
                         backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                        zIndex: 100
+                        zIndex: 10002
                     }}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}

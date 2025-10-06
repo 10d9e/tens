@@ -114,11 +114,19 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
         <AnimatePresence>
             <motion.div
                 className="fixed inset-0 bg-opacity-50 flex items-center justify-center"
-                style={{ zIndex: 50 }}
+                style={{
+                    zIndex: 50,
+                    pointerEvents: 'auto'
+                }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={onClose}
+                onClick={(e) => {
+                    // Only close if clicking on the overlay itself, not on higher z-index elements
+                    if (e.target === e.currentTarget) {
+                        onClose();
+                    }
+                }}
             >
                 <motion.div
                     className="bid-interface combined"
