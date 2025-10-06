@@ -184,14 +184,36 @@ function notifyLobbyMembers(lobbyId, event, data) {
     });
 }
 
+// Helper function to ensure playersWhoHavePassed is always a Set
+function ensurePlayersWhoHavePassedIsSet(game) {
+    if (game.playersWhoHavePassed && !(game.playersWhoHavePassed instanceof Set)) {
+        console.log('Converting playersWhoHavePassed from', typeof game.playersWhoHavePassed, 'to Set');
+        game.playersWhoHavePassed = new Set(game.playersWhoHavePassed);
+    }
+}
+
 // Helper function to emit game events to the correct room (game-specific if active, table-specific if not)
 function emitGameEvent(game, event, data) {
+    // Ensure playersWhoHavePassed is a Set before processing
+    if (data && data.game) {
+        ensurePlayersWhoHavePassedIsSet(data.game);
+    }
+
+    // Create a deep copy of the data to avoid modifying the original game object
+    const serializedData = JSON.parse(JSON.stringify(data, (key, value) => {
+        // Convert Set to Array for JSON serialization
+        if (value instanceof Set) {
+            return Array.from(value);
+        }
+        return value;
+    }));
+
     if (game && game.id && game.phase !== 'finished') {
         // Game is active, use game-specific room
-        io.to(`game-${game.id}`).emit(event, data);
+        io.to(`game-${game.id}`).emit(event, serializedData);
     } else if (game && game.tableId) {
         // Game is finished or not active, use table room
-        io.to(`table-${game.tableId}`).emit(event, data);
+        io.to(`table-${game.tableId}`).emit(event, serializedData);
     }
 }
 
@@ -1463,6 +1485,9 @@ function cleanupGameDueToTimeout(game, timeoutPlayerName) {
 }
 
 async function checkBiddingCompletion(game) {
+    // Ensure playersWhoHavePassed is always a Set
+    ensurePlayersWhoHavePassedIsSet(game);
+
     // Check if bidding should end based on the rules:
     // 1. If someone bids 100 (highest possible bid)
     // 2. If 3 players have passed
@@ -1688,6 +1713,9 @@ async function checkBiddingCompletion(game) {
 }
 
 async function handleBotTurn(game) {
+    // Ensure playersWhoHavePassed is always a Set
+    ensurePlayersWhoHavePassedIsSet(game);
+
     console.log('handleBotTurn called for game:', game.id);
     console.log('Current player ID:', game.currentPlayer);
     console.log('Game phase:', game.phase);
@@ -2779,8 +2807,16 @@ io.on('connection', (socket) => {
             const game = games.get(gameId);
             if (!game) throw new Error('Game not found');
 
+            // Ensure playersWhoHavePassed is always a Set
+            ensurePlayersWhoHavePassedIsSet(game);
+
             const player = game.players.find(p => p.id === socket.id);
             if (!player || player.id !== game.currentPlayer) throw new Error('Player not found or not current player');
+
+            // Check if player has already passed during this bidding round
+            if (game.playersWhoHavePassed.has(socket.id) && points > 0) {
+                throw new Error('Player has already passed and cannot make a bid');
+            }
 
             if (points === 0) {
                 // Player passed - they cannot bid again until new round

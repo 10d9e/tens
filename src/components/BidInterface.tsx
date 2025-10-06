@@ -14,6 +14,7 @@ interface BidInterfaceProps {
     };
     players: any[];
     playerCards: any[];
+    playersWhoHavePassed?: string[];
 }
 
 const BidInterface: React.FC<BidInterfaceProps> = ({
@@ -22,7 +23,8 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     onBid,
     currentBid,
     players,
-    playerCards
+    playerCards,
+    playersWhoHavePassed = []
 }) => {
     const [selectedPoints, setSelectedPoints] = useState<number>(0);
     const [selectedSuit, setSelectedSuit] = useState<Suit | null>(null);
@@ -62,6 +64,14 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
         const playerName = bidder.name;
 
         return { team, playerName };
+    };
+
+    const hasPlayerPassed = (playerId: string) => {
+        return playersWhoHavePassed.includes(playerId);
+    };
+
+    const getPassedPlayers = () => {
+        return players.filter(player => hasPlayerPassed(player.id));
     };
 
     const evaluateHand = () => {
@@ -135,6 +145,15 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                                 </div>
                             );
                         })()}
+
+                        {/* Show passed players */}
+                        {getPassedPlayers().length > 0 && (
+                            <div className="mt-2 text-sm text-red-200">
+                                <span className="inline-flex items-center gap-1">
+                                    ❌ Passed: {getPassedPlayers().map(p => p.name).join(', ')}
+                                </span>
+                            </div>
+                        )}
                     </div>
 
                     {/* Bid Amount Slider */}
