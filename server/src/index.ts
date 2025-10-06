@@ -18,7 +18,7 @@ import type {
     GameEvent,
     Suit,
     Rank
-} from '../../src/types/game';
+} from './types/game';
 
 const app = express();
 const server = createServer(app);
@@ -30,7 +30,7 @@ const io = new SocketIOServer(server, {
             "http://127.0.0.1:3000",
             "http://192.168.2.15:3000",
             /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow any 192.168.x.x:3000
-            process.env.FRONTEND_URL || "https://tens-game.railway.app"  // Production frontend URL
+            process.env.FRONTEND_URL || "https://200.cards"  // Production frontend URL
         ],
         methods: ["GET", "POST"],
         credentials: true
@@ -43,7 +43,7 @@ app.use(cors({
         "http://127.0.0.1:3000",
         "http://192.168.2.15:3000",
         /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow any 192.168.x.x:3000
-        process.env.FRONTEND_URL || "https://tens-game.railway.app"  // Production frontend URL
+        process.env.FRONTEND_URL || "https://200.cards"  // Production frontend URL
     ],
     credentials: true
 }));

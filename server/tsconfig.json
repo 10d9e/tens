@@ -6,7 +6,7 @@
             "ES2020"
         ],
         "outDir": "./dist",
-        "rootDir": "../",
+        "rootDir": "./src",
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
@@ -29,8 +29,7 @@
         "emitDecoratorMetadata": true
     },
     "include": [
-        "src/**/*",
-        "../src/types/game.ts"
+        "src/**/*"
     ],
     "exclude": [
         "node_modules",
