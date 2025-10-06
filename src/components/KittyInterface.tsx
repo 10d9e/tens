@@ -170,8 +170,12 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-black';
     };
 
+    const getCardValue = (card: CardType) => {
+        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
+        return values[card.rank as keyof typeof values] || 0;
+    };
 
-    // Organize cards by suit into 4 rows, each ordered by face value
+    // Organize cards by suit into 4 rows, each ordered by point value
     const organizeCardsBySuit = (cards: CardType[]) => {
         const suits = ['hearts', 'clubs', 'diamonds', 'spades'] as const;
 
@@ -181,14 +185,22 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
             cardsBySuit[suit] = cards.filter(card => card.suit === suit);
         });
 
-        // Sort each suit by face value (5, 6, 7, 8, 9, 10, J, Q, K, A)
+        // Sort each suit by point value (A=10, 10=10, 5=5, others=0)
         suits.forEach(suit => {
             cardsBySuit[suit].sort((a, b) => {
-                const rankOrder = { '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+                const valueA = getCardValue(a);
+                const valueB = getCardValue(b);
+
+                if (valueA !== valueB) {
+                    return valueA - valueB; // Lower point values first
+                }
+
+                // If same point value, sort by rank (A, K, Q, J, 10, 9, 8, 7, 6, 5)
+                const rankOrder = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5 };
                 const rankA = rankOrder[a.rank as keyof typeof rankOrder];
                 const rankB = rankOrder[b.rank as keyof typeof rankOrder];
 
-                return rankA - rankB; // Lower face values first
+                return rankA - rankB; // Lower ranks first
             });
         });
 
@@ -196,7 +208,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         return suits.map(suit => cardsBySuit[suit]);
     };
 
-    // Sort function for kitty display - sort by suit and face value
+    // Legacy sort function for kitty display (keep existing behavior)
     const sortCards = (cards: CardType[]) => {
         return [...cards].sort((a, b) => {
             // Define suit order (hearts, clubs, diamonds, spades)
@@ -208,8 +220,8 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
                 return suitA - suitB;
             }
 
-            // Within same suit, sort by face value (5, 6, 7, 8, 9, 10, J, Q, K, A)
-            const rankOrder = { '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, 'J': 11, 'Q': 12, 'K': 13, 'A': 14 };
+            // Within same suit, sort by rank
+            const rankOrder = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '5': 5 };
             const rankA = rankOrder[a.rank as keyof typeof rankOrder];
             const rankB = rankOrder[b.rank as keyof typeof rankOrder];
 
@@ -346,11 +358,10 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
                                     </span>
                                 )}
                             </div>
-                            <br />
 
                             {/* Trump Suit Selection */}
-                            <div className="bg-white/5 rounded-lg p-4">
-                                <div className="text-white text-lg mb-3">Choose Trump Suit:</div>
+                            <div className="p-1">
+                                <div className="text-white text-lg">Choose Trump Suit:</div>
                                 <div className="suit-options">
                                     {['hearts', 'diamonds', 'clubs', 'spades'].map(suit => (
                                         <button
@@ -370,7 +381,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
                                 <button
                                     onClick={handleDiscard}
                                     disabled={selectedCards.length !== 4 || !selectedTrump}
-                                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-all"
+                                    className="control-button"
                                 >
                                     Discard 4 Cards & Set Trump
                                 </button>

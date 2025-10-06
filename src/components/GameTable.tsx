@@ -29,15 +29,34 @@ const GameTable: React.FC = () => {
         setIsBidding
     } = useGameStore();
 
+    // Helper function to check if a player has passed (handles both Set and Array)
+    const hasPlayerPassed = (playerId: string) => {
+        if (!currentGame?.playersWhoHavePassed) return false;
+
+        // Check if it's a Set (has .has method) - use any to bypass TypeScript
+        const passedPlayers = currentGame.playersWhoHavePassed as any;
+        if (typeof passedPlayers.has === 'function') {
+            return passedPlayers.has(playerId);
+        }
+
+        // Check if it's an Array (has .includes method)
+        if (Array.isArray(passedPlayers)) {
+            return passedPlayers.includes(playerId);
+        }
+
+        return false;
+    };
+
     const { makeBid, playCard, exitGame } = useSocketStore();
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [showKittyInterface, setShowKittyInterface] = useState(false);
 
-    // Automatically open bid dialog when it's the player's turn to bid
+    // Automatically open bid dialog when it's the player's turn to bid (and they haven't passed)
     useEffect(() => {
-        if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'bidding' && !isBidding) {
+        const hasPassed = currentPlayer ? hasPlayerPassed(currentPlayer.id) : false;
+        if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'bidding' && !isBidding && !hasPassed) {
             setIsBidding(true);
             // Play sound effect when it's the player's turn to bid
             playBidTurnSound();
@@ -138,6 +157,7 @@ const GameTable: React.FC = () => {
 
     const isMyTurn = currentPlayer.id === currentGame.currentPlayer;
     const myPlayer = currentGame.players.find(p => p.id === currentPlayer.id);
+    const hasPassed = hasPlayerPassed(currentPlayer.id);
 
     // Don't render if we don't have a valid player
     if (!myPlayer) {
@@ -193,7 +213,7 @@ const GameTable: React.FC = () => {
     };
 
     const handleBid = (points: number, suit?: string) => {
-        if (!isMyTurn || currentGame.phase !== 'bidding') return;
+        if (!isMyTurn || currentGame.phase !== 'bidding' || hasPassed) return;
 
         makeBid(currentGame.id, points, suit);
         // Always close the dialog after making a bid (whether bid or pass)
@@ -342,6 +362,11 @@ const GameTable: React.FC = () => {
                             <div className={`player-info ${position}`}>
                                 <div className="text-white font-medium mb-1">
                                     {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({position})
+                                    {currentGame.phase === 'bidding' && hasPlayerPassed(player.id) && (
+                                        <span className="text-red-200" title="Passed">
+                                            ❌
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* Countdown timer positioned below/above player box */}
@@ -415,12 +440,13 @@ const GameTable: React.FC = () => {
 
                 {/* Bid Interface */}
                 <BidInterface
-                    isOpen={isBidding && isMyTurn && currentGame.phase === 'bidding'}
+                    isOpen={isBidding && isMyTurn && currentGame.phase === 'bidding' && !hasPassed}
                     onClose={() => setIsBidding(false)}
                     onBid={handleBid}
                     currentBid={currentGame.currentBid}
                     players={currentGame.players}
                     playerCards={myPlayer?.cards || []}
+                    playersWhoHavePassed={Array.isArray(currentGame.playersWhoHavePassed) ? currentGame.playersWhoHavePassed : Array.from(currentGame.playersWhoHavePassed || [])}
                 />
 
                 {/* Kitty Interface */}

@@ -46,6 +46,7 @@ export interface GameState {
     spectatorIds: string[];
     contractorTeam?: 'team1' | 'team2'; // Track which team is the contractor
     biddingPasses?: number; // Track number of consecutive passes
+    playersWhoHavePassed?: string[]; // Track which players have passed during current bidding round
     playerTurnStartTime?: { [playerId: string]: number }; // Track when each player's turn started
     timeoutDuration?: number; // Timeout duration in milliseconds
     deckVariant?: '36' | '40'; // Track which deck variant is being used
