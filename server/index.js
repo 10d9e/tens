@@ -213,6 +213,8 @@ function emitGameEvent(game, event, data) {
     if (game && game.id && game.phase !== 'finished') {
         // Game is active, use game-specific room
         io.to(`game-${game.id}`).emit(event, serializedData);
+        // Also emit to spectator room if it exists
+        io.to(`spectator-${game.tableId}`).emit(event, serializedData);
     } else if (game && game.tableId) {
         // Game is finished or not active, use table room
         io.to(`table-${game.tableId}`).emit(event, serializedData);
@@ -259,6 +261,33 @@ function resetTableAfterGameCompletion(tableId) {
         releasePlayerName(player.name);
     });
     */
+
+    // Remove all spectators and notify them
+    if (table.spectators && table.spectators.length > 0) {
+        logger.info(`Removing ${table.spectators.length} spectators from table ${tableId}`);
+
+        table.spectators.forEach(spectator => {
+            // Notify spectator that the game ended
+            const spectatorSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === spectator.id);
+            if (spectatorSocket) {
+                spectatorSocket.leave(`table-${tableId}`);
+                spectatorSocket.leave(`spectator-${tableId}`);
+                spectatorSocket.emit('game_ended_for_spectator', {
+                    message: 'The game has ended. Returning to lobby.',
+                    reason: 'Game ended'
+                });
+
+                // Return spectator to lobby
+                spectatorSocket.emit('lobby_joined', {
+                    lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
+                    player: spectator
+                });
+            }
+        });
+
+        // Clear spectators array
+        table.spectators = [];
+    }
 
     // Keep only bot players
     table.players = table.players.filter(player => player.isBot);
@@ -2636,8 +2665,22 @@ io.on('connection', (socket) => {
                 }
             });
 
+            // Add all spectators to the game-specific socket room
+            if (table.spectators) {
+                table.spectators.forEach(spectator => {
+                    const spectatorSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === spectator.id);
+                    if (spectatorSocket) {
+                        spectatorSocket.join(`game-${game.id}`);
+                    }
+                });
+            }
+
             logger.debug('Emitting game_started event');
             io.to(`game-${game.id}`).emit('game_started', { game: table.gameState });
+
+            // Notify lobby members that the table now has an active game
+            const tablesArray = Array.from(lobby.tables.values());
+            io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
 
             // Start bot turn if first player is a bot
             if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
@@ -2696,7 +2739,30 @@ io.on('connection', (socket) => {
 
                 logger.debug(`Player ${player.name} left table ${tableId}. Remaining players: ${table.players.length}`);
             } else {
-                logger.debug(`Player ${player.name} not found in table ${tableId}`);
+                // Check if player is a spectator
+                const spectatorIndex = table.spectators ? table.spectators.findIndex(s => s.id === player.id) : -1;
+                if (spectatorIndex !== -1) {
+                    logger.debug(`Removing spectator ${player.name} from table ${tableId}`);
+                    table.spectators.splice(spectatorIndex, 1);
+
+                    // Remove from socket rooms
+                    socket.leave(`table-${tableId}`);
+                    socket.leave(`spectator-${tableId}`);
+
+                    // Notify other players and spectators in the table
+                    socket.to(`table-${tableId}`).emit('spectator_left_table', { table, spectator: player });
+
+                    // Notify all lobby members about the updated lobby
+                    const tablesArray = Array.from(lobby.tables.values());
+                    io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+
+                    // Send confirmation to spectator who left
+                    socket.emit('table_left', { success: true });
+
+                    logger.debug(`Spectator ${player.name} left table ${tableId}. Remaining spectators: ${table.spectators ? table.spectators.length : 0}`);
+                } else {
+                    logger.debug(`Player ${player.name} not found in table ${tableId} as player or spectator`);
+                }
             }
         } catch (error) {
             logger.error('Error leaving table:', error);
@@ -2758,6 +2824,7 @@ io.on('connection', (socket) => {
 
                 // Notify all lobby members about the updated lobby
                 const tablesArray = Array.from(lobby.tables.values());
+                logger.debug(`Emitting lobby_updated for table ${tableId} with ${table.players.length} players`);
                 io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
 
                 // Only auto-start game if table is completely full (4 players)
@@ -2781,8 +2848,22 @@ io.on('connection', (socket) => {
                         }
                     });
 
+                    // Add all spectators to the game-specific socket room
+                    if (table.spectators) {
+                        table.spectators.forEach(spectator => {
+                            const spectatorSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === spectator.id);
+                            if (spectatorSocket) {
+                                spectatorSocket.join(`game-${game.id}`);
+                            }
+                        });
+                    }
+
                     logger.debug('Emitting game_started event');
                     io.to(`game-${game.id}`).emit('game_started', { game: table.gameState });
+
+                    // Notify lobby members that the table now has an active game
+                    const tablesArray = Array.from(lobby.tables.values());
+                    io.to('default').emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
 
                     // Start bot turn if first player is a bot
                     if (game.players.find(p => p.id === game.currentPlayer)?.isBot) {
@@ -2796,6 +2877,90 @@ io.on('connection', (socket) => {
         } catch (error) {
             logger.error('Error joining table:', error);
             socket.emit('error', { message: 'Error joining table' });
+        }
+    });
+
+    socket.on('join_as_spectator', async (data) => {
+        try {
+            logger.debug('join_as_spectator received:', data);
+            const { tableId, lobbyId = 'default' } = data;
+            const player = players.get(socket.id);
+            if (!player) {
+                logger.debug('Player not found for socket:', socket.id);
+                throw new Error('Player not found for socket');
+            }
+
+            const lobby = lobbies.get(lobbyId);
+            if (!lobby) {
+                logger.debug('Lobby not found:', lobbyId);
+                throw new Error('Lobby not found');
+            }
+
+            const table = lobby.tables.get(tableId);
+            if (!table) {
+                logger.debug('Table not found:', tableId);
+                throw new Error('Table not found');
+            }
+
+            // Check if table is private - spectators cannot join private tables
+            if (table.isPrivate) {
+                logger.debug(`Player ${player.name} attempted to spectate private table ${tableId}`);
+                throw new Error('Cannot spectate private tables');
+            }
+
+            // Check if there's an active game to spectate
+            if (!table.gameState) {
+                logger.debug(`Player ${player.name} attempted to spectate table ${tableId} with no active game`);
+                throw new Error('Cannot spectate a table with no active game');
+            }
+
+            // Check if player is already in this table as a player
+            if (table.players.some(p => p.id === player.id)) {
+                logger.debug(`Player ${player.name} is already in table ${tableId} as a player`);
+                throw new Error('You are already in this table as a player');
+            }
+
+            // Check if player is already spectating this table
+            if (table.spectators && table.spectators.some(s => s.id === player.id)) {
+                logger.debug(`Player ${player.name} is already spectating table ${tableId}`);
+                throw new Error('You are already spectating this table');
+            }
+
+            // Initialize spectators array if it doesn't exist
+            if (!table.spectators) {
+                table.spectators = [];
+            }
+
+            // Add player as spectator
+            const spectator = {
+                ...player,
+                isSpectator: true,
+                position: -1 // Spectators don't have positions
+            };
+
+            table.spectators.push(spectator);
+            socket.join(`table-${tableId}`);
+            socket.join(`spectator-${tableId}`);
+
+            // Send spectator the current game state if the game is in progress
+            const game = games.get(table.gameState?.id);
+            if (game) {
+                socket.emit('spectator_joined', { table, spectator, game });
+                // Also add spectator to the game room immediately
+                socket.join(`game-${game.id}`);
+            } else {
+                socket.emit('spectator_joined', { table, spectator });
+            }
+            socket.to(`table-${tableId}`).emit('spectator_joined_table', { table, spectator });
+
+            // Notify all lobby members about the updated lobby
+            const tablesArray = Array.from(lobby.tables.values());
+            io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
+
+            logger.debug(`Player ${player.name} joined table ${tableId} as spectator`);
+        } catch (error) {
+            logger.error('Error joining as spectator:', error);
+            socket.emit('error', { message: 'Error joining as spectator' });
         }
     });
 
@@ -3614,6 +3779,33 @@ io.on('connection', (socket) => {
             games.delete(gameId);
 
             if (table) {
+                // Remove all spectators and notify them
+                if (table.spectators && table.spectators.length > 0) {
+                    logger.info(`Removing ${table.spectators.length} spectators from table ${game.tableId} due to player exit`);
+
+                    table.spectators.forEach(spectator => {
+                        // Notify spectator that the game ended due to player exit
+                        const spectatorSocket = Array.from(io.sockets.sockets.values()).find(s => s.id === spectator.id);
+                        if (spectatorSocket) {
+                            spectatorSocket.leave(`table-${game.tableId}`);
+                            spectatorSocket.leave(`spectator-${game.tableId}`);
+                            spectatorSocket.emit('game_ended_for_spectator', {
+                                message: `${playerName} has exited the game. Returning to lobby.`,
+                                reason: 'Player exited'
+                            });
+
+                            // Return spectator to lobby
+                            spectatorSocket.emit('lobby_joined', {
+                                lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
+                                player: spectator
+                            });
+                        }
+                    });
+
+                    // Clear spectators array
+                    table.spectators = [];
+                }
+
                 // Keep only AI players on the table, remove human players
                 const botPlayers = game.players.filter(player => player.isBot);
                 table.players = botPlayers;
@@ -3667,6 +3859,19 @@ io.on('connection', (socket) => {
 
                             // Notify table members about the change
                             socket.to(`table-${tableId}`).emit('player_left_table', { table, player });
+                        }
+
+                        // Also check if player was a spectator
+                        if (table.spectators) {
+                            const spectatorIndex = table.spectators.findIndex(s => s.id === player.id);
+                            if (spectatorIndex !== -1) {
+                                logger.debug(`Removing disconnected spectator ${player.name} from table ${tableId}`);
+                                table.spectators.splice(spectatorIndex, 1);
+                                affectedLobbies.add(lobbyId);
+
+                                // Notify table members about spectator leaving
+                                socket.to(`table-${tableId}`).emit('spectator_left_table', { table, spectator: player });
+                            }
                         }
                     }
                 }

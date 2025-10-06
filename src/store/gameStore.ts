@@ -11,6 +11,7 @@ interface GameStore {
     isBidding: boolean;
     selectedCard: string | null;
     bellAnimation: { playerId: string; timestamp: number } | null;
+    trickWinnerAnimation: { playerId: string; timestamp: number } | null;
     completedRoundResults: {
         roundScores: { team1: number; team2: number };
         currentBid?: { points: number; suit?: string };
@@ -34,6 +35,7 @@ interface GameStore {
     updatePlayerCards: (playerId: string, cards: any[]) => void;
     updateGameState: (updates: Partial<GameState>) => void;
     setBellAnimation: (playerId: string) => void;
+    setTrickWinnerAnimation: (playerId: string) => void;
     setCompletedRoundResults: (results: any) => void;
     setShowShuffleAnimation: (show: boolean) => void;
     setShowGlowEffect: (show: boolean) => void;
@@ -50,6 +52,7 @@ export const useGameStore = create<GameStore>((set) => ({
     isBidding: false,
     selectedCard: null,
     bellAnimation: null,
+    trickWinnerAnimation: null,
     completedRoundResults: null,
     showShuffleAnimation: false,
     showGlowEffect: false,
@@ -89,6 +92,10 @@ export const useGameStore = create<GameStore>((set) => ({
 
     setBellAnimation: (playerId) => set({
         bellAnimation: { playerId, timestamp: Date.now() }
+    }),
+
+    setTrickWinnerAnimation: (playerId) => set({
+        trickWinnerAnimation: { playerId, timestamp: Date.now() }
     }),
 
     setCompletedRoundResults: (results) => set({ completedRoundResults: results }),

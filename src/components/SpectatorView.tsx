@@ -2,99 +2,32 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import { useGameStore } from '../store/gameStore';
-import { useSocketStore, playBidTurnSound } from '../store/socketStore';
-import PlayerHand from './PlayerHand';
+import { useSocketStore } from '../store/socketStore';
 import TrickArea from './TrickArea';
-import BidInterface from './BidInterface';
-import KittyInterface from './KittyInterface';
-import RoundNotepad from './RoundNotepad';
 import KittyArea from './KittyArea';
 import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
 import TrickWinnerAnimation from './TrickWinnerAnimation';
-import { Card as CardType } from '../types/game';
-import { canPlayCard } from '../utils/gameLogic';
+import RoundNotepad from './RoundNotepad';
 
-const GameTable: React.FC = () => {
+const SpectatorView: React.FC = () => {
     const {
         currentGame,
         currentTable,
         currentPlayer,
-        isBidding,
-        selectedCard,
         bellAnimation,
         trickWinnerAnimation,
         completedRoundResults,
         showShuffleAnimation,
         showGlowEffect,
-        gameEndedByExit,
-        setSelectedCard,
-        setIsBidding
     } = useGameStore();
 
-    // Helper function to check if a player has passed (handles both Set and Array)
-    const hasPlayerPassed = (playerId: string) => {
-        if (!currentGame?.playersWhoHavePassed) return false;
-
-        // Check if it's a Set (has .has method) - use any to bypass TypeScript
-        const passedPlayers = currentGame.playersWhoHavePassed as any;
-        if (typeof passedPlayers.has === 'function') {
-            return passedPlayers.has(playerId);
-        }
-
-        // Check if it's an Array (has .includes method)
-        if (Array.isArray(passedPlayers)) {
-            return passedPlayers.includes(playerId);
-        }
-
-        return false;
-    };
-
-    const { makeBid, playCard, exitGame } = useSocketStore();
+    const { leaveTable } = useSocketStore();
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
-    const [showKittyInterface, setShowKittyInterface] = useState(false);
 
-    // Automatically open bid dialog when it's the player's turn to bid (and they haven't passed)
-    useEffect(() => {
-        const hasPassed = currentPlayer ? hasPlayerPassed(currentPlayer.id) : false;
-        if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'bidding' && !isBidding && !hasPassed) {
-            setIsBidding(true);
-            // Play sound effect when it's the player's turn to bid
-            playBidTurnSound();
-        }
-    }, [currentGame, currentPlayer, isBidding, setIsBidding]);
-
-    // Reset kitty interface when phase changes away from kitty
-    useEffect(() => {
-        if (currentGame && currentGame.phase !== 'kitty' && showKittyInterface) {
-            console.log('Resetting kitty interface - phase changed to:', currentGame.phase);
-            setShowKittyInterface(false);
-        }
-    }, [currentGame?.phase, showKittyInterface]);
-
-    // Automatically open kitty interface when it's the player's turn in kitty phase
-    useEffect(() => {
-        console.log('Kitty phase check:', {
-            currentGame: !!currentGame,
-            currentPlayer: !!currentPlayer,
-            isMyTurn: currentGame?.currentPlayer === currentPlayer?.id,
-            phase: currentGame?.phase,
-            showKittyInterface,
-            hasKitty: currentGame?.hasKitty,
-            kittyLength: currentGame?.kitty?.length,
-            round: currentGame?.round,
-            deckVariant: currentGame?.deckVariant
-        });
-
-        if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'kitty' && !showKittyInterface) {
-            console.log('Opening kitty interface for player:', currentPlayer.name, 'round:', currentGame.round);
-            setShowKittyInterface(true);
-        }
-    }, [currentGame, currentPlayer, showKittyInterface]);
-
-    // Countdown timer effect
+    // Countdown timer effect (same as GameTable)
     useEffect(() => {
         let interval: NodeJS.Timeout;
 
@@ -111,7 +44,6 @@ const GameTable: React.FC = () => {
 
                     // Play tick sound for last 5 seconds
                     if (seconds <= 5 && seconds > 0 && seconds !== lastPlayedSecond) {
-                        // Create a simple beep sound using Web Audio API
                         try {
                             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
                             const oscillator = audioContext.createOscillator();
@@ -120,7 +52,7 @@ const GameTable: React.FC = () => {
                             oscillator.connect(gainNode);
                             gainNode.connect(audioContext.destination);
 
-                            oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Higher pitch for urgency
+                            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
                             oscillator.type = 'sine';
 
                             gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
@@ -140,8 +72,8 @@ const GameTable: React.FC = () => {
                 }
             };
 
-            updateTimer(); // Initial update
-            interval = setInterval(updateTimer, 1000); // Update every second
+            updateTimer();
+            interval = setInterval(updateTimer, 1000);
         } else {
             setTimeRemaining(null);
         }
@@ -158,121 +90,39 @@ const GameTable: React.FC = () => {
         return <div>Loading game...</div>;
     }
 
-    const isMyTurn = currentPlayer.id === currentGame.currentPlayer;
-    const myPlayer = currentGame.players.find(p => p.id === currentPlayer.id);
-    const hasPassed = hasPlayerPassed(currentPlayer.id);
-
-    // Don't render if we don't have a valid player
-    if (!myPlayer) {
-        return <div>Loading player data...</div>;
-    }
-
-    const handleCardClick = (card: CardType) => {
-        if (!isMyTurn || currentGame.phase !== 'playing') return;
-
-        // Check if the human player has already played a card in the current trick
-        const hasPlayedInCurrentTrick = currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id);
-        if (hasPlayedInCurrentTrick) return;
-
-        // Check if the card is playable
-        const leadSuit = currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null;
-        const isPlayable = canPlayCard(card, leadSuit as any, currentGame.trumpSuit!, myPlayer?.cards || []);
-
-        if (isPlayable) {
-            setSelectedCard(card.id);
-        }
-    };
-
-    const handlePlayCard = () => {
-        if (!selectedCard || !isMyTurn || currentGame.phase !== 'playing') return;
-
-        // Check if the human player has already played a card in the current trick
-        const hasPlayedInCurrentTrick = currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id);
-        if (hasPlayedInCurrentTrick) return;
-
-        const card = myPlayer?.cards.find(c => c.id === selectedCard);
-        if (card) {
-            playCard(currentGame.id, card);
-            setSelectedCard(null);
-        }
-    };
-
-    const handleCardDoubleClick = (card: CardType) => {
-        if (!isMyTurn || currentGame.phase !== 'playing') return;
-
-        // Check if the human player has already played a card in the current trick
-        const hasPlayedInCurrentTrick = currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id);
-        if (hasPlayedInCurrentTrick) return;
-
-        // Check if the card is playable
-        const leadSuit = currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null;
-        const isPlayable = canPlayCard(card, leadSuit as any, currentGame.trumpSuit!, myPlayer?.cards || []);
-
-        if (isPlayable) {
-            // Play the card immediately
-            playCard(currentGame.id, card);
-            setSelectedCard(null);
-        }
-    };
-
-    const handleBid = (points: number, suit?: string) => {
-        if (!isMyTurn || currentGame.phase !== 'bidding' || hasPassed) return;
-
-        makeBid(currentGame.id, points, suit);
-        // Always close the dialog after making a bid (whether bid or pass)
-        setIsBidding(false);
-    };
-
-    const handleExitGame = () => {
-        if (!currentGame || !currentPlayer) return;
-
-        // Show confirmation dialog
+    const handleExitSpectating = () => {
         setShowExitDialog(true);
     };
 
-    const confirmExitGame = () => {
-        if (!currentGame || !currentPlayer) return;
-
-        exitGame(currentGame.id, currentPlayer.name);
+    const confirmExitSpectating = () => {
+        if (!currentTable || !currentPlayer) return;
+        leaveTable(currentTable.id);
         setShowExitDialog(false);
     };
 
-    const cancelExitGame = () => {
+    const cancelExitSpectating = () => {
         setShowExitDialog(false);
     };
-
 
     const getPlayerPosition = (player: any) => {
-        // Map position numbers to position names
         const positionMap: { [key: number]: string } = {
-            0: 'north',   // North
-            1: 'east',    // East  
-            2: 'south',   // South (human player - should not be in otherPlayers)
-            3: 'west'     // West
+            0: 'north',
+            1: 'east',
+            2: 'south',
+            3: 'west'
         };
         return positionMap[player.position] || 'north';
     };
 
     const getVisualPosition = (player: any) => {
-        // Always orient from the current player's perspective
-        // Current player should always appear at 'bottom'
-        const currentPlayerPos = currentPlayer.position;
-        const playerPos = player.position;
-
-        // Calculate relative position from current player's perspective
-        const relativePos = (playerPos - currentPlayerPos + 4) % 4;
-
-        // Map to visual positions (current player = bottom)
-        // Looking at the table from current player's perspective:
-        // Current player is at bottom, so relative positions are:
+        // For spectators, we'll use a fixed orientation (North at top)
         const visualMap: { [key: number]: string } = {
-            0: 'bottom',  // Current player (always bottom)
-            1: 'left',    // To the left of current player (counter-clockwise)
-            2: 'top',     // Opposite of current player
-            3: 'right'    // To the right of current player (clockwise)
+            0: 'top',     // North
+            1: 'right',   // East
+            2: 'bottom',  // South
+            3: 'left'     // West
         };
-
-        return visualMap[relativePos] || 'bottom';
+        return visualMap[player.position] || 'top';
     };
 
     const getTeamScore = (team: 'team1' | 'team2') => {
@@ -285,7 +135,7 @@ const GameTable: React.FC = () => {
             <div className="flex justify-between items-center p-2 bg-white/10 backdrop-blur-md border-b border-white/20">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-2xl font-bold text-white">🎴 200</h2>
+                        <h2 className="text-2xl font-bold text-white">👁️ Spectating 200</h2>
                         {currentTable && (
                             <div className="flex items-center gap-4 text-sm text-white/80">
                                 <span className="font-medium">{currentTable.name}</span>
@@ -309,31 +159,29 @@ const GameTable: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-
-                    {/* Exit Game Button - rendered in portal to ensure it's above bid interface */}
+                    {/* Exit Spectating Button */}
                     {createPortal(
                         <button
-                            onClick={handleExitGame}
+                            onClick={handleExitSpectating}
                             className="fixed top-2 right-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
                             style={{ zIndex: 10001 }}
-                            title="Exit Game"
+                            title="Stop Spectating"
                         >
-                            🚪 Exit Game
+                            👁️ Stop Watching
                         </button>,
                         document.body
                     )}
-
                 </div>
             </div>
             <br />
+
             {/* Table Center */}
             <div className="game-table relative w-full m-6">
-                {/* All Players (including human player) */}
+                {/* All Players */}
                 {currentGame.players.map(player => {
                     const position = getPlayerPosition(player);
                     const visualPosition = getVisualPosition(player);
 
-                    // Use inline styles for more reliable positioning based on visual perspective
                     const positionStyles: { [key: string]: any } = {
                         'top': { top: '16px', left: '50%', transform: 'translateX(-50%)' },
                         'right': { right: '16px', top: '50%', transform: 'translateY(-50%)' },
@@ -341,13 +189,11 @@ const GameTable: React.FC = () => {
                         'left': { left: '16px', top: '50%', transform: 'translateY(-50%)' }
                     };
 
-                    const appliedStyle = positionStyles[visualPosition] || positionStyles['bottom'];
-
+                    const appliedStyle = positionStyles[visualPosition] || positionStyles['top'];
                     const isCurrentPlayer = player.id === currentGame.currentPlayer;
-                    const isHumanPlayer = player.id === currentPlayer.id;
 
                     // Determine team based on position (North & South = Team 1, East & West = Team 2)
-                    const isTeam1 = player.position === 0 || player.position === 2; // North or South
+                    const isTeam1 = player.position === 0 || player.position === 2;
                     const teamBgColor = isTeam1 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(59, 130, 246, 0.3)';
                     const teamBorderColor = isTeam1 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(59, 130, 246, 0.8)';
                     const teamGlowColor = isTeam1 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.4)';
@@ -357,7 +203,7 @@ const GameTable: React.FC = () => {
                             key={player.id}
                             className="absolute"
                             style={{
-                                ...appliedStyle, // Apply position-specific styles
+                                ...appliedStyle,
                                 backgroundColor: isCurrentPlayer ? 'rgba(251, 191, 36, 0.3)' : teamBgColor,
                                 border: isCurrentPlayer ? '2px solid rgba(251, 191, 36, 0.8)' : `2px solid ${teamBorderColor}`,
                                 zIndex: 10,
@@ -373,15 +219,17 @@ const GameTable: React.FC = () => {
                         >
                             <div className={`player-info ${position}`}>
                                 <div className="text-white font-medium mb-1">
-                                    {player.name} {player.isBot && '🤖'} {isHumanPlayer && '👤'} ({position})
-                                    {currentGame.phase === 'bidding' && hasPlayerPassed(player.id) && (
-                                        <span className="text-red-200" title="Passed">
-                                            ❌
-                                        </span>
-                                    )}
+                                    {player.name} {player.isBot && '🤖'} ({position})
+                                    {currentGame.phase === 'bidding' && currentGame.playersWhoHavePassed &&
+                                        Array.isArray(currentGame.playersWhoHavePassed) &&
+                                        currentGame.playersWhoHavePassed.includes(player.id) && (
+                                            <span className="text-red-200" title="Passed">
+                                                ❌
+                                            </span>
+                                        )}
                                 </div>
 
-                                {/* Countdown timer positioned below/above player box */}
+                                {/* Countdown timer */}
                                 {currentGame.currentPlayer === player.id && timeRemaining !== null && (
                                     <div
                                         className="absolute text-xl font-bold z-20"
@@ -397,7 +245,7 @@ const GameTable: React.FC = () => {
                                     </div>
                                 )}
 
-                                {/* Dealer marker positioned outside the player box */}
+                                {/* Dealer marker */}
                                 {currentGame.dealer === player.id && currentGame.phase === 'bidding' && (
                                     <div
                                         className="absolute text-4xl text-orange-400 z-20"
@@ -418,7 +266,7 @@ const GameTable: React.FC = () => {
                                 )}
                             </div>
 
-                            {/* Bell animation for when this player makes a bid */}
+                            {/* Bell animation */}
                             <BellAnimation
                                 isVisible={bellAnimation?.playerId === player.id &&
                                     (Date.now() - bellAnimation.timestamp) < 1000}
@@ -445,45 +293,15 @@ const GameTable: React.FC = () => {
                     );
                 })}
 
-
-
                 {/* Trick Area */}
                 <TrickArea
                     trick={currentGame.currentTrick}
                     players={currentGame.players}
                     trumpSuit={currentGame.trumpSuit!}
-                    currentPlayerId={currentPlayer.id}
+                    currentPlayerId={null} // No current player for spectators
                 >
                     <ShuffleAnimation isVisible={showShuffleAnimation} />
                 </TrickArea>
-
-                {/* Bid Interface */}
-                <BidInterface
-                    isOpen={isBidding && isMyTurn && currentGame.phase === 'bidding' && !hasPassed}
-                    onClose={() => setIsBidding(false)}
-                    onBid={handleBid}
-                    currentBid={currentGame.currentBid}
-                    players={currentGame.players}
-                    playerCards={myPlayer?.cards || []}
-                    playersWhoHavePassed={Array.isArray(currentGame.playersWhoHavePassed) ? currentGame.playersWhoHavePassed : Array.from(currentGame.playersWhoHavePassed || [])}
-                />
-
-                {/* Kitty Interface */}
-                <KittyInterface
-                    isOpen={showKittyInterface && isMyTurn && currentGame.phase === 'kitty'}
-                    onClose={() => setShowKittyInterface(false)}
-                    gameId={currentGame.id}
-                    kitty={currentGame.kitty || []}
-                    playerCards={myPlayer?.cards || []}
-                    currentPlayer={currentGame.currentPlayer}
-                    playerId={currentPlayer?.id || ''}
-                    currentBid={currentGame.currentBid}
-                    gameState={{
-                        timeoutDuration: currentGame.timeoutDuration,
-                        playerTurnStartTime: currentGame.playerTurnStartTime,
-                        currentPlayer: currentGame.currentPlayer
-                    }}
-                />
 
                 {/* Center Phase Display */}
                 {currentGame.phase === 'kitty' && (
@@ -501,10 +319,7 @@ const GameTable: React.FC = () => {
                                 Kitty Phase
                             </div>
                             <div className="text-green-200 text-sm mt-1">
-                                {currentGame.currentPlayer === currentPlayer?.id
-                                    ? "Your turn to handle kitty"
-                                    : "Waiting for bid winner to handle kitty"
-                                }
+                                Waiting for bid winner to handle kitty
                             </div>
                         </div>
                     </div>
@@ -518,8 +333,8 @@ const GameTable: React.FC = () => {
                                 style={{
                                     color: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds' ? '#dc2626' : '#1f2937',
                                     textShadow: currentGame.trumpSuit === 'hearts' || currentGame.trumpSuit === 'diamonds'
-                                        ? '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(220, 38, 38, 0.3)' // Shadow for red suits
-                                        : '0 0 25px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.5)' // Glow for black suits
+                                        ? '2px 2px 8px rgba(0, 0, 0, 0.8), 0 0 20px rgba(220, 38, 38, 0.3)'
+                                        : '0 0 25px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 255, 255, 0.5)'
                                 }}
                             >
                                 {currentGame.trumpSuit === 'hearts' && '♥'}
@@ -538,35 +353,10 @@ const GameTable: React.FC = () => {
                     contractorTeam={currentGame.contractorTeam}
                     hasKitty={currentGame.hasKitty}
                 />
-
             </div>
 
-            {/* My Hand */}
-            <div className="fixed left-0 right-0 p-1">
-                <PlayerHand
-                    player={myPlayer}
-                    currentPlayer={currentGame.currentPlayer}
-                    leadSuit={currentGame.currentTrick.cards.length > 0 ? currentGame.currentTrick.cards[0].card.suit : null}
-                    trumpSuit={currentGame.trumpSuit!}
-                    onCardClick={handleCardClick}
-                    onCardDoubleClick={handleCardDoubleClick}
-                    selectedCardId={selectedCard}
-                    currentTrick={currentGame.currentTrick}
-                />
-
-                {/* Game Controls - positioned below the hand, always reserving space */}
-                <div className="flex justify-center">
-                    {isMyTurn && currentGame.phase === 'playing' && selectedCard && !currentGame.currentTrick.cards.some(trickCard => trickCard.playerId === currentPlayer.id) && (
-                        <button
-                            className="rounded-sm bg-gradient-to-r text-white font-bold shadow-lg transition-all transform hover:scale-105"
-                            onClick={handlePlayCard}
-                        >
-                            🃏 Play Card
-                        </button>
-                    )}
-                </div>
-
-                {/* Game Information Display - Team Scores */}
+            {/* Game Information Display - Team Scores */}
+            <div className="fixed bottom-0 left-0 right-0 p-4">
                 <div className={`team-scores-display ${showGlowEffect ? 'glow-effect' : ''}`}>
                     <div className="team-scores-header">
                         <h3>🏆 Team Scores</h3>
@@ -603,9 +393,7 @@ const GameTable: React.FC = () => {
                     </div>
                 </div>
 
-
-
-                {/* Round Notepad - Always visible during the game */}
+                {/* Round Notepad */}
                 <RoundNotepad
                     roundScores={
                         completedRoundResults?.roundScores ||
@@ -627,91 +415,9 @@ const GameTable: React.FC = () => {
                     gamePhase={currentGame.phase}
                     showGlow={showGlowEffect}
                 />
-
-
-
             </div>
 
-
-
-            {/* Game End Overlay */}
-            {currentGame.phase === 'finished' && !gameEndedByExit && (
-                <motion.div
-                    className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
-                    style={{
-                        backgroundColor: 'rgba(0, 0, 0, 0.9)'
-                    }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                >
-                    <motion.div
-                        className="bg-gradient-to-br from-green-900 to-green-800 rounded-2xl p-8 border-2 border-green-500 shadow-2xl max-w-md w-full mx-4 text-center"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                    >
-                        <div className="text-6xl mb-4">🏆</div>
-                        <h2 className="text-3xl font-bold text-white mb-4">Game Over!</h2>
-
-                        {(() => {
-                            const winningTeam = currentGame.teamScores.team1 >= 200 ? 'team1' : 'team2';
-                            const winningTeamName = winningTeam === 'team1' ? 'Team 1' : 'Team 2';
-                            const winningPlayers = currentGame.players.filter(p => (p.position % 2 === 0) === (winningTeam === 'team1'));
-                            const teamScore = currentGame.teamScores[winningTeam];
-                            const otherTeam = winningTeam === 'team1' ? 'team2' : 'team1';
-                            const otherTeamScore = currentGame.teamScores[otherTeam];
-
-                            return (
-                                <>
-                                    <div className="text-2xl font-bold text-green-300 mb-2">
-                                        {winningTeamName} Wins!
-                                    </div>
-                                    <div className="text-lg text-gray-300 mb-4">
-                                        Winners: {winningPlayers.map(p => p.name).join(' & ')}
-                                    </div>
-                                    <div className="text-xl font-semibold text-white mb-6">
-                                        Final Score: {teamScore} - {otherTeamScore}
-                                    </div>
-                                </>
-                            );
-                        })()}
-
-                        <div className="text-sm text-gray-400 mb-6">
-                            Thanks for playing! 🎉
-                        </div>
-
-                        <button
-                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
-                            onClick={() => {
-                                // When game is finished, directly clear the game state instead of trying to leave table
-                                // (player might already be removed from table by server)
-                                const gameStore = useGameStore.getState();
-                                const socketStore = useSocketStore.getState();
-
-                                // Store player name before clearing
-                                const playerName = gameStore.currentPlayer?.name;
-
-                                gameStore.setCurrentGame(null);
-                                gameStore.setCurrentTable(null);
-                                gameStore.setCurrentPlayer(null);
-
-                                // Also clear any bidding state
-                                gameStore.setIsBidding(false);
-                                gameStore.setSelectedCard(null);
-
-                                // Request fresh lobby data
-                                if (socketStore.socket && playerName) {
-                                    socketStore.socket.emit('join_lobby', { playerName });
-                                }
-                            }}
-                        >
-                            🏠 Exit to Lobby
-                        </button>
-                    </motion.div>
-                </motion.div>
-            )}
-
-            {/* Exit Game Confirmation Dialog */}
+            {/* Exit Spectating Confirmation Dialog */}
             {showExitDialog && (
                 <motion.div
                     className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center"
@@ -723,32 +429,32 @@ const GameTable: React.FC = () => {
                     animate={{ opacity: 1 }}
                 >
                     <motion.div
-                        className="bg-gradient-to-br from-red-900 to-red-800 rounded-2xl p-8 border-2 border-red-500 shadow-2xl max-w-md w-full mx-4 text-center"
+                        className="bg-gradient-to-br from-blue-900 to-blue-800 rounded-2xl p-8 border-2 border-blue-500 shadow-2xl max-w-md w-full mx-4 text-center"
                         initial={{ scale: 0.8, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.3 }}
                     >
-                        <div className="text-6xl mb-4">⚠️</div>
-                        <h2 className="text-3xl font-bold text-white mb-4">Exit Game?</h2>
-                        <p className="text-lg text-red-200 mb-6">
-                            This will end the game for all players and return everyone to the lobby.
+                        <div className="text-6xl mb-4">👁️</div>
+                        <h2 className="text-3xl font-bold text-white mb-4">Stop Watching?</h2>
+                        <p className="text-lg text-blue-200 mb-6">
+                            This will return you to the lobby.
                         </p>
-                        <p className="text-sm text-red-300 mb-8">
-                            Are you sure you want to exit?
+                        <p className="text-sm text-blue-300 mb-8">
+                            Are you sure you want to stop watching this game?
                         </p>
 
                         <div className="flex gap-4 justify-center">
                             <button
-                                onClick={cancelExitGame}
+                                onClick={cancelExitSpectating}
                                 className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
                             >
-                                Cancel
+                                Continue Watching
                             </button>
                             <button
-                                onClick={confirmExitGame}
-                                className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                                onClick={confirmExitSpectating}
+                                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
                             >
-                                Exit Game
+                                Stop Watching
                             </button>
                         </div>
                     </motion.div>
@@ -758,4 +464,4 @@ const GameTable: React.FC = () => {
     );
 };
 
-export default GameTable;
+export default SpectatorView;

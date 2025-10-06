@@ -7,7 +7,7 @@ interface TrickAreaProps {
     trick: { cards: { card: CardType; playerId: string }[] };
     players: any[];
     trumpSuit: string;
-    currentPlayerId: string;
+    currentPlayerId: string | null;
     children?: React.ReactNode;
 }
 
@@ -18,11 +18,25 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
 
 
     const getCardPosition = (_index: number, playerId: string) => {
-        // Find the current player and the card player
-        const currentPlayer = players.find(p => p.id === currentPlayerId);
+        // Find the card player
         const cardPlayer = players.find(p => p.id === playerId);
+        if (!cardPlayer) return { x: 0, y: 0 };
 
-        if (!currentPlayer || !cardPlayer) return { x: 0, y: 0 };
+        // If currentPlayerId is null (spectator mode), use fixed orientation
+        if (!currentPlayerId) {
+            // Fixed spectator orientation: North at top, East at right, South at bottom, West at left
+            const positions = [
+                { x: 0, y: -120 },    // North (position 0)
+                { x: 120, y: 0 },     // East (position 1)
+                { x: 0, y: 120 },     // South (position 2)
+                { x: -120, y: 0 }     // West (position 3)
+            ];
+            return positions[cardPlayer.position] || { x: 0, y: 0 };
+        }
+
+        // Find the current player for normal game mode
+        const currentPlayer = players.find(p => p.id === currentPlayerId);
+        if (!currentPlayer) return { x: 0, y: 0 };
 
         // Calculate relative position from current player's perspective
         const relativePos = (cardPlayer.position - currentPlayer.position + 4) % 4;

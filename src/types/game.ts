@@ -16,6 +16,7 @@ export interface Player {
     cards: Card[];
     score: number;
     isReady: boolean;
+    isSpectator?: boolean; // New field to identify spectators
 }
 
 export interface Bid {
@@ -70,6 +71,7 @@ export interface LobbyTable {
     deckVariant?: '36' | '40';
     scoreTarget?: 200 | 300 | 500 | 1000;
     hasKitty?: boolean; // Whether this table uses kitty (only available with 40-card deck)
+    spectators?: Player[]; // New field to track spectators
 }
 
 export interface ChatMessage {
