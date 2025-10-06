@@ -4,13 +4,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Lobby from './components/Lobby';
 import GameTable from './components/GameTable';
 import WaitingRoom from './components/WaitingRoom';
+import SpectatorView from './components/SpectatorView';
 import { useGameStore } from './store/gameStore';
 import { useSocketStore } from './store/socketStore';
 import { getStoredUsername, storeUsername } from './utils/cookieUtils';
 import './App.css';
 
 function App() {
-    const { currentGame, currentTable } = useGameStore();
+    const { currentGame, currentTable, currentPlayer } = useGameStore();
     const { socket, isConnected } = useSocketStore();
     const [playerName, setPlayerName] = useState('');
     const [showNameInput, setShowNameInput] = useState(true);
@@ -100,7 +101,11 @@ function App() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.3 }}
                     >
-                        <GameTable />
+                        {currentPlayer?.isSpectator ? (
+                            <SpectatorView />
+                        ) : (
+                            <GameTable />
+                        )}
                     </motion.div>
                 ) : currentTable ? (
                     <motion.div

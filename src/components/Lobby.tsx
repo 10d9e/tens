@@ -10,7 +10,7 @@ interface LobbyProps {
 
 const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
     const { lobby, currentPlayer } = useGameStore();
-    const { joinTable, createTable, deleteTable, socket } = useSocketStore();
+    const { joinTable, joinAsSpectator, createTable, deleteTable, socket } = useSocketStore();
     const [newTableName, setNewTableName] = useState('');
     const [passwordPrompt, setPasswordPrompt] = useState<{ tableId: string; tableName: string } | null>(null);
     const [joinPassword, setJoinPassword] = useState('');
@@ -34,6 +34,10 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
             // Join public table directly
             joinTable(tableId);
         }
+    };
+
+    const handleWatchGame = (tableId: string) => {
+        joinAsSpectator(tableId);
     };
 
     const handleJoinWithPassword = () => {
@@ -182,6 +186,11 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                                             <span className="px-3 py-1 bg-white/20 rounded-full text-sm font-medium text-white">
                                                 {table.players.length}/{table.maxPlayers}
                                             </span>
+                                            {table.spectators && table.spectators.length > 0 && (
+                                                <span className="px-3 py-1 bg-blue-500/20 rounded-full text-sm font-medium text-blue-300 border border-blue-400/30">
+                                                    👁️ {table.spectators.length}
+                                                </span>
+                                            )}
                                             {currentPlayer && table.creator === currentPlayer.name && !table.gameState && (
                                                 <button
                                                     onClick={() => handleDeleteTable(table.id)}
@@ -209,6 +218,22 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                                                 <span className="text-white/60 text-sm italic">No players yet</span>
                                             )}
                                         </div>
+
+                                        {table.spectators && table.spectators.length > 0 && (
+                                            <>
+                                                <div className="text-sm font-medium text-white/80 mb-3 mt-4">Spectators:</div>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {table.spectators.map(spectator => (
+                                                        <span
+                                                            key={spectator.id}
+                                                            className="px-3 py-1 bg-blue-500/30 rounded-lg text-sm font-medium text-blue-300 border border-blue-400/30"
+                                                        >
+                                                            {spectator.name} 👁️
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </>
+                                        )}
                                     </div>
 
                                     <div className="flex justify-between items-center">
@@ -220,15 +245,29 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                                             )}
                                         </div>
 
-                                        <button
-                                            onClick={() => handleJoinTable(table.id)}
-                                            disabled={table.players.length >= table.maxPlayers || !!table.gameState}
-                                            className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded text-sm font-semibold text-white transition-all transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
-                                            style={{ backgroundColor: 'green', color: 'white', border: 'none', padding: '5px' }}
-                                        >
-                                            {table.players.length >= table.maxPlayers ? 'Full' :
-                                                table.gameState ? 'In Game' : 'Join Table'}
-                                        </button>
+                                        <div className="flex gap-2">
+                                            {/* Show Watch button if table has an active game and is public */}
+                                            {!table.isPrivate && table.gameState && (
+                                                <button
+                                                    onClick={() => handleWatchGame(table.id)}
+                                                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded text-sm font-semibold text-white transition-all transform hover:scale-105 shadow-lg"
+                                                    title="Watch this game"
+                                                >
+                                                    👁️ Watch
+                                                </button>
+                                            )}
+
+                                            {/* Show Join Table button if table is not full and doesn't have an active game */}
+                                            {table.players.length < table.maxPlayers && !table.gameState && (
+                                                <button
+                                                    onClick={() => handleJoinTable(table.id)}
+                                                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded text-sm font-semibold text-white transition-all transform hover:scale-105 shadow-lg"
+                                                    style={{ backgroundColor: 'green', color: 'white', border: 'none', padding: '5px' }}
+                                                >
+                                                    Join Table
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </motion.div>
                             ))
