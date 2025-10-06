@@ -7,6 +7,8 @@ const Lobby: React.FC = () => {
     const { lobby, currentPlayer } = useGameStore();
     const { joinTable, createTable, deleteTable, socket } = useSocketStore();
     const [newTableName, setNewTableName] = useState('');
+    const [passwordPrompt, setPasswordPrompt] = useState<{ tableId: string; tableName: string } | null>(null);
+    const [joinPassword, setJoinPassword] = useState('');
 
     console.log('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
 
@@ -19,7 +21,27 @@ const Lobby: React.FC = () => {
     }, [socket, lobby, currentPlayer]);
 
     const handleJoinTable = (tableId: string) => {
-        joinTable(tableId);
+        const table = lobby?.find(t => t.id === tableId);
+        if (table?.isPrivate) {
+            // Show password prompt for private tables
+            setPasswordPrompt({ tableId, tableName: table.name });
+        } else {
+            // Join public table directly
+            joinTable(tableId);
+        }
+    };
+
+    const handleJoinWithPassword = () => {
+        if (passwordPrompt) {
+            joinTable(passwordPrompt.tableId, undefined, undefined, joinPassword);
+            setPasswordPrompt(null);
+            setJoinPassword('');
+        }
+    };
+
+    const cancelPasswordPrompt = () => {
+        setPasswordPrompt(null);
+        setJoinPassword('');
     };
 
     const handleCreateTable = () => {
@@ -121,7 +143,14 @@ const Lobby: React.FC = () => {
                                 >
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
-                                            <h3 className="text-xl font-bold text-white">{table.name}</h3>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-xl font-bold text-white">{table.name}</h3>
+                                                {table.isPrivate && (
+                                                    <span className="px-2 py-1 bg-red-500/20 border border-red-400/30 rounded text-xs font-medium text-red-300">
+                                                        🔒 Private
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="text-sm text-white/70 mt-1">
                                                 🃏 {table.deckVariant === '40' ? '40 Cards (with 6s)' : '36 Cards (Standard)'} • 🎯 {table.scoreTarget || 200} Points{table.hasKitty && ' • 🐱 Kitty'}
                                             </div>
@@ -223,6 +252,52 @@ const Lobby: React.FC = () => {
                     </motion.div>
                 </div>
             </div>
+
+            {/* Password Prompt Modal */}
+            {passwordPrompt && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <motion.div
+                        className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 shadow-2xl max-w-md w-full mx-4"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <h3 className="text-xl font-bold text-white mb-4">
+                            🔒 Join Private Table
+                        </h3>
+                        <p className="text-white/80 mb-4">
+                            Enter the password for "{passwordPrompt.tableName}":
+                        </p>
+                        <input
+                            type="password"
+                            placeholder="Enter password..."
+                            value={joinPassword}
+                            onChange={(e) => setJoinPassword(e.target.value)}
+                            className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all mb-6"
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleJoinWithPassword();
+                                }
+                            }}
+                        />
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handleJoinWithPassword}
+                                disabled={!joinPassword.trim()}
+                                className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded font-semibold text-white transition-all transform hover:scale-105 disabled:hover:scale-100"
+                            >
+                                Join Table
+                            </button>
+                            <button
+                                onClick={cancelPasswordPrompt}
+                                className="px-4 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 rounded font-semibold text-white transition-all transform hover:scale-105"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
         </div>
     );
 };

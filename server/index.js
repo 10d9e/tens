@@ -2345,7 +2345,8 @@ io.on('connection', (socket) => {
                 players: [],
                 gameState: null,
                 maxPlayers: 4,
-                isPrivate: false,
+                isPrivate: false, // Default to public table
+                password: undefined,
                 creator: player.name,
                 timeoutDuration: timeoutDuration,
                 deckVariant: '36', // Default to 36-card deck
@@ -2680,7 +2681,7 @@ io.on('connection', (socket) => {
     socket.on('join_table', async (data) => {
         try {
             console.log('join_table received:', data);
-            const { tableId, lobbyId = 'default', tableName, numBots = 0 } = data;
+            const { tableId, lobbyId = 'default', tableName, numBots = 0, password } = data;
             const player = players.get(socket.id);
             if (!player) {
                 console.log('Player not found for socket:', socket.id);
@@ -2705,6 +2706,14 @@ io.on('connection', (socket) => {
             if (!table) {
                 console.log('Table not found:', tableId);
                 throw new Error('Table not found');
+            }
+
+            // Check if table is private and validate password
+            if (table.isPrivate && table.password) {
+                if (!password || password !== table.password) {
+                    console.log(`Player ${player.name} attempted to join private table ${tableId} with incorrect password`);
+                    throw new Error('Incorrect password for private table');
+                }
             }
 
             if (table.players.length < table.maxPlayers) {
@@ -3457,6 +3466,42 @@ io.on('connection', (socket) => {
         } catch (error) {
             console.error('Error updating table kitty:', error);
             socket.emit('error', { message: 'Error updating table kitty' });
+        }
+    });
+
+    socket.on('update_table_privacy', (data) => {
+        try {
+            const { tableId, isPrivate, password } = data;
+            const player = players.get(socket.id);
+            if (!player) throw new Error('Player not found for socket');
+
+            const lobby = lobbies.get('default');
+            const table = lobby?.tables.get(tableId);
+            if (!table) throw new Error('Table not found');
+
+            // Check if player is the table creator
+            if (table.creator !== player.name) {
+                throw new Error('Only the table creator can update privacy settings');
+            }
+
+            // Check if game has already started
+            if (table.gameState) {
+                throw new Error('Cannot change privacy settings after game has started');
+            }
+
+            // Update privacy settings
+            table.isPrivate = isPrivate;
+            table.password = isPrivate ? password : undefined;
+            console.log(`Table ${tableId} privacy setting updated to ${isPrivate} by ${player.name}`);
+
+            // Notify all players in the table about the update
+            io.to(`table-${tableId}`).emit('table_updated', { table });
+
+            // Also update lobby for players not in the table
+            notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
+        } catch (error) {
+            console.error('Error updating table privacy:', error);
+            socket.emit('error', { message: 'Error updating table privacy' });
         }
     });
 

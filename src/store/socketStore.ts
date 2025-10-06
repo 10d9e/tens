@@ -12,7 +12,7 @@ interface SocketStore {
     connect: () => void;
     disconnect: () => void;
     joinLobby: (playerName: string) => void;
-    joinTable: (tableId: string, tableName?: string, numBots?: number) => void;
+    joinTable: (tableId: string, tableName?: string, numBots?: number, password?: string) => void;
     createTable: (tableName: string) => void;
     addBot: (tableId: string, position: number, skill?: string) => void;
     removeBot: (tableId: string, botId: string) => void;
@@ -22,6 +22,7 @@ interface SocketStore {
     updateTableDeckVariant: (tableId: string, deckVariant: '36' | '40') => void;
     updateTableScoreTarget: (tableId: string, scoreTarget: 200 | 300 | 500 | 1000) => void;
     updateTableKitty: (tableId: string, hasKitty: boolean) => void;
+    updateTablePrivacy: (tableId: string, isPrivate: boolean, password?: string) => void;
     deleteTable: (tableId: string) => void;
     makeBid: (gameId: string, points: number, suit?: string) => void;
     playCard: (gameId: string, card: any) => void;
@@ -400,11 +401,11 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         }
     },
 
-    joinTable: (tableId, tableName, numBots) => {
+    joinTable: (tableId, tableName, numBots, password) => {
         const { socket } = get();
         if (socket) {
-            console.log('Joining table:', tableId, 'with name:', tableName, 'bots:', numBots);
-            socket.emit('join_table', { tableId, tableName, numBots });
+            console.log('Joining table:', tableId, 'with name:', tableName, 'bots:', numBots, 'password:', password ? '***' : 'none');
+            socket.emit('join_table', { tableId, tableName, numBots, password });
         } else {
             console.log('Socket not connected');
         }
@@ -415,7 +416,11 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             const tableId = `table-${Date.now()}`;
             console.log('Creating table:', tableId, 'with name:', tableName);
-            socket.emit('create_table', { tableId, tableName, timeoutDuration: 30000 }); // Default 30 seconds
+            socket.emit('create_table', {
+                tableId,
+                tableName,
+                timeoutDuration: 30000 // Default 30 seconds
+            });
         } else {
             console.log('Socket not connected');
         }
@@ -553,6 +558,16 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         if (socket) {
             console.log('Updating table kitty setting:', tableId, 'to:', hasKitty);
             socket.emit('update_table_kitty', { tableId, hasKitty });
+        } else {
+            console.log('Socket not connected');
+        }
+    },
+
+    updateTablePrivacy: (tableId, isPrivate, password) => {
+        const { socket } = get();
+        if (socket) {
+            console.log('Updating table privacy setting:', tableId, 'to:', isPrivate, 'password:', password ? '***' : 'none');
+            socket.emit('update_table_privacy', { tableId, isPrivate, password });
         } else {
             console.log('Socket not connected');
         }

@@ -278,6 +278,10 @@ const GameTable: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* Username with emoji */}
+                    <div className="text-white text-right">
+                        🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
+                    </div>
                     {/* Exit Game Button */}
                     <button
                         onClick={handleExitGame}
@@ -286,10 +290,7 @@ const GameTable: React.FC = () => {
                     >
                         🚪 Exit Game
                     </button>
-                    {/* Username with emoji */}
-                    <div className="text-white text-right">
-                        🃏 {currentPlayer.name} (position: {getPlayerPosition(currentPlayer)})
-                    </div>
+
                 </div>
             </div>
             <br />

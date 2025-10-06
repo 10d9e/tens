@@ -5,12 +5,14 @@ import { useSocketStore } from '../store/socketStore';
 
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
-    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget, updateTableKitty } = useSocketStore();
+    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget, updateTableKitty, updateTablePrivacy } = useSocketStore();
     const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard' | 'acadien'>('medium');
     const [timeoutDuration, setTimeoutDuration] = useState(30); // Default to 30 seconds
     const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
     const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
     const [hasKitty, setHasKitty] = useState(false);
+    const [isPrivate, setIsPrivate] = useState(false);
+    const [tablePassword, setTablePassword] = useState('');
 
     // Initialize timeout duration from currentTable when it becomes available
     useEffect(() => {
@@ -41,6 +43,14 @@ const WaitingRoom: React.FC = () => {
             setHasKitty(currentTable.hasKitty);
         }
     }, [currentTable?.hasKitty]);
+
+    // Initialize privacy settings from currentTable when it becomes available
+    useEffect(() => {
+        if (currentTable) {
+            setIsPrivate(currentTable.isPrivate || false);
+            setTablePassword(currentTable.password || '');
+        }
+    }, [currentTable?.isPrivate, currentTable?.password]);
 
     if (!currentTable || !currentPlayer) {
         return <div>Loading...</div>;
@@ -106,6 +116,20 @@ const WaitingRoom: React.FC = () => {
         }
     };
 
+    const handlePrivacyChange = (newIsPrivate: boolean) => {
+        setIsPrivate(newIsPrivate);
+        if (currentTable) {
+            updateTablePrivacy(currentTable.id, newIsPrivate, newIsPrivate ? tablePassword : undefined);
+        }
+    };
+
+    const handlePasswordChange = (newPassword: string) => {
+        setTablePassword(newPassword);
+        if (currentTable && isPrivate) {
+            updateTablePrivacy(currentTable.id, isPrivate, newPassword);
+        }
+    };
+
     const getPlayerPosition = (position: number) => {
         const positions = ['North', 'East', 'South', 'West'];
         return positions[position] || 'Unknown';
@@ -168,6 +192,40 @@ const WaitingRoom: React.FC = () => {
                                 <p className="text-white/70 text-sm">
                                     Click on empty slots below to add bots, or click on existing bots to remove them.
                                 </p>
+                            </div>
+
+                            {/* Privacy Configuration */}
+                            <div className="mb-6">
+                                <h4 className="text-lg font-semibold text-white mb-3">🔒 Privacy Settings</h4>
+                                <div className="space-y-4">
+                                    <div className="flex items-center space-x-3">
+                                        <label className="flex items-center space-x-2 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={isPrivate}
+                                                onChange={(e) => handlePrivacyChange(e.target.checked)}
+                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 rounded focus:ring-green-400 focus:ring-2"
+                                            />
+                                            <span className="text-white font-medium">Make table private</span>
+                                        </label>
+                                    </div>
+                                    {isPrivate && (
+                                        <div>
+                                            <label className="block text-white font-medium mb-2">Password:</label>
+                                            <input
+                                                type="password"
+                                                placeholder="Enter password for private table..."
+                                                value={tablePassword}
+                                                onChange={(e) => handlePasswordChange(e.target.value)}
+                                                className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                                                maxLength={50}
+                                            />
+                                            <p className="text-white/70 text-sm mt-2">
+                                                Players will need this password to join your table.
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Deck Variant Configuration */}
