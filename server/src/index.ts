@@ -1,21 +1,36 @@
-const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
-const cors = require('cors');
-const path = require('path');
-const { v4: uuidv4 } = require('uuid');
-const app = express();
-const server = http.createServer(app);
-const logger = require('./logger.js');
+import express, { Request, Response } from 'express';
+import { createServer } from 'http';
+import { Server as SocketIOServer, Socket } from 'socket.io';
+import cors from 'cors';
+import path from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import logger from './logger';
 
-const io = socketIo(server, {
+// Import types from client
+import type {
+    Card,
+    Player,
+    Bid,
+    Trick,
+    GameState,
+    LobbyTable,
+    ChatMessage,
+    GameEvent,
+    Suit,
+    Rank
+} from './types/game';
+
+const app = express();
+const server = createServer(app);
+
+const io = new SocketIOServer(server, {
     cors: {
         origin: [
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "http://192.168.2.15:3000",
             /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow any 192.168.x.x:3000
-            process.env.FRONTEND_URL || "https://tens-game.railway.app"  // Production frontend URL
+            process.env.FRONTEND_URL || "https://200.cards"  // Production frontend URL
         ],
         methods: ["GET", "POST"],
         credentials: true
@@ -28,7 +43,7 @@ app.use(cors({
         "http://127.0.0.1:3000",
         "http://192.168.2.15:3000",
         /^http:\/\/192\.168\.\d+\.\d+:3000$/,  // Allow any 192.168.x.x:3000
-        process.env.FRONTEND_URL || "https://tens-game.railway.app"  // Production frontend URL
+        process.env.FRONTEND_URL || "https://200.cards"  // Production frontend URL
     ],
     credentials: true
 }));
@@ -38,14 +53,14 @@ app.use(express.json());
 app.use(express.static('dist'));
 
 // Handle React routing, return all requests to React app
-app.get('*', (req, res) => {
+app.get('*', (req: Request, res: Response) => {
     res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 // Game state storage
-const games = new Map();
-const lobbies = new Map();
-const players = new Map();
+const games = new Map<string, GameState>();
+const lobbies = new Map<string, { id: string; name: string; tables: Map<string, LobbyTable> }>();
+const players = new Map<string, Player>();
 
 // Initialize a default lobby
 const defaultLobby = {
@@ -64,11 +79,10 @@ function create3BotTables(numTables = 1) {
         const tableId = tableNum === 1 ? 'robot-fun-table' : `robot-fun-table-${tableNum}`;
         const tableName = tableNum === 1 ? 'Robot Fun' : `Robot Fun ${tableNum}`;
 
-        const table = {
+        const table: LobbyTable = {
             id: tableId,
             name: tableName,
             players: [],
-            gameState: null,
             maxPlayers: 4,
             isPrivate: false,
             deckVariant: '36', // Default to 36-card deck
@@ -81,12 +95,13 @@ function create3BotTables(numTables = 1) {
         const botSkills = ['easy', 'medium', 'hard', 'acadien'];
         for (let i = 0; i < 3; i++) {
             const botId = `bot-${uuidv4()}`;
-            const bot = {
+            const botName = getRandomHumanName();
+            const bot: Player = {
                 id: botId,
-                name: getRandomHumanName(),
+                name: botName,
                 isBot: true,
-                botSkill: botSkills[i],
-                position: i, // Sequential positions: 0, 1, 2
+                botSkill: botSkills[i] as 'easy' | 'medium' | 'hard' | 'acadien',
+                position: i as 0 | 1 | 2 | 3, // Sequential positions: 0, 1, 2
                 cards: [],
                 score: 0,
                 isReady: true
@@ -113,7 +128,7 @@ const humanNames = [
 const usedNames = new Set();
 
 // Function to get a unique random human name for bots
-function getRandomHumanName() {
+function getRandomHumanName(): string {
     // Filter out already used names
     const availableNames = humanNames.filter(name => !usedNames.has(name));
 
@@ -132,12 +147,18 @@ function getRandomHumanName() {
 
     // Pick a random available name
     const selectedName = availableNames[Math.floor(Math.random() * availableNames.length)];
+    if (!selectedName) {
+        // Fallback if somehow no name is selected
+        const fallbackName = `Player${Date.now()}`;
+        usedNames.add(fallbackName);
+        return fallbackName;
+    }
     usedNames.add(selectedName);
     return selectedName;
 }
 
 // Function to check if a human name is available and reserve it
-function reservePlayerName(playerName) {
+function reservePlayerName(playerName: string): boolean {
     if (usedNames.has(playerName)) {
         logger.warn(`Name "${playerName}" is already taken`);
         return false; // Name already taken
@@ -148,13 +169,13 @@ function reservePlayerName(playerName) {
 }
 
 // Function to release a name when a player disconnects
-function releasePlayerName(playerName) {
+function releasePlayerName(playerName: string): void {
     usedNames.delete(playerName);
     logger.info(`Released name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
 }
 
 // Helper function to notify only lobby members (not players in active games)
-function notifyLobbyMembers(lobbyId, event, data) {
+function notifyLobbyMembers(lobbyId: string, event: string, data: any): void {
     const lobby = lobbies.get(lobbyId);
     if (!lobby) return;
 
@@ -187,7 +208,7 @@ function notifyLobbyMembers(lobbyId, event, data) {
 }
 
 // Helper function to ensure playersWhoHavePassed is always a Set
-function ensurePlayersWhoHavePassedIsSet(game) {
+function ensurePlayersWhoHavePassedIsSet(game: GameState): void {
     if (game.playersWhoHavePassed && !(game.playersWhoHavePassed instanceof Set)) {
         logger.info('Converting playersWhoHavePassed from', typeof game.playersWhoHavePassed, 'to Set');
         game.playersWhoHavePassed = new Set(game.playersWhoHavePassed);
@@ -195,7 +216,7 @@ function ensurePlayersWhoHavePassedIsSet(game) {
 }
 
 // Helper function to emit game events to the correct room (game-specific if active, table-specific if not)
-function emitGameEvent(game, event, data) {
+function emitGameEvent(game: GameState | null, event: string, data: any): void {
     // Ensure playersWhoHavePassed is a Set before processing
     if (data && data.game) {
         ensurePlayersWhoHavePassedIsSet(data.game);
@@ -222,7 +243,7 @@ function emitGameEvent(game, event, data) {
 }
 
 // Helper function to clean up game-specific socket rooms when game ends
-function cleanupGameRoom(game) {
+function cleanupGameRoom(game: GameState): void {
     if (game && game.id) {
         // Remove all players from the game-specific room
         const gameRoom = io.sockets.adapter.rooms.get(`game-${game.id}`);
@@ -239,7 +260,7 @@ function cleanupGameRoom(game) {
 }
 
 // Function to reset table state after game completion
-function resetTableAfterGameCompletion(tableId) {
+function resetTableAfterGameCompletion(tableId: string): void {
     const lobby = lobbies.get('default');
     const table = lobby?.tables.get(tableId);
 
@@ -278,10 +299,12 @@ function resetTableAfterGameCompletion(tableId) {
                 });
 
                 // Return spectator to lobby
-                spectatorSocket.emit('lobby_joined', {
-                    lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
-                    player: spectator
-                });
+                if (lobby) {
+                    spectatorSocket.emit('lobby_joined', {
+                        lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
+                        player: spectator
+                    });
+                }
             }
         });
 
@@ -293,7 +316,7 @@ function resetTableAfterGameCompletion(tableId) {
     table.players = table.players.filter(player => player.isBot);
 
     // Reset table state
-    table.gameState = null;
+    table.gameState = undefined;
 
     // Reset bot player states
     table.players.forEach(player => {
@@ -305,14 +328,16 @@ function resetTableAfterGameCompletion(tableId) {
     logger.info(`Table ${tableId} reset complete. Remaining players: ${table.players.length} bots`);
 
     // Notify lobby about the updated table
-    notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
+    if (lobby) {
+        notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
+    }
 
     // Notify any remaining table members
     io.to(`table-${tableId}`).emit('table_updated', { table });
 }
 
 // Function to debug and print all players' cards
-function debugPrintAllPlayerCards(game, context = '') {
+function debugPrintAllPlayerCards(game: GameState, context: string = ''): void {
     logger.debug(`\n🃏 DEBUG: All Players' Cards ${context ? `(${context})` : ''}`);
     logger.debug('='.repeat(50));
     game.players.forEach((player, index) => {
@@ -340,7 +365,7 @@ function debugPrintAllPlayerCards(game, context = '') {
 }
 
 // Function to debug kitty state
-function debugKittyState(game, context = '') {
+function debugKittyState(game: GameState, context: string = ''): void {
     logger.debug(`\n🐱 DEBUG: Kitty State ${context ? `(${context})` : ''}`);
     logger.debug('='.repeat(50));
     logger.debug(`Round: ${game.round}`);
@@ -356,7 +381,7 @@ function debugKittyState(game, context = '') {
 }
 
 // Function to validate kitty state and log warnings
-function validateKittyState(game, context = '') {
+function validateKittyState(game: GameState, context: string = ''): boolean {
     const issues = [];
 
     if (game.hasKitty && game.deckVariant !== '40') {
@@ -388,11 +413,13 @@ function validateKittyState(game, context = '') {
 
 // Bot AI (simplified for server)
 class SimpleBotAI {
-    constructor(skill = 'medium') {
+    skill: 'easy' | 'medium' | 'hard' | 'acadien';
+
+    constructor(skill: 'easy' | 'medium' | 'hard' | 'acadien' = 'medium') {
         this.skill = skill;
     }
 
-    makeBid(handValue, currentBid, currentBidderId, myPlayerId, players) {
+    makeBid(handValue: number, currentBid: Bid | null, currentBidderId: string | null, myPlayerId: string, players: Player[]): Bid | null {
         // Calculate theoretical maximum bid based on hand value and skill level
         let theoreticalMax;
         if (this.skill === 'easy') {
@@ -414,14 +441,14 @@ class SimpleBotAI {
 
                 if (isTeammate) {
                     logger.debug(`Bot won't outbid teammate who bid ${currentBid.points}`);
-                    return 0; // Don't outbid teammate
+                    return null; // Don't outbid teammate
                 }
             }
 
             // Don't bid if current bid is already at or above theoretical maximum
             if (currentBid.points >= theoreticalMax) {
                 logger.debug(`Bot won't bid - current bid ${currentBid.points} >= theoretical max ${theoreticalMax}`);
-                return 0;
+                return null;
             }
         }
 
@@ -434,7 +461,7 @@ class SimpleBotAI {
         } else if (handValue >= 30) {
             suggestedBid = Math.min(handValue + 10, 70);
         } else {
-            return 0; // Don't bid with less than 30 points
+            return null; // Don't bid with less than 30 points
         }
 
         // Ensure minimum bid is 50
@@ -445,7 +472,7 @@ class SimpleBotAI {
             const minBidToBeat = currentBid.points + 5;
             if (minBidToBeat > suggestedBid) {
                 logger.debug(`Bot won't bid - would need ${minBidToBeat} but only suggests ${suggestedBid}`);
-                return 0;
+                return null;
             }
             suggestedBid = minBidToBeat;
         }
@@ -456,14 +483,14 @@ class SimpleBotAI {
         // Final safety check - ensure minimum bid is 50
         if (finalBid < 50) {
             logger.debug(`Bot won't bid - final bid ${finalBid} is below minimum of 50`);
-            return 0;
+            return null;
         }
 
         logger.debug(`Bot suggests bid: ${finalBid} (hand value: ${handValue}, theoretical max: ${theoreticalMax})`);
-        return finalBid;
+        return { playerId: myPlayerId, points: finalBid };
     }
 
-    async playCard(playableCards, leadSuit, trumpSuit) {
+    async playCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null): Promise<Card> {
         // Add variable delay based on skill level to simulate thinking time
         /*
         let delay;
@@ -485,7 +512,7 @@ class SimpleBotAI {
         await new Promise(resolve => setTimeout(resolve, delay));
         */
 
-        if (playableCards.length === 0) return null;
+        if (playableCards.length === 0) throw new Error('No playable cards available');
 
         // Simple strategy: prefer playing high-value cards if we have the lead suit
         // or low-value cards if we don't
@@ -511,13 +538,31 @@ class SimpleBotAI {
             });
         } else {
             // First card of trick - play a medium value card
-            return playableCards[Math.floor(Math.random() * playableCards.length)];
+            const randomIndex = Math.floor(Math.random() * playableCards.length);
+            return playableCards[randomIndex]!;
         }
     }
 }
 
 // Advanced Acadien Bot AI - Expert level with card tracking
 class AcadienBotAI {
+    skill: 'acadien';
+    playedCards: Set<string>; // Track all cards that have been played
+    knownCards: Set<string>; // Cards we know about (our hand + played cards)
+    partnerBehavior: {
+        biddingStyle: 'unknown' | 'conservative' | 'aggressive' | 'balanced';
+        playingStyle: 'unknown' | 'cautious' | 'bold' | 'calculated';
+        cardSignals: any[];
+        tricksWon: number;
+        pointsContributed: number;
+    };
+    gameHistory: {
+        rounds: any[];
+        teamScores: { team1: number; team2: number };
+        biddingHistory: any[];
+    };
+    cardProbabilities: Map<string, any>; // Track probability of each card being in each player's hand
+
     constructor() {
         this.skill = 'acadien';
         this.playedCards = new Set(); // Track all cards that have been played
@@ -538,7 +583,7 @@ class AcadienBotAI {
     }
 
     // Initialize card tracking at start of round
-    initializeCardTracking(game, myPlayerId) {
+    initializeCardTracking(game: GameState, myPlayerId: string): void {
         const myPlayer = game.players.find(p => p.id === myPlayerId);
         if (!myPlayer) return;
 
@@ -573,7 +618,7 @@ class AcadienBotAI {
     }
 
     // Update card tracking when a card is played
-    updateCardTracking(playedCard, playerId) {
+    updateCardTracking(playedCard: Card, playerId: string): void {
         const cardKey = `${playedCard.suit}-${playedCard.rank}`;
         this.playedCards.add(cardKey);
         this.knownCards.add(cardKey);
@@ -585,9 +630,9 @@ class AcadienBotAI {
     }
 
     // Advanced bidding logic based on hand analysis and game state
-    makeBid(handValue, currentBid, currentBidderId, myPlayerId, players, game) {
+    makeBid(handValue: number, currentBid: Bid | null, currentBidderId: string | null, myPlayerId: string, players: Player[], game: GameState): Bid | null {
         const myPlayer = players.find(p => p.id === myPlayerId);
-        if (!myPlayer) return 0;
+        if (!myPlayer) return null;
 
         // Initialize card tracking if not done yet
         if (this.knownCards.size === 0) {
@@ -595,7 +640,7 @@ class AcadienBotAI {
         }
 
         // Advanced hand evaluation
-        const handAnalysis = this.analyzeHand(myPlayer.cards, game.trumpSuit);
+        const handAnalysis = this.analyzeHand(myPlayer.cards, game.trumpSuit || null);
         const adjustedHandValue = handAnalysis.totalValue + handAnalysis.trumpValue + handAnalysis.positionBonus;
 
         // Team dynamics analysis
@@ -610,6 +655,7 @@ class AcadienBotAI {
         // If there's a current bid, check if it's from a teammate
         if (currentBid && currentBidderId) {
             const currentBidder = players.find(p => p.id === currentBidderId);
+            if (!currentBidder) return null;
             const isTeammate = (currentBidder.position % 2) === (myPlayer.position % 2);
 
             if (isTeammate) {
@@ -617,7 +663,7 @@ class AcadienBotAI {
                 const shouldSupport = this.shouldSupportPartner(currentBid, handAnalysis, teamAnalysis);
                 if (!shouldSupport) {
                     logger.debug(`Acadien bot won't outbid teammate - partner can handle it`);
-                    return 0;
+                    return null;
                 }
                 // If supporting, be more conservative in our bid
                 theoreticalMax = Math.min(currentBid.points + 10, theoreticalMax);
@@ -626,7 +672,7 @@ class AcadienBotAI {
             // Don't bid if current bid is already at or above theoretical maximum
             if (currentBid.points >= theoreticalMax) {
                 logger.debug(`Acadien bot won't bid - current bid ${currentBid.points} >= theoretical max ${theoreticalMax}`);
-                return 0;
+                return null;
             }
         }
 
@@ -642,7 +688,7 @@ class AcadienBotAI {
         } else if (adjustedHandValue >= 35) {
             suggestedBid = Math.min(adjustedHandValue + 15, 70);
         } else {
-            return 0; // Don't bid with less than 35 points
+            return null; // Don't bid with less than 35 points
         }
 
         // Adjust based on game state
@@ -661,7 +707,7 @@ class AcadienBotAI {
             const minBidToBeat = currentBid.points + 5;
             if (minBidToBeat > suggestedBid) {
                 logger.debug(`Acadien bot won't bid - would need ${minBidToBeat} but only suggests ${suggestedBid}`);
-                return 0;
+                return null;
             }
             suggestedBid = minBidToBeat;
         }
@@ -672,15 +718,15 @@ class AcadienBotAI {
         // Final safety check
         if (finalBid < 50) {
             logger.debug(`Acadien bot won't bid - final bid ${finalBid} is below minimum of 50`);
-            return 0;
+            return null;
         }
 
         logger.debug(`Acadien bot suggests bid: ${finalBid} (hand value: ${adjustedHandValue}, theoretical max: ${theoreticalMax})`);
-        return finalBid;
+        return { playerId: myPlayerId, points: finalBid };
     }
 
     // Analyze hand for advanced bidding decisions
-    analyzeHand(cards, trumpSuit) {
+    analyzeHand(cards: Card[], trumpSuit: Suit | null): any {
         const suitCounts = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
         const suitValues = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
         let totalValue = 0;
@@ -725,7 +771,7 @@ class AcadienBotAI {
     }
 
     // Analyze team situation for bidding decisions
-    analyzeTeamSituation(game, myPlayer, players) {
+    analyzeTeamSituation(game: GameState, myPlayer: Player, players: Player[]): any {
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const partner = players.find(p => p.id !== myPlayer.id && (p.position % 2) === (myPlayer.position % 2));
 
@@ -737,7 +783,7 @@ class AcadienBotAI {
     }
 
     // Analyze overall game state
-    analyzeGameState(game, myPlayer) {
+    analyzeGameState(game: GameState, myPlayer: Player): any {
         const target = game.scoreTarget || 200;
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const myScore = game.teamScores[myTeam];
@@ -751,7 +797,7 @@ class AcadienBotAI {
     }
 
     // Determine if we should support partner's bid
-    shouldSupportPartner(currentBid, handAnalysis, teamAnalysis) {
+    shouldSupportPartner(currentBid: Bid, handAnalysis: any, teamAnalysis: any): boolean {
         // Don't support if partner's bid is already very high
         if (currentBid.points >= 85) {
             return false;
@@ -771,11 +817,15 @@ class AcadienBotAI {
     }
 
     // Advanced card playing strategy
-    async playCard(playableCards, leadSuit, trumpSuit, game, myPlayerId) {
-        if (playableCards.length === 0) return null;
+    async playCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, game: GameState, myPlayerId: string): Promise<Card> {
+        if (playableCards.length === 0) throw new Error('No playable cards available');
 
         const myPlayer = game.players.find(p => p.id === myPlayerId);
-        if (!myPlayer) return playableCards[0];
+        if (!myPlayer) {
+            const firstCard = playableCards[0];
+            if (!firstCard) throw new Error('No playable cards available');
+            return firstCard;
+        }
 
         // Initialize tracking if needed
         if (this.knownCards.size === 0) {
@@ -816,17 +866,17 @@ class AcadienBotAI {
     }
 
     // Analyze current trick for playing decisions
-    analyzeTrick(game, myPlayer) {
+    analyzeTrick(game: GameState, myPlayer: Player): any {
         const currentTrick = game.currentTrick;
         const cardsPlayed = currentTrick.cards || [];
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const isContractorTeam = game.contractorTeam === myTeam;
 
-        let currentWinningCard = null;
-        let currentWinningPlayer = null;
+        let currentWinningCard: { card: Card; playerId: string } | null = null;
+        let currentWinningPlayer: string | null = null;
         let pointsInTrick = 0;
 
-        if (cardsPlayed.length > 0) {
+        if (cardsPlayed.length > 0 && cardsPlayed[0]) {
             const leadSuit = cardsPlayed[0].card.suit;
             currentWinningCard = cardsPlayed[0];
             currentWinningPlayer = cardsPlayed[0].playerId;
@@ -836,11 +886,11 @@ class AcadienBotAI {
                 pointsInTrick += getCardValue(card);
 
                 // Determine if this card wins the trick so far
-                if (card.suit === leadSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.rank)) {
-                    currentWinningCard = card;
+                if (currentWinningCard && card.suit === leadSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.card.rank)) {
+                    currentWinningCard = play;
                     currentWinningPlayer = play.playerId;
-                } else if (card.suit === game.trumpSuit && currentWinningCard.suit !== game.trumpSuit) {
-                    currentWinningCard = card;
+                } else if (currentWinningCard && card.suit === game.trumpSuit && currentWinningCard.card.suit !== game.trumpSuit) {
+                    currentWinningCard = play;
                     currentWinningPlayer = play.playerId;
                 }
             });
@@ -851,7 +901,7 @@ class AcadienBotAI {
             currentWinningCard,
             currentWinningPlayer,
             pointsInTrick,
-            leadSuit: cardsPlayed.length > 0 ? cardsPlayed[0].card.suit : null,
+            leadSuit: cardsPlayed.length > 0 && cardsPlayed[0] ? cardsPlayed[0].card.suit : null,
             isContractorTeam,
             trickPosition: cardsPlayed.length, // 0 = first, 1 = second, etc.
             isLastToPlay: cardsPlayed.length === 3
@@ -859,7 +909,7 @@ class AcadienBotAI {
     }
 
     // Determine overall playing strategy
-    determinePlayingStrategy(game, myPlayer, trickAnalysis) {
+    determinePlayingStrategy(game: GameState, myPlayer: Player, trickAnalysis: any): 'default' | 'win_trick' | 'lose_trick' | 'conserve_trump' | 'signal_partner' {
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const isContractorTeam = game.contractorTeam === myTeam;
         const pointsInTrick = trickAnalysis.pointsInTrick;
@@ -875,6 +925,9 @@ class AcadienBotAI {
         // If opponent is winning with high-value cards, try to win
         if (trickAnalysis.currentWinningPlayer && pointsInTrick >= 15) {
             const winningPlayer = game.players.find(p => p.id === trickAnalysis.currentWinningPlayer);
+            if (!winningPlayer) {
+                return 'default';
+            }
             const isOpponent = (winningPlayer.position % 2) !== (myPlayer.position % 2);
             if (isOpponent) {
                 return 'win_trick';
@@ -897,7 +950,7 @@ class AcadienBotAI {
     }
 
     // Select card to win the trick
-    selectCardToWin(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+    selectCardToWin(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
         if (!leadSuit) {
             // First to play - play a strong card but not necessarily our strongest
             return this.selectStrongCard(playableCards, trumpSuit);
@@ -935,7 +988,7 @@ class AcadienBotAI {
     }
 
     // Select card to lose the trick cheaply
-    selectCardToLose(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+    selectCardToLose(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
         const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
 
         if (leadSuitCards.length > 0) {
@@ -952,13 +1005,13 @@ class AcadienBotAI {
     }
 
     // Select card to signal partner
-    selectCardToSignal(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+    selectCardToSignal(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
         // For now, use default selection but could implement signaling logic
         return this.selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis);
     }
 
     // Select card to conserve trump
-    selectCardToConserveTrump(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+    selectCardToConserveTrump(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
         // Avoid playing trump cards unless absolutely necessary
         const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
         if (nonTrumpCards.length > 0) {
@@ -973,7 +1026,7 @@ class AcadienBotAI {
     }
 
     // Select strong card for opening
-    selectStrongCard(playableCards, trumpSuit) {
+    selectStrongCard(playableCards: Card[], trumpSuit: Suit | null): Card {
         // Prefer high-value non-trump cards for opening
         const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
         if (nonTrumpCards.length > 0) {
@@ -989,19 +1042,20 @@ class AcadienBotAI {
     }
 
     // Select low-value card
-    selectLowCard(playableCards, leadSuit, trumpSuit) {
+    selectLowCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null): Card {
         return playableCards.reduce((lowest, current) =>
             getCardValue(current) < getCardValue(lowest) ? current : lowest
         );
     }
 
     // Default card selection
-    selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis) {
+    selectCardDefault(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
         if (!leadSuit) {
             // First to play - play medium value card
             const mediumCards = playableCards.filter(c => getCardValue(c) >= 5 && getCardValue(c) <= 15);
             if (mediumCards.length > 0) {
-                return mediumCards[Math.floor(Math.random() * mediumCards.length)];
+                const randomIndex = Math.floor(Math.random() * mediumCards.length);
+                return mediumCards[randomIndex]!;
             }
         }
 
@@ -1015,7 +1069,7 @@ class AcadienBotAI {
     }
 
     // Helper method to get team points so far in current round
-    getTeamPointsSoFar(game, team) {
+    getTeamPointsSoFar(game: GameState, team: 'team1' | 'team2'): number {
         // This would need to be implemented based on how points are tracked during the round
         // For now, return 0 as a placeholder
         return 0;
@@ -1023,16 +1077,16 @@ class AcadienBotAI {
 }
 
 // Create a Big Bub table with 2 bot players
-function createBigBubTable() {
+function createBigBubTable(): LobbyTable {
     const tableId = 'big-bub-table';
-    const table = {
+    const table: LobbyTable = {
         id: tableId,
         name: 'Big Bub',
         players: [],
-        gameState: null,
+        gameState: undefined,
         maxPlayers: 4,
         isPrivate: false,
-        deckVariant: '36', // Default to 36-card deck
+        deckVariant: '36' as '36' | '40', // Default to 36-card deck
         scoreTarget: 200, // Default to 200 points
         hasKitty: false // Default to no kitty
     };
@@ -1042,12 +1096,13 @@ function createBigBubTable() {
     const botPositions = [0, 2]; // North and South
     for (let i = 0; i < 2; i++) {
         const botId = `bot-${uuidv4()}`;
-        const bot = {
+        const botName = getRandomHumanName();
+        const bot: Player = {
             id: botId,
-            name: getRandomHumanName(),
+            name: botName,
             isBot: true,
-            botSkill: botSkills[i],
-            position: botPositions[i],
+            botSkill: botSkills[i] as 'easy' | 'medium' | 'hard' | 'acadien',
+            position: botPositions[i] as 0 | 1 | 2 | 3,
             cards: [],
             score: 0,
             isReady: true
@@ -1057,20 +1112,21 @@ function createBigBubTable() {
 
     defaultLobby.tables.set(tableId, table);
     logger.info('Created Big Bub table with 2 bot players');
+    return table;
 }
 
 // Create Acadie test table with kitty enabled
 function createAcadieTable() {
     const tableId = 'acadie-table';
 
-    const table = {
+    const table: LobbyTable = {
         id: tableId,
         name: 'Acadie',
         players: [],
-        gameState: null,
+        gameState: undefined,
         maxPlayers: 4,
         isPrivate: false,
-        deckVariant: '40', // 40-card variant
+        deckVariant: '40' as '36' | '40', // 40-card variant
         scoreTarget: 200,
         hasKitty: true, // Kitty enabled
         timeoutDuration: 300000 // 5 minutes (300,000 ms)
@@ -1080,12 +1136,13 @@ function createAcadieTable() {
     const botSkills = ['hard', 'hard', 'hard'];
     for (let i = 0; i < 3; i++) {
         const botId = `bot-${uuidv4()}`;
-        const bot = {
+        const botName = getRandomHumanName();
+        const bot: Player = {
             id: botId,
-            name: getRandomHumanName(),
+            name: botName,
             isBot: true,
-            botSkill: botSkills[i],
-            position: i,
+            botSkill: botSkills[i] as 'easy' | 'medium' | 'hard' | 'acadien',
+            position: i as 0 | 1 | 2 | 3,
             cards: [],
             score: 0,
             isReady: true
@@ -1100,14 +1157,14 @@ function createAcadieTable() {
 // Create an Acadien test table with advanced bots
 function createAcadienTestTable() {
     const tableId = 'acadien-test-table';
-    const table = {
+    const table: LobbyTable = {
         id: tableId,
         name: 'Acadien Test Table',
         players: [],
-        gameState: null,
+        gameState: undefined,
         maxPlayers: 4,
         isPrivate: false,
-        deckVariant: '36', // 36-card variant
+        deckVariant: '36' as '36' | '40', // 36-card variant
         scoreTarget: 200,
         hasKitty: false,
         timeoutDuration: 300000 // 5 minutes
@@ -1117,16 +1174,16 @@ function createAcadienTestTable() {
     const botSkills = ['acadien', 'acadien', 'acadien'];
     for (let i = 0; i < 3; i++) {
         const botId = `bot-${uuidv4()}`;
-        const bot = {
+        const botName = getRandomHumanName();
+        const bot: Player = {
             id: botId,
-            name: getRandomHumanName(),
+            name: botName,
             isBot: true,
-            botSkill: botSkills[i],
-            position: i,
+            botSkill: botSkills[i] as 'easy' | 'medium' | 'hard' | 'acadien',
+            position: i as 0 | 1 | 2 | 3,
             cards: [],
             score: 0,
-            isReady: true,
-            ai: new AcadienBotAI()
+            isReady: true
         };
         table.players.push(bot);
     }
@@ -1136,12 +1193,12 @@ function createAcadienTestTable() {
 }
 
 // Game logic functions
-function createDeck(deckVariant = '36') {
-    const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
-    const ranks = deckVariant === '40'
+function createDeck(deckVariant: '36' | '40' = '36'): Card[] {
+    const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
+    const ranks: Rank[] = deckVariant === '40'
         ? ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5']  // 40 cards with 6s
         : ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '5'];      // 36 cards standard
-    const deck = [];
+    const deck: Card[] = [];
 
     suits.forEach(suit => {
         ranks.forEach(rank => {
@@ -1152,16 +1209,18 @@ function createDeck(deckVariant = '36') {
     return shuffleDeck(deck);
 }
 
-function shuffleDeck(deck) {
+function shuffleDeck(deck: Card[]): Card[] {
     const shuffled = [...deck];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        const temp = shuffled[i]!;
+        shuffled[i] = shuffled[j]!;
+        shuffled[j] = temp;
     }
     return shuffled;
 }
 
-function dealCards(deck, players, deckVariant = '36') {
+function dealCards(deck: Card[], players: Player[], deckVariant: '36' | '40' = '36'): Player[] {
     const updatedPlayers = [...players];
     let cardIndex = 0;
 
@@ -1173,7 +1232,10 @@ function dealCards(deck, players, deckVariant = '36') {
     for (let i = 0; i < cardsPerPlayer; i++) {
         updatedPlayers.forEach(player => {
             if (cardIndex < deck.length) {
-                player.cards.push(deck[cardIndex++]);
+                const card = deck[cardIndex++];
+                if (card) {
+                    player.cards.push(card);
+                }
             }
         });
     }
@@ -1181,30 +1243,33 @@ function dealCards(deck, players, deckVariant = '36') {
     return updatedPlayers;
 }
 
-function getCardValue(card) {
-    const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
+function getCardValue(card: Card): number {
+    const values: { [key in Rank]: number } = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
     return values[card.rank] || 0;
 }
 
-function getCardRank(rank) {
-    const ranks = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5 };
+function getCardRank(rank: Rank): number {
+    const ranks: { [key in Rank]: number } = { 'A': 14, 'K': 13, 'Q': 12, 'J': 11, '10': 10, '9': 9, '8': 8, '7': 7, '6': 6, '5': 5 };
     return ranks[rank] || 0;
 }
 
-function getNextPlayerByPosition(currentPlayerId, players) {
+function getNextPlayerByPosition(currentPlayerId: string, players: Player[]): string {
     const currentPlayer = players.find(p => p.id === currentPlayerId);
     if (!currentPlayer) {
         logger.error('ERROR: Current player not found:', currentPlayerId);
-        return players[0].id;
+        if (players.length > 0 && players[0]) {
+            return players[0].id;
+        }
+        throw new Error('No players available');
     }
 
     const nextPosition = (currentPlayer.position + 1) % 4;
     const nextPlayer = players.find(p => p.position === nextPosition);
 
-    return nextPlayer ? nextPlayer.id : players[0].id;
+    return nextPlayer ? nextPlayer.id : (players[0] ? players[0].id : '');
 }
 
-function calculateRoundScores(game, contractorTeam, contractorCardPoints, opposingCardPoints, opposingTeamBid) {
+function calculateRoundScores(game: GameState, contractorTeam: 'team1' | 'team2', contractorCardPoints: number, opposingCardPoints: number, opposingTeamBid: number): { team1Score: number; team2Score: number } {
     const currentBid = game.currentBid;
     if (!currentBid) return { team1Score: 0, team2Score: 0 };
 
@@ -1249,14 +1314,14 @@ function calculateRoundScores(game, contractorTeam, contractorCardPoints, opposi
 }
 
 // Helper function to check if game has ended
-function isGameEnded(game) {
+function isGameEnded(game: GameState): boolean {
     const target = game.scoreTarget || 200;
     return game.teamScores.team1 >= target || game.teamScores.team2 >= target ||
         game.teamScores.team1 <= -target || game.teamScores.team2 <= -target;
 }
 
 // Helper function to determine winning team
-function getWinningTeam(game) {
+function getWinningTeam(game: GameState): { team: 'team1' | 'team2'; name: string } | null {
     const target = game.scoreTarget || 200;
     if (game.teamScores.team1 >= target) return { team: 'team1', name: 'Team 1' };
     if (game.teamScores.team2 >= target) return { team: 'team2', name: 'Team 2' };
@@ -1265,37 +1330,36 @@ function getWinningTeam(game) {
     return null;
 }
 
-function createGame(tableId, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200) {
+function createGame(tableId: string, timeoutDuration: number = 30000, deckVariant: '36' | '40' = '36', scoreTarget: 200 | 300 | 500 | 1000 = 200): GameState {
     const gameId = uuidv4();
 
     // Get the table to copy players from
     const lobby = lobbies.get('default');
     const table = lobby?.tables.get(tableId);
 
-    const game = {
+    const game: GameState = {
         id: gameId,
         tableId,
         players: table ? [...table.players] : [], // Copy players from table
-        currentPlayer: null,
+        currentPlayer: '', // Will be set when game starts
         phase: 'waiting',
-        trumpSuit: null,
-        currentBid: null,
-        currentTrick: { cards: [], winner: null, points: 0 },
-        lastTrick: null,
+        trumpSuit: undefined,
+        currentBid: undefined,
+        currentTrick: { cards: [], winner: undefined, points: 0 },
+        lastTrick: undefined,
         round: 0,
         teamScores: { team1: 0, team2: 0 },
         roundScores: { team1: 0, team2: 0 }, // Points accumulated during current round
-        dealer: null,
+        dealer: '', // Will be set when game starts
         spectatorIds: [],
         deck: createDeck(deckVariant),
         deckVariant: deckVariant, // Store the deck variant in the game
         scoreTarget: scoreTarget, // Store the score target in the game
         hasKitty: table?.hasKitty || false, // Copy kitty setting from table
         kittyPhaseCompleted: false, // Track if kitty phase has been completed for current round
-        contractorTeam: null, // Track which team is the contractor
-        opposingTeamBid: false, // Track if opposing team made any bid
+        contractorTeam: undefined, // Track which team is the contractor
+        opposingTeamBid: 0, // Track if opposing team made any bid
         biddingPasses: 0, // Track number of consecutive passes
-        biddingRound: 0, // Track which round of bidding we're in
         playersWhoHavePassed: new Set(), // Track which players have passed and cannot bid again
         playerTurnStartTime: {}, // Track when each player's turn started: {playerId: timestamp}
         timeoutDuration: timeoutDuration // Custom timeout duration in milliseconds
@@ -1305,14 +1369,15 @@ function createGame(tableId, timeoutDuration = 30000, deckVariant = '36', scoreT
     return game;
 }
 
-function addBotPlayer(game, skill = 'medium') {
+function addBotPlayer(game: GameState, skill: 'easy' | 'medium' | 'hard' | 'acadien' = 'medium'): Player {
     const botId = `bot-${uuidv4()}`;
-    const bot = {
+    const botName = getRandomHumanName();
+    const bot: Player = {
         id: botId,
-        name: getRandomHumanName(),
+        name: botName,
         isBot: true,
         botSkill: skill,
-        position: game.players.length,
+        position: game.players.length as 0 | 1 | 2 | 3,
         cards: [],
         score: 0,
         isReady: true,
@@ -1323,7 +1388,7 @@ function addBotPlayer(game, skill = 'medium') {
     return bot;
 }
 
-function addAItoExistingBots(game) {
+function addAItoExistingBots(game: GameState): void {
     // Add AI to existing bot players
     game.players.forEach(player => {
         if (player.isBot && !player.ai) {
@@ -1336,7 +1401,7 @@ function addAItoExistingBots(game) {
     });
 }
 
-function startGame(game) {
+function startGame(game: GameState): GameState {
     logger.info('Starting game with players:', game.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot })));
 
     // Add AI to existing bot players
@@ -1346,7 +1411,7 @@ function startGame(game) {
         logger.info('Adding bots to fill table. Current players:', game.players.length);
         // Add bots to fill the table
         while (game.players.length < 4) {
-            const skills = ['easy', 'medium', 'hard', 'acadien'];
+            const skills: ('easy' | 'medium' | 'hard' | 'acadien')[] = ['easy', 'medium', 'hard', 'acadien'];
             const skill = skills[Math.floor(Math.random() * skills.length)];
             addBotPlayer(game, skill);
         }
@@ -1369,40 +1434,55 @@ function startGame(game) {
         // First packet: 3 cards to each player
         for (let i = 0; i < 3; i++) {
             game.players.forEach(player => {
-                if (cardIndex < game.deck.length) {
-                    player.cards.push(game.deck[cardIndex++]);
+                if (game.deck && cardIndex < game.deck.length) {
+                    const card = game.deck[cardIndex++];
+                    if (card) {
+                        player.cards.push(card);
+                    }
                 }
             });
         }
 
         // First kitty: 2 cards
         for (let i = 0; i < 2; i++) {
-            if (cardIndex < game.deck.length) {
-                game.kitty.push(game.deck[cardIndex++]);
+            if (game.deck && cardIndex < game.deck.length) {
+                const card = game.deck[cardIndex++];
+                if (card) {
+                    game.kitty.push(card);
+                }
             }
         }
 
         // Second packet: 3 more cards to each player
         for (let i = 0; i < 3; i++) {
             game.players.forEach(player => {
-                if (cardIndex < game.deck.length) {
-                    player.cards.push(game.deck[cardIndex++]);
+                if (game.deck && cardIndex < game.deck.length) {
+                    const card = game.deck[cardIndex++];
+                    if (card) {
+                        player.cards.push(card);
+                    }
                 }
             });
         }
 
         // Second kitty: 2 more cards
         for (let i = 0; i < 2; i++) {
-            if (cardIndex < game.deck.length) {
-                game.kitty.push(game.deck[cardIndex++]);
+            if (game.deck && cardIndex < game.deck.length) {
+                const card = game.deck[cardIndex++];
+                if (card) {
+                    game.kitty.push(card);
+                }
             }
         }
 
         // Final packet: 3 more cards to each player
         for (let i = 0; i < 3; i++) {
             game.players.forEach(player => {
-                if (cardIndex < game.deck.length) {
-                    player.cards.push(game.deck[cardIndex++]);
+                if (game.deck && cardIndex < game.deck.length) {
+                    const card = game.deck[cardIndex++];
+                    if (card) {
+                        player.cards.push(card);
+                    }
                 }
             });
         }
@@ -1411,12 +1491,15 @@ function startGame(game) {
     } else {
         // Standard dealing: 9 cards for 36-card deck, 9 cards for 40-card deck (kitty handled separately)
         const cardsPerPlayer = 9; // Always 9 cards per player, kitty logic is handled elsewhere
-        logger.debug(`🔍 DEBUG: Initial deal - Deck size: ${game.deck.length}, Players: ${game.players.length}, Cards per player: ${cardsPerPlayer}`);
+        logger.debug(`🔍 DEBUG: Initial deal - Deck size: ${game.deck?.length || 0}, Players: ${game.players.length}, Cards per player: ${cardsPerPlayer}`);
         let cardIndex = 0;
         for (let i = 0; i < cardsPerPlayer; i++) {
             game.players.forEach(player => {
-                if (cardIndex < game.deck.length) {
-                    player.cards.push(game.deck[cardIndex++]);
+                if (game.deck && cardIndex < game.deck.length) {
+                    const card = game.deck[cardIndex++];
+                    if (card) {
+                        player.cards.push(card);
+                    }
                 } else {
                     logger.warn(`⚠️  WARNING: Not enough cards in deck! Player ${player.name} only got ${player.cards.length} cards`);
                 }
@@ -1426,10 +1509,13 @@ function startGame(game) {
     }
 
     game.phase = 'bidding';
-    game.currentPlayer = game.players[0].id;
-    game.dealer = game.players[0].id;
-    game.round = 1;
-    game.playerTurnStartTime = { [game.players[0].id]: Date.now() };
+    const firstPlayer = game.players[0];
+    if (firstPlayer) {
+        game.currentPlayer = firstPlayer.id;
+        game.dealer = firstPlayer.id;
+        game.round = 1;
+        game.playerTurnStartTime = { [firstPlayer.id]: Date.now() };
+    }
 
     logger.info('Game started successfully. Players with cards:', game.players.map(p => ({
         id: p.id,
@@ -1453,11 +1539,11 @@ setInterval(() => {
     });
 }, 1000); // Check every second
 
-function checkPlayerTimeout(game) {
+function checkPlayerTimeout(game: GameState): boolean {
     const currentPlayerId = game.currentPlayer;
-    const turnStartTime = game.playerTurnStartTime[currentPlayerId];
+    const turnStartTime = game.playerTurnStartTime?.[currentPlayerId];
 
-    if (!turnStartTime) return false;
+    if (!turnStartTime || !game.timeoutDuration) return false;
 
     const elapsed = Date.now() - turnStartTime;
     const timeRemaining = game.timeoutDuration - elapsed;
@@ -1477,9 +1563,9 @@ function checkPlayerTimeout(game) {
     return false;
 }
 
-function cleanupGameDueToTimeout(game, timeoutPlayerName) {
+function cleanupGameDueToTimeout(game: GameState, timeoutPlayerName: string): void {
     // Get all players in this game
-    const gamePlayers = Array.from(game.players);
+    const gamePlayers = [...game.players];
 
     // Remove game from memory
     games.delete(game.id);
@@ -1488,11 +1574,11 @@ function cleanupGameDueToTimeout(game, timeoutPlayerName) {
     const lobby = lobbies.get('default');
     const table = lobby?.tables.get(game.tableId);
 
-    if (table) {
+    if (lobby && table) {
         // Keep only AI players on the table, remove human players
         const botPlayers = gamePlayers.filter(player => player.isBot);
         table.players = botPlayers;
-        table.gameState = null;
+        table.gameState = undefined;
 
         // Notify all table members about the updated table
         io.to(`table-${game.tableId}`).emit('table_updated', { table });
@@ -1513,7 +1599,7 @@ function cleanupGameDueToTimeout(game, timeoutPlayerName) {
     }
 }
 
-async function checkBiddingCompletion(game) {
+async function checkBiddingCompletion(game: GameState): Promise<void> {
     // Ensure playersWhoHavePassed is always a Set
     ensurePlayersWhoHavePassedIsSet(game);
 
@@ -1547,8 +1633,17 @@ async function checkBiddingCompletion(game) {
             }
 
             game.phase = 'playing';
+            if (!game.currentBid) {
+                logger.error('Current bid is undefined');
+                return;
+            }
             game.trumpSuit = game.currentBid.suit;
-            game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+            const contractor = game.players.find(p => p.id === game.currentBid?.playerId);
+            if (!contractor) {
+                logger.error('Contractor not found');
+                return;
+            }
+            game.contractorTeam = contractor.position % 2 === 0 ? 'team1' : 'team2';
             game.currentPlayer = game.currentBid.playerId;
             logger.debug(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
         }
@@ -1565,7 +1660,7 @@ async function checkBiddingCompletion(game) {
     }
 
     // Check if bidding should end due to no counter-bids
-    if (game.currentBid && game.playersWhoHavePassed.size >= 3) {
+    if (game.currentBid && game.playersWhoHavePassed && game.playersWhoHavePassed.size >= 3) {
         // Someone has bid and all other players have passed - bidding ends
         logger.info(`Bid of ${game.currentBid.points} points stands - all other players passed, bidding ends`);
 
@@ -1591,8 +1686,17 @@ async function checkBiddingCompletion(game) {
             }
 
             game.phase = 'playing';
+            if (!game.currentBid) {
+                logger.error('Current bid is undefined');
+                return;
+            }
             game.trumpSuit = game.currentBid.suit;
-            game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+            const contractor = game.players.find(p => p.id === game.currentBid?.playerId);
+            if (!contractor) {
+                logger.error('Contractor not found');
+                return;
+            }
+            game.contractorTeam = contractor.position % 2 === 0 ? 'team1' : 'team2';
             game.currentPlayer = game.currentBid.playerId;
             logger.debug(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
         }
@@ -1610,13 +1714,22 @@ async function checkBiddingCompletion(game) {
 
     // Check if only the bidder remains (bidding should end)
     if (game.currentBid) {
-        const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed.has(p.id));
-        if (nonPassedPlayers.length === 1 && nonPassedPlayers[0].id === game.currentBid.playerId) {
+        const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed?.has(p.id));
+        if (nonPassedPlayers.length === 1 && nonPassedPlayers[0] && nonPassedPlayers[0].id === game.currentBid.playerId) {
             // Only the bidder remains - bidding ends
             logger.info(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
             game.phase = 'playing';
+            if (!game.currentBid) {
+                logger.error('Current bid is undefined');
+                return;
+            }
             game.trumpSuit = game.currentBid.suit;
-            game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+            const contractor = game.players.find(p => p.id === game.currentBid?.playerId);
+            if (!contractor) {
+                logger.error('Contractor not found');
+                return;
+            }
+            game.contractorTeam = contractor.position % 2 === 0 ? 'team1' : 'team2';
             game.currentPlayer = game.currentBid.playerId;
             logger.info(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
 
@@ -1633,7 +1746,7 @@ async function checkBiddingCompletion(game) {
     }
 
     // Check if all players have passed (bidding ends)
-    if (game.playersWhoHavePassed.size >= 4) {
+    if (game.playersWhoHavePassed && game.playersWhoHavePassed.size >= 4) {
         logger.info('All players passed - no bid made, starting new round');
         // All players passed, start a new round
         game.round++;
@@ -1649,46 +1762,55 @@ async function checkBiddingCompletion(game) {
         if (game.hasKitty && game.deckVariant === '40') {
             // Kitty dealing: 3-2-3-2-3 pattern
             // Each player gets 3 cards, then 2 to kitty, then 3 more, then 2 more to kitty, then 3 more
+            if (!game.deck) {
+                logger.error('Game deck is undefined');
+                return;
+            }
             game.kitty = [];
             let cardIndex = 0;
 
             // First packet: 3 cards to each player
             for (let i = 0; i < 3; i++) {
                 game.players.forEach(player => {
-                    if (cardIndex < game.deck.length) {
-                        player.cards.push(game.deck[cardIndex++]);
+                    if (game.deck && cardIndex < game.deck.length) {
+                        const card = game.deck[cardIndex++];
+                        if (card) player.cards.push(card);
                     }
                 });
             }
 
             // First kitty: 2 cards
             for (let i = 0; i < 2; i++) {
-                if (cardIndex < game.deck.length) {
-                    game.kitty.push(game.deck[cardIndex++]);
+                if (game.deck && cardIndex < game.deck.length) {
+                    const card = game.deck[cardIndex++];
+                    if (card) game.kitty.push(card);
                 }
             }
 
             // Second packet: 3 more cards to each player
             for (let i = 0; i < 3; i++) {
                 game.players.forEach(player => {
-                    if (cardIndex < game.deck.length) {
-                        player.cards.push(game.deck[cardIndex++]);
+                    if (game.deck && cardIndex < game.deck.length) {
+                        const card = game.deck[cardIndex++];
+                        if (card) player.cards.push(card);
                     }
                 });
             }
 
             // Second kitty: 2 more cards
             for (let i = 0; i < 2; i++) {
-                if (cardIndex < game.deck.length) {
-                    game.kitty.push(game.deck[cardIndex++]);
+                if (game.deck && cardIndex < game.deck.length) {
+                    const card = game.deck[cardIndex++];
+                    if (card) game.kitty.push(card);
                 }
             }
 
             // Final packet: 3 more cards to each player
             for (let i = 0; i < 3; i++) {
                 game.players.forEach(player => {
-                    if (cardIndex < game.deck.length) {
-                        player.cards.push(game.deck[cardIndex++]);
+                    if (game.deck && cardIndex < game.deck.length) {
+                        const card = game.deck[cardIndex++];
+                        if (card) player.cards.push(card);
                     }
                 });
             }
@@ -1696,31 +1818,36 @@ async function checkBiddingCompletion(game) {
             logger.info(`Kitty recreated with ${game.kitty.length} cards for round ${game.round} (all passed)`);
         } else {
             // Standard dealing: 9 cards for both 36-card and 40-card decks (kitty handled separately)
+            if (!game.deck) {
+                logger.error('Game deck is undefined');
+                return;
+            }
             const cardsPerPlayer = 9; // Always 9 cards per player, kitty logic is handled elsewhere
             let cardIndex = 0;
             for (let i = 0; i < cardsPerPlayer; i++) {
                 game.players.forEach(player => {
-                    if (cardIndex < game.deck.length) {
-                        player.cards.push(game.deck[cardIndex++]);
+                    if (game.deck && cardIndex < game.deck.length) {
+                        const card = game.deck[cardIndex++];
+                        if (card) player.cards.push(card);
                     }
                 });
             }
         }
 
         // Reset for new round
-        game.currentBid = null;
-        game.trumpSuit = null;
-        game.currentTrick = { cards: [], winner: null, points: 0 };
-        game.kittyDiscards = null; // Clear kitty discards for new round
+        game.currentBid = undefined;
+        game.trumpSuit = undefined;
+        game.currentTrick = { cards: [], winner: undefined, points: 0 };
+        game.kittyDiscards = undefined; // Clear kitty discards for new round
         game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
         game.dealer = game.currentPlayer;
         game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
-        game.contractorTeam = null;
-        game.opposingTeamBid = false;
+        game.contractorTeam = undefined;
+        game.opposingTeamBid = 0;
         game.roundScores = { team1: 0, team2: 0 };
         game.biddingPasses = 0;
         game.biddingRound = 0;
-        game.playersWhoHavePassed.clear(); // Reset the set for new round
+        game.playersWhoHavePassed?.clear(); // Reset the set for new round
 
         io.to(`table-${game.tableId}`).emit('round_completed', { game });
 
@@ -1731,7 +1858,7 @@ async function checkBiddingCompletion(game) {
 
         // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
         const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
-        if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
+        if (currentPlayer?.isBot && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
             logger.debug('Starting bot turn for new round bidding phase');
             await handleBotTurn(game);
         }
@@ -1741,7 +1868,7 @@ async function checkBiddingCompletion(game) {
     logger.info(`Bidding continues - passes: ${game.biddingPasses}, current bid: ${game.currentBid ? game.currentBid.points : 'none'}`);
 }
 
-async function handleBotTurn(game) {
+async function handleBotTurn(game: GameState): Promise<void> {
     // Ensure playersWhoHavePassed is always a Set
     ensurePlayersWhoHavePassedIsSet(game);
 
@@ -1783,6 +1910,10 @@ async function handleBotTurn(game) {
         // Move to playing phase and set trump (bot can change trump suit if beneficial)
         game.phase = 'playing';
         // Bot keeps the original trump suit for now, but could implement logic to change it
+        if (!game.currentBid) {
+            logger.error('Current bid is undefined');
+            return;
+        }
         game.trumpSuit = game.currentBid.suit;
         game.contractorTeam = currentPlayer.position % 2 === 0 ? 'team1' : 'team2';
         game.kittyPhaseCompleted = true; // Mark kitty phase as completed for this round
@@ -1817,29 +1948,38 @@ async function handleBotTurn(game) {
             });
 
             // Select the suit with the most cards
-            const bestSuit = Object.entries(suitCounts)
-                .sort(([, a], [, b]) => b - a)[0][0];
+            const bestSuitEntry = Object.entries(suitCounts)
+                .sort(([, a], [, b]) => b - a)[0];
+            const bestSuit = (bestSuitEntry ? bestSuitEntry[0] : 'hearts') as Suit;
 
             // Bot made a bid - remove them from passed list if they were there
-            game.playersWhoHavePassed.delete(currentPlayer.id);
+            game.playersWhoHavePassed?.delete(currentPlayer.id);
             game.currentBid = { playerId: currentPlayer.id, points: bidPoints, suit: bestSuit };
             game.biddingPasses = 0; // Reset pass counter when someone bids
 
             logger.debug(`Bot ${currentPlayer.name} bid ${bidPoints} points with ${bestSuit} as trump suit`);
         } else {
             // Bot passed - they cannot bid again until new round
-            game.playersWhoHavePassed.add(currentPlayer.id);
-            game.biddingPasses++;
+            game.playersWhoHavePassed?.add(currentPlayer.id);
+            game.biddingPasses = (game.biddingPasses || 0) + 1;
             logger.debug(`Bot ${currentPlayer.name} passed. Total passes: ${game.biddingPasses}`);
         }
 
         // Reset timeout for current bot since they just made a move
-        game.playerTurnStartTime[currentPlayer.id] = Date.now();
+        if (game.playerTurnStartTime) {
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[currentPlayer.id] = Date.now();
+            }
+        }
 
         // Always move to next player after bot makes decision (bid or pass)
         const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
         game.currentPlayer = nextPlayer;
-        game.playerTurnStartTime[nextPlayer] = Date.now();
+        if (game.playerTurnStartTime) {
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
+        }
 
         emitGameEvent(game, 'bid_made', { game });
 
@@ -1848,16 +1988,18 @@ async function handleBotTurn(game) {
 
         // Handle next bot player if applicable and they haven't passed
         const currentPlayerForBot = game.players.find(p => p.id === game.currentPlayer);
-        if (currentPlayerForBot?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed.has(game.currentPlayer)) {
+        if (currentPlayerForBot?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
             await handleBotTurn(game);
-        } else if (currentPlayerForBot?.isBot && game.phase === 'bidding' && game.playersWhoHavePassed.has(game.currentPlayer)) {
+        } else if (currentPlayerForBot?.isBot && game.phase === 'bidding' && game.playersWhoHavePassed?.has(game.currentPlayer)) {
             // Bot has already passed, move to next player
             const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
             game.currentPlayer = nextPlayer;
-            game.playerTurnStartTime[nextPlayer] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
 
             // Check if bidding should end if we've gone through all players
-            const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed.has(p.id));
+            const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed?.has(p.id));
             if (nonPassedPlayers.length === 1 && game.currentBid) {
                 // Only the bidder remains - bidding ends
                 logger.debug(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
@@ -1888,8 +2030,17 @@ async function handleBotTurn(game) {
                         validateKittyState(game, 'Kitty missing when it should exist');
                     }
                     game.phase = 'playing';
+                    if (!game.currentBid) {
+                        logger.error('Current bid is undefined');
+                        return;
+                    }
                     game.trumpSuit = game.currentBid.suit;
-                    game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+                    const contractor = game.players.find(p => p.id === game.currentBid?.playerId);
+                    if (!contractor) {
+                        logger.error('Contractor not found');
+                        return;
+                    }
+                    game.contractorTeam = contractor.position % 2 === 0 ? 'team1' : 'team2';
                     game.currentPlayer = game.currentBid.playerId;
                     logger.debug(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
                 }
@@ -1913,7 +2064,7 @@ async function handleBotTurn(game) {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Determine lead suit from current trick
-        const leadSuit = game.currentTrick.cards.length > 0
+        const leadSuit = game.currentTrick.cards.length > 0 && game.currentTrick.cards[0]
             ? game.currentTrick.cards[0].card.suit
             : null;
 
@@ -1950,12 +2101,16 @@ async function handleBotTurn(game) {
             logger.debug(`Trick now has ${game.currentTrick.cards.length} cards`);
 
             // Reset timeout for current bot since they just played a card
-            game.playerTurnStartTime[currentPlayer.id] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[currentPlayer.id] = Date.now();
+            }
 
             // Move to next player
             const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
             game.currentPlayer = nextPlayer;
-            game.playerTurnStartTime[nextPlayer] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
 
             emitGameEvent(game, 'card_played', { game, card, playerId: currentPlayer.id });
 
@@ -1967,8 +2122,13 @@ async function handleBotTurn(game) {
                 game.currentTrick.points = trickPoints;
 
                 // Proper trick winner logic (highest trump, then highest lead suit)
-                const leadSuit = game.currentTrick.cards[0].card.suit;
-                let winner = game.currentTrick.cards[0];
+                const firstCard = game.currentTrick.cards[0];
+                if (!firstCard) {
+                    logger.error('No cards in current trick, skipping winner determination');
+                    return;
+                }
+                const leadSuit = firstCard.card.suit;
+                let winner = firstCard;
 
                 for (const { card, playerId } of game.currentTrick.cards) {
                     if (card.suit === game.trumpSuit && winner.card.suit !== game.trumpSuit) {
@@ -1992,12 +2152,16 @@ async function handleBotTurn(game) {
 
                 // Update round scores (not total team scores)
                 // fixes scoring issue
-                const winnerTeam = game.players.find(p => p.id === winner.playerId).position % 2 === 0 ? 'team1' : 'team2';
+                const winnerPlayer = game.players.find(p => p.id === winner.playerId);
+                if (!winnerPlayer) {
+                    logger.error('Winner player not found');
+                    return;
+                }
+                const winnerTeam = winnerPlayer.position % 2 === 0 ? 'team1' : 'team2';
                 game.roundScores[winnerTeam] += trickPoints;
 
                 // Log trick details for debugging
-                const winnerPlayer = game.players.find(p => p.id === winner.playerId);
-                logger.debug(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
+                logger.debug(`Trick completed! Winner: ${winnerPlayer.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
                 // Debug: Print all players' cards after trick completion
                 debugPrintAllPlayerCards(game, `After Trick Won by ${winnerPlayer?.name}`);
@@ -2029,7 +2193,7 @@ async function handleBotTurn(game) {
                         const opposingCardPoints = game.roundScores[opposingTeam];
 
                         // Use proper scoring calculation including kitty discard points
-                        const scoringResult = calculateRoundScores(game, game.contractorTeam, contractorCardPoints, opposingCardPoints, game.opposingTeamBid);
+                        const scoringResult = calculateRoundScores(game, game.contractorTeam, contractorCardPoints, opposingCardPoints, game.opposingTeamBid || 0);
 
                         // Update team scores with proper calculation
                         game.teamScores.team1 = scoringResult.team1Score;
@@ -2054,6 +2218,10 @@ async function handleBotTurn(game) {
 
                         // Determine winning team and create detailed game end info
                         const winningTeamInfo = getWinningTeam(game);
+                        if (!winningTeamInfo) {
+                            logger.error('Failed to determine winning team');
+                            return;
+                        }
                         const winningTeam = winningTeamInfo.team;
                         const winningTeamName = winningTeamInfo.name;
 
@@ -2099,40 +2267,45 @@ async function handleBotTurn(game) {
                         // First packet: 3 cards to each player
                         for (let i = 0; i < 3; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
 
                         // First kitty: 2 cards
                         for (let i = 0; i < 2; i++) {
-                            if (cardIndex < game.deck.length) {
-                                game.kitty.push(game.deck[cardIndex++]);
+                            if (game.deck && cardIndex < game.deck.length) {
+                                const card = game.deck[cardIndex++];
+                                if (card) game.kitty.push(card);
                             }
                         }
 
                         // Second packet: 3 more cards to each player
                         for (let i = 0; i < 3; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
 
                         // Second kitty: 2 more cards
                         for (let i = 0; i < 2; i++) {
-                            if (cardIndex < game.deck.length) {
-                                game.kitty.push(game.deck[cardIndex++]);
+                            if (game.deck && cardIndex < game.deck.length) {
+                                const card = game.deck[cardIndex++];
+                                if (card) game.kitty.push(card);
                             }
                         }
 
                         // Final packet: 3 more cards to each player
                         for (let i = 0; i < 3; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
@@ -2145,8 +2318,9 @@ async function handleBotTurn(game) {
                         let cardIndex = 0;
                         for (let i = 0; i < cardsPerPlayer; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
@@ -2154,21 +2328,23 @@ async function handleBotTurn(game) {
 
                     // Reset for new round
                     game.phase = 'bidding';
-                    game.currentBid = null;
-                    game.trumpSuit = null;
-                    game.currentTrick = { cards: [], winner: null, points: 0 };
-                    game.lastTrick = null; // Clear last trick for new round
-                    game.kittyDiscards = null; // Clear kitty discards for new round
+                    game.currentBid = undefined;
+                    game.trumpSuit = undefined;
+                    game.currentTrick = { cards: [], winner: undefined, points: 0 };
+                    game.lastTrick = undefined; // Clear last trick for new round
+                    game.kittyDiscards = undefined; // Clear kitty discards for new round
                     game.kittyPhaseCompleted = false; // Reset kitty phase completion for new round
                     game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                     game.dealer = game.currentPlayer;
                     game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
-                    game.contractorTeam = null; // Reset contractor team
-                    game.opposingTeamBid = false; // Reset opposing team bid flag
+                    game.contractorTeam = undefined; // Reset contractor team
+                    game.opposingTeamBid = 0; // Reset opposing team bid flag
                     game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
                     game.biddingPasses = 0; // Reset bidding passes
                     game.biddingRound = 0; // Reset bidding round
-                    game.playersWhoHavePassed.clear(); // Reset passed players for new round
+                    if (game.playersWhoHavePassed) {
+                        game.playersWhoHavePassed.clear();
+                    } // Reset passed players for new round
 
                     logger.debug('Round reset complete - all bid parameters cleared for new round (handleBotTurn)');
                     debugKittyState(game, 'After round reset (handleBotTurn)');
@@ -2183,7 +2359,7 @@ async function handleBotTurn(game) {
 
                     // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
                     const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
-                    if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
+                    if (currentPlayer?.isBot && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
                         logger.debug('Starting bot turn for new round bidding phase');
                         await handleBotTurn(game);
                     }
@@ -2191,7 +2367,7 @@ async function handleBotTurn(game) {
                 }
 
                 // Start new trick - clear the trick area
-                game.currentTrick = { cards: [], winner: null, points: 0 };
+                game.currentTrick = { cards: [], winner: undefined, points: 0 };
                 game.currentPlayer = winner.playerId;
                 const nextPlayer = game.players.find(p => p.id === winner.playerId);
                 logger.debug('Trick area cleared, starting new trick. Next player:', nextPlayer ? { name: nextPlayer.name, isBot: nextPlayer.isBot } : 'NOT FOUND');
@@ -2212,6 +2388,10 @@ async function handleBotTurn(game) {
 
                     // Determine winning team and create detailed game end info
                     const winningTeamInfo = getWinningTeam(game);
+                    if (!winningTeamInfo) {
+                        logger.error('Failed to determine winning team');
+                        return;
+                    }
                     const winningTeam = winningTeamInfo.team;
                     const winningTeamName = winningTeamInfo.name;
 
@@ -2277,14 +2457,16 @@ async function handleBotTurn(game) {
                 // Move to next round
                 game.round++;
                 game.phase = 'bidding';
-                game.currentBid = null;
-                game.contractorTeam = null;
-                game.trumpSuit = null;
-                game.opposingTeamBid = false; // Reset opposing team bid flag
+                game.currentBid = undefined;
+                game.contractorTeam = undefined;
+                game.trumpSuit = undefined;
+                game.opposingTeamBid = 0; // Reset opposing team bid flag
                 game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
                 game.biddingPasses = 0; // Reset bidding passes
                 game.biddingRound = 0; // Reset bidding round
-                game.playersWhoHavePassed.clear(); // Reset passed players for new round
+                if (game.playersWhoHavePassed) {
+                    game.playersWhoHavePassed.clear();
+                } // Reset passed players for new round
                 game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
 
                 emitGameEvent(game, 'round_completed', { game });
@@ -2296,7 +2478,7 @@ async function handleBotTurn(game) {
 
                 // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
                 const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
-                if (currentPlayer?.isBot && !game.playersWhoHavePassed.has(game.currentPlayer)) {
+                if (currentPlayer?.isBot && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
                     logger.debug('Starting bot turn for new round bidding phase');
                     await handleBotTurn(game);
                 }
@@ -2321,10 +2503,10 @@ async function handleBotTurn(game) {
 
 /* socket handlers */
 // Socket.io connection handling
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
     logger.debug('Player connected:', socket.id);
 
-    socket.on('join_lobby', (data) => {
+    socket.on('join_lobby', (data: { playerName: string; lobbyId?: string }) => {
         try {
             logger.debug('join_lobby received:', data);
             const { playerName, lobbyId = 'default' } = data;
@@ -2345,7 +2527,7 @@ io.on('connection', (socket) => {
                 id: socket.id,
                 name: playerName,
                 isBot: false,
-                position: null,
+                position: 0 as 0 | 1 | 2 | 3, // Will be set when joining a table
                 cards: [],
                 score: 0,
                 isReady: false
@@ -2367,11 +2549,11 @@ io.on('connection', (socket) => {
             }
         } catch (error) {
             logger.error('Error in join_lobby handler:', error);
-            socket.emit('error', { message: error.message });
+            socket.emit('error', { message: error instanceof Error ? error.message : 'Unknown error' });
         }
     });
 
-    socket.on('create_table', (data) => {
+    socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number }) => {
         try {
             logger.debug('create_table received:', data);
             const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000 } = data;
@@ -2394,17 +2576,16 @@ io.on('connection', (socket) => {
             }
 
             logger.debug('Creating new table:', tableId, 'with name:', tableName);
-            const table = {
+            const table: LobbyTable = {
                 id: tableId,
                 name: tableName || `Table ${tableId}`,
                 players: [],
-                gameState: null,
+                gameState: undefined,
                 maxPlayers: 4,
                 isPrivate: false, // Default to public table
-                password: undefined,
                 creator: player.name,
                 timeoutDuration: timeoutDuration,
-                deckVariant: '36', // Default to 36-card deck
+                deckVariant: '36' as '36' | '40', // Default to 36-card deck
                 scoreTarget: 200, // Default to 200 points
                 hasKitty: false // Default to no kitty
             };
@@ -2435,7 +2616,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('add_bot', (data) => {
+    socket.on('add_bot', (data: { tableId: string; position: number; skill?: 'easy' | 'medium' | 'hard' | 'acadien' }) => {
         try {
             logger.debug('add_bot received:', data);
             const { tableId, position, skill = 'medium' } = data;
@@ -2479,16 +2660,16 @@ io.on('connection', (socket) => {
 
             // Create bot player
             const botId = `bot-${uuidv4()}`;
-            const bot = {
+            const botName = getRandomHumanName();
+            const bot: Player = {
                 id: botId,
-                name: getRandomHumanName(),
+                name: botName,
                 isBot: true,
                 botSkill: skill,
-                position: position,
+                position: position as 0 | 1 | 2 | 3,
                 cards: [],
                 score: 0,
-                isReady: true,
-                ai: skill === 'acadien' ? new AcadienBotAI() : new SimpleBotAI(skill)
+                isReady: true
             };
 
             table.players.push(bot);
@@ -2505,7 +2686,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('remove_bot', (data) => {
+    socket.on('remove_bot', (data: { tableId: string; botId: string }) => {
         try {
             logger.debug('remove_bot received:', data);
             const { tableId, botId } = data;
@@ -2541,20 +2722,24 @@ io.on('connection', (socket) => {
             }
 
             const removedBot = table.players.splice(botIndex, 1)[0];
+            if (!removedBot) {
+                logger.error('Failed to remove bot');
+                return;
+            }
             logger.debug(`Removed bot ${removedBot.name} from position ${removedBot.position}`);
 
             // Notify all table members about the updated table
             io.to(`table-${tableId}`).emit('table_updated', { table });
 
             // Notify all lobby members about the updated lobby
-            notifyLobbyMembers(lobbyId, 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
+            notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
         } catch (error) {
             logger.error('Error removing bot:', error);
             socket.emit('error', { message: 'Error removing bot' });
         }
     });
 
-    socket.on('move_player', (data) => {
+    socket.on('move_player', (data: { tableId: string; newPosition: number }) => {
         try {
             logger.debug('move_player received:', data);
             const { tableId, newPosition } = data;
@@ -2597,22 +2782,27 @@ io.on('connection', (socket) => {
             }
 
             // Update the player's position
-            const oldPosition = table.players[playerIndex].position;
-            table.players[playerIndex].position = newPosition;
-            logger.debug(`Moved player ${player.name} from position ${oldPosition} to position ${newPosition}`);
+            const tablePlayer = table.players[playerIndex];
+            if (!tablePlayer) {
+                logger.error('Player not found at index');
+                return;
+            }
+            const oldPosition = tablePlayer.position;
+            tablePlayer.position = newPosition as 0 | 1 | 2 | 3;
+            logger.debug(`Moved player ${tablePlayer.name} from position ${oldPosition} to position ${newPosition}`);
 
             // Notify all table members about the updated table
             io.to(`table-${tableId}`).emit('table_updated', { table });
 
             // Notify all lobby members about the updated lobby
-            notifyLobbyMembers(lobbyId, 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
+            notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
         } catch (error) {
             logger.error('Error moving player:', error);
             socket.emit('error', { message: 'Error moving player' });
         }
     });
 
-    socket.on('start_game', async (data) => {
+    socket.on('start_game', async (data: { tableId: string }) => {
         try {
             logger.debug('start_game received:', data);
             const { tableId } = data;
@@ -2693,7 +2883,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('leave_table', (data) => {
+    socket.on('leave_table', (data: { tableId: string; lobbyId?: string }) => {
         try {
             logger.debug('leave_table received:', data);
             const { tableId, lobbyId = 'default' } = data;
@@ -2740,8 +2930,8 @@ io.on('connection', (socket) => {
                 logger.debug(`Player ${player.name} left table ${tableId}. Remaining players: ${table.players.length}`);
             } else {
                 // Check if player is a spectator
-                const spectatorIndex = table.spectators ? table.spectators.findIndex(s => s.id === player.id) : -1;
-                if (spectatorIndex !== -1) {
+                const spectatorIndex = table.spectators?.findIndex(s => s.id === player.id) ?? -1;
+                if (spectatorIndex !== -1 && table.spectators) {
                     logger.debug(`Removing spectator ${player.name} from table ${tableId}`);
                     table.spectators.splice(spectatorIndex, 1);
 
@@ -2770,7 +2960,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('join_table', async (data) => {
+    socket.on('join_table', async (data: { tableId: string; lobbyId?: string; tableName?: string; numBots?: number; password?: string }) => {
         try {
             logger.debug('join_table received:', data);
             const { tableId, lobbyId = 'default', tableName, numBots = 0, password } = data;
@@ -2811,11 +3001,11 @@ io.on('connection', (socket) => {
             if (table.players.length < table.maxPlayers) {
                 // Find the first available position (0, 1, 2, 3) to ensure proper rotation
                 const occupiedPositions = table.players.map(p => p.position);
-                let availablePosition = 0;
+                let availablePosition: 0 | 1 | 2 | 3 = 0;
                 while (occupiedPositions.includes(availablePosition) && availablePosition < table.maxPlayers) {
-                    availablePosition++;
+                    availablePosition = (availablePosition + 1) as 0 | 1 | 2 | 3;
                 }
-                player.position = availablePosition;
+                player.position = availablePosition as 0 | 1 | 2 | 3;
                 table.players.push(player);
                 socket.join(`table-${tableId}`);
 
@@ -2935,7 +3125,7 @@ io.on('connection', (socket) => {
             const spectator = {
                 ...player,
                 isSpectator: true,
-                position: -1 // Spectators don't have positions
+                position: 0 as 0 | 1 | 2 | 3 // Spectators don't have real positions, use 0 as placeholder
             };
 
             table.spectators.push(spectator);
@@ -2977,30 +3167,34 @@ io.on('connection', (socket) => {
             if (!player || player.id !== game.currentPlayer) throw new Error('Player not found or not current player');
 
             // Check if player has already passed during this bidding round
-            if (game.playersWhoHavePassed.has(socket.id) && points > 0) {
+            if (game.playersWhoHavePassed && game.playersWhoHavePassed.has(socket.id) && points > 0) {
                 throw new Error('Player has already passed and cannot make a bid');
             }
 
             if (points === 0) {
                 // Player passed - they cannot bid again until new round
-                game.playersWhoHavePassed.add(socket.id);
-                game.biddingPasses++;
+                game.playersWhoHavePassed?.add(socket.id);
+                game.biddingPasses = (game.biddingPasses || 0) + 1;
                 logger.debug(`Player ${player.name} passed. Total passes: ${game.biddingPasses}`);
             } else {
                 // Player made a bid - remove them from passed list if they were there
-                game.playersWhoHavePassed.delete(socket.id);
+                game.playersWhoHavePassed?.delete(socket.id);
                 game.currentBid = { playerId: socket.id, points, suit };
                 game.biddingPasses = 0; // Reset pass counter when someone bids
                 logger.debug(`Player ${player.name} bid ${points} points with ${suit} as trump`);
             }
 
             // Reset timeout for current player since they just made a move
-            game.playerTurnStartTime[socket.id] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[socket.id] = Date.now();
+            }
 
             // Move to next player
             const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
             game.currentPlayer = nextPlayer;
-            game.playerTurnStartTime[nextPlayer] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
 
             emitGameEvent(game, 'bid_made', { game });
 
@@ -3010,14 +3204,16 @@ io.on('connection', (socket) => {
             // Handle bot players if bidding continues
             if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot) {
                 await handleBotTurn(game);
-            } else if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot && game.playersWhoHavePassed.has(game.currentPlayer)) {
+            } else if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot && game.playersWhoHavePassed?.has(game.currentPlayer)) {
                 // Bot has already passed, move to next player
                 const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
                 game.currentPlayer = nextPlayer;
-                game.playerTurnStartTime[nextPlayer] = Date.now();
+                if (game.playerTurnStartTime) {
+                    game.playerTurnStartTime[nextPlayer] = Date.now();
+                }
 
                 // Check if bidding should end if we've gone through all players
-                const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed.has(p.id));
+                const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed?.has(p.id));
                 if (nonPassedPlayers.length === 1 && game.currentBid) {
                     // Only the bidder remains - bidding ends
                     logger.debug(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
@@ -3034,6 +3230,10 @@ io.on('connection', (socket) => {
                         !game.kittyPhaseCompleted;
 
                     if (shouldTriggerKitty) {
+                        if (!game.currentBid) {
+                            logger.error('Current bid is undefined');
+                            return;
+                        }
                         logger.debug(`✅ KITTY PHASE TRIGGERED: Bid winner ${game.currentBid.playerId} enters kitty phase for round ${game.round}`);
                         debugKittyState(game, 'Kitty phase triggered');
                         game.phase = 'kitty';
@@ -3048,8 +3248,17 @@ io.on('connection', (socket) => {
                             validateKittyState(game, 'Kitty missing when it should exist');
                         }
                         game.phase = 'playing';
+                        if (!game.currentBid) {
+                            logger.error('Current bid is undefined');
+                            return;
+                        }
                         game.trumpSuit = game.currentBid.suit;
-                        game.contractorTeam = game.players.find(p => p.id === game.currentBid.playerId).position % 2 === 0 ? 'team1' : 'team2';
+                        const contractor = game.players.find(p => p.id === game.currentBid?.playerId);
+                        if (!contractor) {
+                            logger.error('Contractor not found');
+                            return;
+                        }
+                        game.contractorTeam = contractor.position % 2 === 0 ? 'team1' : 'team2';
                         game.currentPlayer = game.currentBid.playerId;
                         logger.debug(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
                     }
@@ -3152,9 +3361,9 @@ io.on('connection', (socket) => {
             }
 
             // Validate that all discarded cards are in the player's hand
-            const discardedCardIds = discardedCards.map(card => card.id);
-            const playerCardIds = bidWinner.cards.map(card => card.id);
-            const allCardsValid = discardedCardIds.every(id => playerCardIds.includes(id));
+            const discardedCardIds = discardedCards.map((card: Card) => card.id);
+            const playerCardIds = bidWinner.cards.map((card: Card) => card.id);
+            const allCardsValid = discardedCardIds.every((id: string) => playerCardIds.includes(id));
 
             if (!allCardsValid) {
                 throw new Error('Invalid cards selected for discard');
@@ -3167,6 +3376,10 @@ io.on('connection', (socket) => {
 
             // Move to playing phase and set trump
             game.phase = 'playing';
+            if (!game.currentBid) {
+                logger.error('Current bid is undefined');
+                return;
+            }
             game.trumpSuit = trumpSuit || game.currentBid.suit;
             game.contractorTeam = bidWinner.position % 2 === 0 ? 'team1' : 'team2';
             game.kittyPhaseCompleted = true; // Mark kitty phase as completed for this round
@@ -3212,12 +3425,16 @@ io.on('connection', (socket) => {
             logger.debug(`Trick now has ${game.currentTrick.cards.length} cards`);
 
             // Reset timeout for current player since they just played a card
-            game.playerTurnStartTime[socket.id] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[socket.id] = Date.now();
+            }
 
             // Move to next player
             const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
             game.currentPlayer = nextPlayer;
-            game.playerTurnStartTime[nextPlayer] = Date.now();
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
 
             emitGameEvent(game, 'card_played', { game, card, playerId: socket.id });
 
@@ -3229,8 +3446,13 @@ io.on('connection', (socket) => {
                 game.currentTrick.points = trickPoints;
 
                 // Proper trick winner logic (highest trump, then highest lead suit)
-                const leadSuit = game.currentTrick.cards[0].card.suit;
-                let winner = game.currentTrick.cards[0];
+                const firstCard = game.currentTrick.cards[0];
+                if (!firstCard) {
+                    logger.error('No cards in current trick, skipping winner determination');
+                    return;
+                }
+                const leadSuit = firstCard.card.suit;
+                let winner = firstCard;
 
                 for (const { card, playerId } of game.currentTrick.cards) {
                     if (card.suit === game.trumpSuit && winner.card.suit !== game.trumpSuit) {
@@ -3253,12 +3475,16 @@ io.on('connection', (socket) => {
                 game.lastTrick = { ...game.currentTrick };
 
                 // Update round scores (not total team scores)
-                const winnerTeam = game.players.find(p => p.id === winner.playerId).position % 2 === 0 ? 'team1' : 'team2';
+                const winnerPlayer = game.players.find(p => p.id === winner.playerId);
+                if (!winnerPlayer) {
+                    logger.error('Winner player not found');
+                    return;
+                }
+                const winnerTeam = winnerPlayer.position % 2 === 0 ? 'team1' : 'team2';
                 game.roundScores[winnerTeam] += trickPoints;
 
                 // Log trick details for debugging
-                const winnerPlayer = game.players.find(p => p.id === winner.playerId);
-                logger.debug(`Trick completed! Winner: ${winnerPlayer?.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
+                logger.debug(`Trick completed! Winner: ${winnerPlayer.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
                 // Debug: Print all players' cards after trick completion
                 debugPrintAllPlayerCards(game, `After Trick Won by ${winnerPlayer?.name}`);
@@ -3287,7 +3513,7 @@ io.on('connection', (socket) => {
                         const opposingCardPoints = game.roundScores[opposingTeam];
 
                         // Use proper scoring calculation including kitty discard points
-                        const scoringResult = calculateRoundScores(game, game.contractorTeam, contractorCardPoints, opposingCardPoints, game.opposingTeamBid);
+                        const scoringResult = calculateRoundScores(game, game.contractorTeam, contractorCardPoints, opposingCardPoints, game.opposingTeamBid || 0);
 
                         // Update team scores with proper calculation
                         game.teamScores.team1 = scoringResult.team1Score;
@@ -3312,6 +3538,10 @@ io.on('connection', (socket) => {
 
                         // Determine winning team and create detailed game end info
                         const winningTeamInfo = getWinningTeam(game);
+                        if (!winningTeamInfo) {
+                            logger.error('Failed to determine winning team');
+                            return;
+                        }
                         const winningTeam = winningTeamInfo.team;
                         const winningTeamName = winningTeamInfo.name;
 
@@ -3358,40 +3588,45 @@ io.on('connection', (socket) => {
                         // First packet: 3 cards to each player
                         for (let i = 0; i < 3; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
 
                         // First kitty: 2 cards
                         for (let i = 0; i < 2; i++) {
-                            if (cardIndex < game.deck.length) {
-                                game.kitty.push(game.deck[cardIndex++]);
+                            if (game.deck && cardIndex < game.deck.length) {
+                                const card = game.deck[cardIndex++];
+                                if (card) game.kitty.push(card);
                             }
                         }
 
                         // Second packet: 3 more cards to each player
                         for (let i = 0; i < 3; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
 
                         // Second kitty: 2 more cards
                         for (let i = 0; i < 2; i++) {
-                            if (cardIndex < game.deck.length) {
-                                game.kitty.push(game.deck[cardIndex++]);
+                            if (game.deck && cardIndex < game.deck.length) {
+                                const card = game.deck[cardIndex++];
+                                if (card) game.kitty.push(card);
                             }
                         }
 
                         // Final packet: 3 more cards to each player
                         for (let i = 0; i < 3; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 }
                             });
                         }
@@ -3400,13 +3635,18 @@ io.on('connection', (socket) => {
                         debugKittyState(game, 'After kitty recreation');
                     } else {
                         // Standard dealing: 9 cards for both 36-card and 40-card decks (kitty handled separately)
+                        if (!game.deck) {
+                            logger.error('Game deck is undefined');
+                            return;
+                        }
                         const cardsPerPlayer = 9; // Always 9 cards per player, kitty logic is handled elsewhere
                         logger.debug(`🔍 DEBUG: Deck size: ${game.deck.length}, Players: ${game.players.length}, Cards per player: ${cardsPerPlayer}`);
                         let cardIndex = 0;
                         for (let i = 0; i < cardsPerPlayer; i++) {
                             game.players.forEach(player => {
-                                if (cardIndex < game.deck.length) {
-                                    player.cards.push(game.deck[cardIndex++]);
+                                if (game.deck && cardIndex < game.deck.length) {
+                                    const card = game.deck[cardIndex++];
+                                    if (card) player.cards.push(card);
                                 } else {
                                     logger.debug(`⚠️  WARNING: Not enough cards in deck! Player ${player.name} only got ${player.cards.length} cards`);
                                 }
@@ -3417,21 +3657,24 @@ io.on('connection', (socket) => {
 
                     // Reset for new round - clear all bid-related state
                     game.phase = 'bidding';
-                    game.currentBid = null;
-                    game.trumpSuit = null;
-                    game.currentTrick = { cards: [], winner: null, points: 0 };
-                    game.lastTrick = null; // Clear last trick for new round
-                    game.kittyDiscards = null; // Clear kitty discards for new round
+                    game.currentBid = undefined;
+                    game.trumpSuit = undefined;
+                    game.currentTrick = { cards: [], winner: undefined, points: 0 };
+                    game.lastTrick = undefined; // Clear last trick for new round
+                    game.kittyDiscards = undefined; // Clear kitty discards for new round
                     game.kittyPhaseCompleted = false; // Reset kitty phase completion for new round
                     game.currentPlayer = getNextPlayerByPosition(game.dealer, game.players);
                     game.dealer = game.currentPlayer;
                     game.playerTurnStartTime = { [game.currentPlayer]: Date.now() };
-                    game.contractorTeam = null; // Reset contractor team
-                    game.opposingTeamBid = false; // Reset opposing team bid flag
+                    game.contractorTeam = undefined; // Reset contractor team
+                    game.opposingTeamBid = 0; // Reset opposing team bid flag
                     game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
                     game.biddingPasses = 0; // Reset bidding passes
-                    game.biddingRound = 0; // Reset bidding round
-                    game.playersWhoHavePassed.clear(); // Reset the set for new round
+                    if (game.playersWhoHavePassed) {
+                        if (game.playersWhoHavePassed) {
+                            game.playersWhoHavePassed.clear();
+                        } // Reset the set for new round
+                    }
 
                     logger.debug('Round reset complete - all bid parameters cleared for new round');
                     debugKittyState(game, 'After round reset');
@@ -3453,7 +3696,7 @@ io.on('connection', (socket) => {
                 }
 
                 // Start new trick - clear the trick area
-                game.currentTrick = { cards: [], winner: null, points: 0 };
+                game.currentTrick = { cards: [], winner: undefined, points: 0 };
                 game.currentPlayer = winner.playerId;
                 const nextPlayer = game.players.find(p => p.id === winner.playerId);
                 logger.debug('Trick area cleared, starting new trick. Next player:', nextPlayer ? { name: nextPlayer.name, isBot: nextPlayer.isBot } : 'NOT FOUND');
@@ -3473,6 +3716,10 @@ io.on('connection', (socket) => {
 
                     // Determine winning team and create detailed game end info
                     const winningTeamInfo = getWinningTeam(game);
+                    if (!winningTeamInfo) {
+                        logger.error('Failed to determine winning team');
+                        return;
+                    }
                     const winningTeam = winningTeamInfo.team;
                     const winningTeamName = winningTeamInfo.name;
 
@@ -3535,7 +3782,8 @@ io.on('connection', (socket) => {
             if (!player) throw new Error('Player not found for socket');
 
             const lobby = lobbies.get('default');
-            const table = lobby?.tables.get(tableId);
+            if (!lobby) throw new Error('Lobby not found');
+            const table = lobby.tables.get(tableId);
             if (!table) throw new Error('Table not found');
 
             // Check if player is the table creator
@@ -3565,7 +3813,8 @@ io.on('connection', (socket) => {
             if (!player) throw new Error('Player not found for socket');
 
             const lobby = lobbies.get('default');
-            const table = lobby?.tables.get(tableId);
+            if (!lobby) throw new Error('Lobby not found');
+            const table = lobby.tables.get(tableId);
             if (!table) throw new Error('Table not found');
 
             // Check if player is the table creator
@@ -3600,7 +3849,8 @@ io.on('connection', (socket) => {
             if (!player) throw new Error('Player not found for socket');
 
             const lobby = lobbies.get('default');
-            const table = lobby?.tables.get(tableId);
+            if (!lobby) throw new Error('Lobby not found');
+            const table = lobby.tables.get(tableId);
             if (!table) throw new Error('Table not found');
 
             // Check if player is the table creator
@@ -3635,7 +3885,8 @@ io.on('connection', (socket) => {
             if (!player) throw new Error('Player not found for socket');
 
             const lobby = lobbies.get('default');
-            const table = lobby?.tables.get(tableId);
+            if (!lobby) throw new Error('Lobby not found');
+            const table = lobby.tables.get(tableId);
             if (!table) throw new Error('Table not found');
 
             // Check if player is the table creator
@@ -3675,7 +3926,8 @@ io.on('connection', (socket) => {
             if (!player) throw new Error('Player not found for socket');
 
             const lobby = lobbies.get('default');
-            const table = lobby?.tables.get(tableId);
+            if (!lobby) throw new Error('Lobby not found');
+            const table = lobby.tables.get(tableId);
             if (!table) throw new Error('Table not found');
 
             // Check if player is the table creator
@@ -3778,7 +4030,7 @@ io.on('connection', (socket) => {
             // Remove the game from memory
             games.delete(gameId);
 
-            if (table) {
+            if (lobby && table) {
                 // Remove all spectators and notify them
                 if (table.spectators && table.spectators.length > 0) {
                     logger.info(`Removing ${table.spectators.length} spectators from table ${game.tableId} due to player exit`);
@@ -3809,7 +4061,7 @@ io.on('connection', (socket) => {
                 // Keep only AI players on the table, remove human players
                 const botPlayers = game.players.filter(player => player.isBot);
                 table.players = botPlayers;
-                table.gameState = null;
+                table.gameState = undefined;
 
                 // Notify all table members about the updated table
                 io.to(`table-${game.tableId}`).emit('table_updated', { table });
@@ -3848,7 +4100,7 @@ io.on('connection', (socket) => {
                 logger.debug(`Released name "${player.name}"`);
 
                 // Remove player from any tables and games
-                const affectedLobbies = new Set();
+                const affectedLobbies = new Set<string>();
                 for (const [lobbyId, lobby] of lobbies) {
                     for (const [tableId, table] of lobby.tables) {
                         const playerIndex = table.players.findIndex(p => p.id === player.id);
@@ -3877,7 +4129,7 @@ io.on('connection', (socket) => {
                 }
 
                 // Only notify affected lobbies once
-                affectedLobbies.forEach(lobbyId => {
+                affectedLobbies.forEach((lobbyId: string) => {
                     const lobby = lobbies.get(lobbyId);
                     if (lobby) {
                         notifyLobbyMembers(lobbyId, 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });

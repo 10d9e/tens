@@ -1,7 +1,10 @@
-const winston = require('winston');
+import winston from 'winston';
+import { Logger } from './types';
+
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
-let logger;
+let logger: Logger;
+
 if (process.env.NODE_ENV === 'production') {
     logger = winston.createLogger({
         level: 'info', // Set production log level
@@ -47,4 +50,4 @@ if (process.env.NODE_ENV === 'production') {
     });
 }
 
-module.exports = logger;
+export default logger;
