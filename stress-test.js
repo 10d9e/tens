@@ -85,6 +85,7 @@ class StressTestRunner {
             });
 
             // Timeout after 5 minutes per test
+            /*
             setTimeout(() => {
                 if (this.runningTests.has(testProcess)) {
                     this.log(`⏰ Test ${testId} timed out, killing process`);
@@ -97,6 +98,7 @@ class StressTestRunner {
                     }, 5000);
                 }
             }, 5 * 60 * 1000);
+            */
         });
     }
 

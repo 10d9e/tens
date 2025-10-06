@@ -501,7 +501,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
 
     // If someone has bid 100, bidding ends immediately
     if (game.currentBid && game.currentBid.points >= 100) {
-        logger.info(`Bid of ${game.currentBid.points} points - bidding ends, moving to ${game.hasKitty && !game.kittyPhaseCompleted && game.kitty && game.kitty.length > 0 ? 'kitty' : 'playing'} phase`);
+        logger.debug(`Bid of ${game.currentBid.points} points - bidding ends, moving to ${game.hasKitty && !game.kittyPhaseCompleted && game.kitty && game.kitty.length > 0 ? 'kitty' : 'playing'} phase`);
 
         // Check if we need to go to kitty phase
         // Enhanced kitty phase logic with safeguards
@@ -554,7 +554,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
     // Check if bidding should end due to no counter-bids
     if (game.currentBid && game.playersWhoHavePassed && game.playersWhoHavePassed.size >= 3) {
         // Someone has bid and all other players have passed - bidding ends
-        logger.info(`Bid of ${game.currentBid.points} points stands - all other players passed, bidding ends`);
+        logger.debug(`Bid of ${game.currentBid.points} points stands - all other players passed, bidding ends`);
 
         // Check if we need to go to kitty phase
         // Enhanced kitty phase logic with safeguards
@@ -609,7 +609,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
         const nonPassedPlayers = game.players.filter(p => !game.playersWhoHavePassed?.has(p.id));
         if (nonPassedPlayers.length === 1 && nonPassedPlayers[0] && nonPassedPlayers[0].id === game.currentBid.playerId) {
             // Only the bidder remains - bidding ends
-            logger.info(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
+            logger.debug(`Only bidder remains - bidding ends with ${game.currentBid.points} points`);
             game.phase = 'playing';
             if (!game.currentBid) {
                 logger.error('Current bid is undefined');
@@ -623,7 +623,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
             }
             game.contractorTeam = contractor.position % 2 === 0 ? 'team1' : 'team2';
             game.currentPlayer = game.currentBid.playerId;
-            logger.info(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
+            logger.debug(`Bid winner ${game.currentBid.playerId} will lead the first trick`);
 
             emitGameEvent(game, 'game_updated', { game });
 
@@ -639,11 +639,11 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
 
     // Check if all players have passed (bidding ends)
     if (game.playersWhoHavePassed && game.playersWhoHavePassed.size >= 4) {
-        logger.info('All players passed - no bid made, starting new round');
+        logger.debug('All players passed - no bid made, starting new round');
         // All players passed, start a new round
         game.round++;
         game.deck = createDeck(game.deckVariant || '36');
-        logger.info(`Starting new round ${game.round} (all passed) - hasKitty: ${game.hasKitty}, deckVariant: ${game.deckVariant}`);
+        logger.debug(`Starting new round ${game.round} (all passed) - hasKitty: ${game.hasKitty}, deckVariant: ${game.deckVariant}`);
 
         // Clear existing cards and deal new ones
         game.players.forEach(player => {
@@ -707,7 +707,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
                 });
             }
 
-            logger.info(`Kitty recreated with ${game.kitty.length} cards for round ${game.round} (all passed)`);
+            logger.debug(`Kitty recreated with ${game.kitty.length} cards for round ${game.round} (all passed)`);
         } else {
             // Standard dealing: 9 cards for both 36-card and 40-card decks (kitty handled separately)
             if (!game.deck) {
@@ -757,7 +757,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
         return;
     }
 
-    logger.info(`Bidding continues - passes: ${game.biddingPasses}, current bid: ${game.currentBid ? game.currentBid.points : 'none'}`);
+    logger.debug(`Bidding continues - passes: ${game.biddingPasses}, current bid: ${game.currentBid ? game.currentBid.points : 'none'}`);
 }
 
 
@@ -1064,6 +1064,7 @@ export async function handleBotTurn(game: GameState): Promise<void> {
                 // jcl
                 //const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
 
+                // jcl
                 const finalCardDelay = 2000; // 2 seconds
                 logger.debug(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
                 await new Promise(resolve => setTimeout(resolve, finalCardDelay));
@@ -1333,18 +1334,24 @@ export async function handleBotTurn(game: GameState): Promise<void> {
                     const opposingTeam = game.contractorTeam === 'team1' ? 'team2' : 'team1';
                     const opposingCardPoints = game.roundScores[opposingTeam];
 
-                    // Calculate bonus points
-                    const contractorBonus = contractorCardPoints >= game.currentBid.points ? 100 : -100;
-                    const opposingBonus = contractorBonus === 100 ? 100 : 0;
+                    // Use proper scoring calculation including kitty discard points
+                    const scoringResult = calculateRoundScores(game, game.contractorTeam, contractorCardPoints, opposingCardPoints, game.opposingTeamBid || 0);
 
-                    // Update team scores
-                    game.teamScores[game.contractorTeam] += contractorCardPoints + contractorBonus;
-                    game.teamScores[opposingTeam] += opposingCardPoints + opposingBonus;
+                    // Update team scores with proper calculation
+                    game.teamScores.team1 = scoringResult.team1Score;
+                    game.teamScores.team2 = scoringResult.team2Score;
 
-                    logger.debug(`Round ${game.round} completed:`);
-                    logger.debug(`Contractor team (${game.contractorTeam}): ${contractorCardPoints} card points + ${contractorBonus} bonus = ${contractorCardPoints + contractorBonus}`);
-                    logger.debug(`Opposing team (${opposingTeam}): ${opposingCardPoints} card points + ${opposingBonus} bonus = ${opposingCardPoints + opposingBonus}`);
-                    logger.debug(`New team scores: Team1: ${game.teamScores.team1}, Team2: ${game.teamScores.team2}`);
+                    // Calculate kitty discard points for logging
+                    let kittyDiscardPoints = 0;
+                    if (game.kittyDiscards && game.kittyDiscards.length > 0) {
+                        kittyDiscardPoints = game.kittyDiscards.reduce((total, card) => total + getCardValue(card), 0);
+                    }
+
+                    logger.debug(`Round scoring: Contractor (${game.contractorTeam}) ${contractorCardPoints} points, Opposing (${opposingTeam}) ${opposingCardPoints} points`);
+                    if (kittyDiscardPoints > 0) {
+                        logger.debug(`Kitty discards: ${kittyDiscardPoints} points awarded to defending team (${opposingTeam})`);
+                    }
+                    logger.debug(`New scores: Team1 ${game.teamScores.team1}, Team2 ${game.teamScores.team2}`);
                 }
 
                 // Move to next round

@@ -52,7 +52,6 @@ startTimeoutCheck();
 // Setup socket events
 setupSocketEvents();
 
-
 // Create the default tables after SimpleBotAI is defined
 create3BotTables(5);
 createBigBubTable();
