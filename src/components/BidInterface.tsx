@@ -114,7 +114,7 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
         <AnimatePresence>
             <motion.div
                 className="fixed inset-0 bg-opacity-50 flex items-center justify-center"
-                style={{ zIndex: 9999 }}
+                style={{ zIndex: 50 }}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
