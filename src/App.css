@@ -22,6 +22,28 @@ body {
     position: relative;
 }
 
+/* Header Logo Styles */
+.header-logo {
+    position: absolute;
+    top: -0.5rem;
+    left: 0.25rem;
+    height: 70px;
+    width: auto;
+    z-index: 10;
+    transition: all 0.3s ease;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.3));
+}
+
+.header-logo:hover {
+    transform: scale(1.05);
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
+}
+
+/* Header Content Styles */
+.header-content {
+    margin-left: 4em;
+}
+
 /* Name Input Styles */
 .name-input-container {
     display: flex;
