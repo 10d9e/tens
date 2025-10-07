@@ -13,7 +13,7 @@ import { AcadienBotAI, SimpleBotAI } from './bots';
 import { createBigBubTable, createAcadieTable, createAcadienTestTable } from './misc';
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
 import { games, lobbies, players, defaultLobby } from './state';
-import { startTimeoutCheck } from './timeouts';
+import { resetPlayerTimeouts } from './timeouts';
 import { LobbyTable, Player, GameState, Card } from "../types/game";
 
 /* socket handlers */
@@ -1536,6 +1536,9 @@ export function setupSocketEvents(): void {
 
                 logger.debug(`Player ${player.name} is exiting game ${gameId}`);
 
+                // Reset all player timeouts before cleanup
+                resetPlayerTimeouts(game);
+
                 // End the game for all players
                 game.phase = 'finished';
                 cleanupGameRoom(game);
@@ -1665,6 +1668,13 @@ export function setupSocketEvents(): void {
                             // If game becomes invalid (less than 4 players), end it
                             if (game.players.length < 4 && game.phase !== 'finished') {
                                 logger.debug(`Game ${gameId} has insufficient players (${game.players.length}), ending game`);
+
+                                // Reset all player timeouts before cleanup
+                                if (game.playerTurnStartTime) {
+                                    logger.debug(`Resetting player timeouts for game ${gameId} due to player disconnect`);
+                                    game.playerTurnStartTime = {};
+                                }
+
                                 game.phase = 'finished';
                                 cleanupGameRoom(game);
 

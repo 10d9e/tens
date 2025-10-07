@@ -87,7 +87,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('player_joined', (data) => {
             const { player } = data;
-            toast.success(`${player.name} joined the lobby`);
+            console.log(`${player.name} joined the lobby`);
+            // toast.success(`${player.name} joined the lobby`);
         });
 
         socket.on('lobby_updated', (data) => {

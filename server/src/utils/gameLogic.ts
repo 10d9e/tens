@@ -5,7 +5,8 @@ import { debugPrintAllPlayerCards, debugKittyState } from './debug';
 import { AcadienBotAI, SimpleBotAI } from './bots';
 import { emitGameEvent } from './events';
 import { io } from '../index';
-import { defaultLobby, lobbies } from './state';
+import { defaultLobby, lobbies, games } from './state';
+import { resetPlayerTimeouts } from "./timeouts";
 
 export function getCardValue(card: Card): number {
     const values: { [key in Rank]: number } = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
@@ -357,6 +358,12 @@ export function addAItoExistingBots(game: GameState): void {
 export function startGame(game: GameState): GameState {
     logger.info('Starting game with players:', game.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot })));
 
+    // Reset all player timeouts at the start of a new game to prevent bleeding from previous games
+    if (game.playerTurnStartTime) {
+        logger.debug(`Resetting player timeouts at start of game ${game.id}`);
+        game.playerTurnStartTime = {};
+    }
+
     // Add AI to existing bot players
     addAItoExistingBots(game);
 
@@ -470,11 +477,7 @@ export function startGame(game: GameState): GameState {
         game.playerTurnStartTime = { [firstPlayer.id]: Date.now() };
     }
 
-    logger.info('Game started successfully. Players with cards:', game.players.map(p => ({
-        id: p.id,
-        name: p.name,
-        cardCount: p.cards.length
-    })));
+    logger.info("Game started successfully.");
 
     // Debug: Print all players' cards at game start
     debugPrintAllPlayerCards(game, 'Game Start - Initial Deal');
@@ -1517,6 +1520,9 @@ export function notifyLobbyMembers(lobbyId: string, event: string, data: any): v
 // Helper function to clean up game-specific socket rooms when game ends
 export function cleanupGameRoom(game: GameState): void {
     if (game && game.id) {
+        // Reset all player timeouts to prevent bleeding into next game
+        resetPlayerTimeouts(game);
+
         // Remove all players from the game-specific room
         const gameRoom = io.sockets.adapter.rooms.get(`game-${game.id}`);
         if (gameRoom) {
@@ -1527,6 +1533,7 @@ export function cleanupGameRoom(game: GameState): void {
                 }
             });
         }
+        games.delete(game.id);
         logger.info(`Cleaned up game room: game-${game.id}`);
     }
 }

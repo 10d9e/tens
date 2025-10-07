@@ -4,7 +4,6 @@ import { getRandomHumanName } from './gameLogic';
 import { Player } from "../types/game";
 import logger from '../logger';
 import { defaultLobby } from './state';
-import { lobbies } from './state';
 
 // Create a Big Bub table with 2 bot players
 export function createBigBubTable(): LobbyTable {
