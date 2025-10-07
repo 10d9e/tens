@@ -498,6 +498,10 @@ class GamePlayer {
     }
 
     calculateKittyDiscardPoints() {
+        // Only calculate kitty discard points if the game has kitty enabled
+        if (!this.game || !this.game.hasKitty) {
+            return 0;
+        }
         if (!this.kittyDiscards || this.kittyDiscards.length === 0) {
             return 0;
         }
@@ -580,6 +584,24 @@ class GamePlayer {
         this.log(`Opposing card points: ${opposingCardPoints}`);
         this.log(`Kitty discard points: ${kittyDiscardPoints}`);
         this.log(`Bid: ${this.currentBid.points} points`);
+        this.log(`Game has kitty: ${this.game.hasKitty}`);
+
+        // Verify kitty discard points are only calculated when kitty is enabled
+        if (this.kittyDiscards && this.kittyDiscards.length > 0 && !this.game.hasKitty) {
+            const error = '❌ Kitty discards exist but game does not have kitty enabled!';
+            this.log(error);
+            throw new Error(error);
+        }
+
+        // For kitty games, verify that kitty discard points are being calculated
+        if (this.game.hasKitty && this.kittyDiscards && this.kittyDiscards.length > 0) {
+            const expectedKittyPoints = this.calculateKittyDiscardPoints();
+            const kittyCardDetails = this.kittyDiscards.map(card => `${card.rank}${card.suit}(${this.getCardValue(card)})`).join(', ');
+            this.log(`✅ Kitty game: ${expectedKittyPoints} points from kitty discards [${kittyCardDetails}] should go to opposing team`);
+            this.log(`🎯 KITTY TEST: These ${expectedKittyPoints} points should be added to ${opposingTeam} score`);
+        } else if (this.game.hasKitty) {
+            this.log('ℹ️  Kitty game: No kitty discards in this round');
+        }
 
         // Calculate expected scores based on contractor scoring rules
         let expectedContractorScore = 0;
@@ -660,6 +682,7 @@ class GamePlayer {
         this.log(`  Current Bid: ${expectedNotepadData.currentBid ? `${expectedNotepadData.currentBid.points} points${expectedNotepadData.currentBid.suit ? ` in ${expectedNotepadData.currentBid.suit}` : ''}` : 'None'}`);
         this.log(`  Contractor Team: ${expectedNotepadData.contractorTeam || 'None'}`);
         this.log(`  Total Points: ${expectedNotepadData.totalPoints} / 100`);
+        this.log(`  Game has kitty: ${game.hasKitty}`);
         if (expectedNotepadData.kittyDiscards.length > 0) {
             this.log(`  Kitty Discards: ${expectedNotepadData.kittyDiscards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
         }
@@ -732,13 +755,26 @@ class GamePlayer {
 
         let myBid = 0;
 
-        // Simple bidding logic
-        if (handValue >= 50) {
-            myBid = Math.min(handValue, 80);
-        } else if (handValue >= 40) {
-            myBid = 60;
-        } else if (handValue >= 30) {
-            myBid = 50;
+        // Bidding logic - more aggressive for kitty games to test kitty discard scoring
+        if (this.game.hasKitty) {
+            // For kitty games, be more aggressive to win the bid and test kitty discard scoring
+            if (handValue >= 30) {
+                myBid = Math.min(handValue + 20, 80); // Add 20 points to be more aggressive
+            } else if (handValue >= 20) {
+                myBid = 50; // Bid 50 even with lower hand value
+            } else {
+                myBid = 40; // Minimum bid for kitty test
+            }
+            this.log(`🎯 KITTY TEST: Aggressive bidding to win bid and test kitty discard scoring`);
+        } else {
+            // Standard bidding logic for non-kitty games
+            if (handValue >= 50) {
+                myBid = Math.min(handValue, 80);
+            } else if (handValue >= 40) {
+                myBid = 60;
+            } else if (handValue >= 30) {
+                myBid = 50;
+            }
         }
 
         // Only bid if we can beat the current bid
@@ -821,15 +857,32 @@ class GamePlayer {
         // Wait a moment for the kitty cards to be added
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Discard lowest value cards
         const myCards = this.getMyCards();
         const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
 
-        // Sort cards by value (lowest first)
-        const sortedCards = [...myCards].sort((a, b) => (values[a.rank] || 0) - (values[b.rank] || 0));
+        let discardedCards;
 
-        // Discard the lowest 4 cards (assuming 40-card deck with kitty)
-        const discardedCards = sortedCards.slice(0, 4);
+        // For kitty games, intentionally discard point cards to test kitty discard scoring
+        if (this.game.hasKitty) {
+            this.log('🎯 KITTY TEST: Intentionally discarding point cards to test kitty discard scoring');
+
+            // Find point cards (A, 10, 5) to discard
+            const pointCards = myCards.filter(card => values[card.rank] > 0);
+            const nonPointCards = myCards.filter(card => values[card.rank] === 0);
+
+            // Discard up to 4 point cards if available, otherwise fill with non-point cards
+            discardedCards = [...pointCards.slice(0, 4)];
+            if (discardedCards.length < 4) {
+                discardedCards = [...discardedCards, ...nonPointCards.slice(0, 4 - discardedCards.length)];
+            }
+
+            const pointValue = discardedCards.reduce((total, card) => total + values[card.rank], 0);
+            this.log(`🎯 KITTY TEST: Discarding ${pointValue} points worth of cards to test kitty scoring`);
+        } else {
+            // For non-kitty games, discard lowest value cards as usual
+            const sortedCards = [...myCards].sort((a, b) => (values[a.rank] || 0) - (values[b.rank] || 0));
+            discardedCards = sortedCards.slice(0, 4);
+        }
 
         this.log(`Discarding: ${discardedCards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
         await this.discardToKitty(discardedCards, this.game.trumpSuit || 'hearts');
@@ -855,10 +908,10 @@ class GamePlayer {
     }
 }
 
-// Integration test function
-async function runIntegrationTest() {
-    console.log('🚀 Starting Integration Test - Full Game Simulation');
-    console.log('='.repeat(60));
+// Test a single game scenario
+async function testGameScenario(scenarioName, hasKitty) {
+    console.log(`\n🎯 Testing ${scenarioName}...`);
+    console.log('-'.repeat(50));
 
     const randomId = Math.random().toString(36).substring(2, 15);
     const player = new GamePlayer(`TestPlayer-${randomId}`);
@@ -872,10 +925,10 @@ async function runIntegrationTest() {
         await player.joinLobby();
         player.log('✅ Joined lobby');
 
-        // Create a table with kitty enabled to test kitty discard scoring
+        // Create a table with specified kitty setting
         const tableId = `integration-test-${randomId}`;
-        await player.createTable(tableId, `Integration Test Table ${randomId}`, true);
-        player.log('✅ Created table with kitty enabled');
+        await player.createTable(tableId, `Integration Test Table ${randomId}`, hasKitty);
+        player.log(`✅ Created table with kitty ${hasKitty ? 'enabled' : 'disabled'}`);
 
         // Add 3 bots to fill the table
         await player.addBot(1, 'medium'); // East
@@ -895,55 +948,94 @@ async function runIntegrationTest() {
         await player.exitGame();
         player.log('✅ Exited game');
 
-        console.log('\n🎉 Integration Test PASSED!');
-        console.log('='.repeat(60));
-        console.log('✅ Successfully played through a complete game');
-        console.log('✅ All game phases handled correctly');
-        console.log('✅ Bot interactions worked properly');
-        console.log('✅ Game ended naturally');
-        console.log('✅ Scoring verification completed for all rounds');
-        console.log('✅ Round scores properly calculated and applied');
-        console.log('✅ Total scores correctly updated throughout game');
-        console.log('✅ Notepad data verified for every hand and round');
-        console.log('✅ All notepad scoring data updates correctly');
+        // Disconnect
+        player.disconnect();
+        player.log('✅ Disconnected from server');
+
+        console.log(`✅ ${scenarioName} test completed successfully!`);
+        return true;
 
     } catch (error) {
-        console.error('\n❌ Integration Test FAILED!');
-        console.error('='.repeat(60));
-        console.error('Error:', error.message);
-        console.error('\nGame Log:');
-        player.loggedMessages.forEach(msg => console.error(msg));
-
-        throw error;
-    } finally {
-        // Always clean up, regardless of success or failure
-        try {
-            if (player.game && player.game.phase !== 'finished') {
-                player.log('🧹 Cleaning up: Exiting game...');
-                await player.exitGame();
-            }
-        } catch (cleanupError) {
-            console.error('Game cleanup error:', cleanupError.message);
-        }
-
-        try {
-            if (player.table) {
-                player.log('🧹 Cleaning up: Deleting table...');
-                await player.deleteTable();
-            }
-        } catch (cleanupError) {
-            console.error('Table cleanup error:', cleanupError.message);
-        }
-
-        // Always disconnect
+        console.error(`❌ ${scenarioName} test failed:`, error.message);
         player.disconnect();
-        player.log('🧹 Cleanup completed');
+        return false;
     }
+}
+
+// Integration test function
+async function runKittyIntegrationTest() {
+    console.log('🚀 Starting Kitty Integration Test - Full Game Simulation');
+    console.log('='.repeat(60));
+
+    let allTestsPassed = true;
+
+    const kittyTestPassed = await testGameScenario('Kitty Game', true);
+    allTestsPassed = allTestsPassed && kittyTestPassed;
+
+    // Final results
+    console.log('\n🎉 Integration Test Results');
+    console.log('='.repeat(60));
+
+    if (allTestsPassed) {
+        console.log('✅ ALL TESTS PASSED!');
+        console.log('✅ Kitty game completed successfully');
+        console.log('✅ All game phases handled correctly');
+        console.log('✅ Bot interactions worked properly');
+        console.log('✅ Games ended naturally');
+        console.log('✅ Scoring verification completed for all rounds');
+        console.log('✅ Round scores properly calculated and applied');
+        console.log('✅ Total scores correctly updated throughout games');
+        console.log('✅ Notepad data verified for every hand and round');
+        console.log('✅ All notepad scoring data updates correctly');
+        console.log('✅ Kitty scoring logic verified');
+    } else {
+        console.log('❌ SOME TESTS FAILED!');
+        console.log('❌ Check the individual test results above');
+        throw new Error('Integration test failed - not all scenarios passed');
+    }
+}
+
+// Integration test function
+async function runStandardIntegrationTest() {
+    console.log('🚀 Starting Standard Integration Test - Full Game Simulation');
+    console.log('='.repeat(60));
+
+    let allTestsPassed = true;
+
+    // Test 1: Standard game (no kitty)
+    const standardTestPassed = await testGameScenario('Standard Game (No Kitty)', false);
+    allTestsPassed = allTestsPassed && standardTestPassed;
+
+    // Final results
+    console.log('\n🎉 Integration Test Results');
+    console.log('='.repeat(60));
+
+    if (allTestsPassed) {
+        console.log('✅ ALL TESTS PASSED!');
+        console.log('✅ Standard game (no kitty) completed successfully');
+        console.log('✅ All game phases handled correctly');
+        console.log('✅ Bot interactions worked properly');
+        console.log('✅ Games ended naturally');
+        console.log('✅ Scoring verification completed for all rounds');
+        console.log('✅ Round scores properly calculated and applied');
+        console.log('✅ Total scores correctly updated throughout games');
+        console.log('✅ Notepad data verified for every hand and round');
+        console.log('✅ All notepad scoring data updates correctly');
+    } else {
+        console.log('❌ SOME TESTS FAILED!');
+        console.log('❌ Check the individual test results above');
+        throw new Error('Integration test failed - not all scenarios passed');
+    }
+}
+
+async function runIntegrationTests() {
+    await runKittyIntegrationTest();
+    await runStandardIntegrationTest();
 }
 
 // Run the test
 if (require.main === module) {
-    runIntegrationTest()
+    runIntegrationTests()
         .then(() => {
             console.log('\n✨ Integration test completed successfully!');
             process.exit(0);
@@ -954,4 +1046,4 @@ if (require.main === module) {
         });
 }
 
-module.exports = { GamePlayer, runIntegrationTest };
+module.exports = { GamePlayer, runIntegrationTests };

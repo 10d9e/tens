@@ -70,10 +70,10 @@ export function setupSocketEvents(): void {
             }
         });
 
-        socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number }) => {
+        socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number; deckVariant?: '36' | '40'; scoreTarget?: 200 | 300 | 500 | 1000; hasKitty?: boolean }) => {
             try {
                 logger.debug('create_table received:', data);
-                const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000 } = data;
+                const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false } = data;
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
@@ -92,7 +92,7 @@ export function setupSocketEvents(): void {
                     throw new Error('Table already exists');
                 }
 
-                logger.debug('Creating new table:', tableId, 'with name:', tableName);
+                logger.debug('Creating new table:', tableId, 'with name:', tableName, 'deckVariant:', deckVariant, 'hasKitty:', hasKitty);
                 const table: LobbyTable = {
                     id: tableId,
                     name: tableName || `Table ${tableId}`,
@@ -102,9 +102,9 @@ export function setupSocketEvents(): void {
                     isPrivate: false, // Default to public table
                     creator: player.name,
                     timeoutDuration: timeoutDuration,
-                    deckVariant: '36' as '36' | '40', // Default to 36-card deck
-                    scoreTarget: 200, // Default to 200 points
-                    hasKitty: false // Default to no kitty
+                    deckVariant: deckVariant,
+                    scoreTarget: scoreTarget,
+                    hasKitty: hasKitty
                 };
 
                 // Add the creator as the first player
@@ -1038,7 +1038,7 @@ export function setupSocketEvents(): void {
 
                             // Calculate kitty discard points for logging
                             let kittyDiscardPoints = 0;
-                            if (game.kittyDiscards && game.kittyDiscards.length > 0) {
+                            if (game.hasKitty && game.kittyDiscards && game.kittyDiscards.length > 0) {
                                 kittyDiscardPoints = game.kittyDiscards.reduce((total, card) => total + getCardValue(card), 0);
                             }
 

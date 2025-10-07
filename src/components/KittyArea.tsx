@@ -66,7 +66,7 @@ const KittyArea: React.FC<KittyAreaProps> = ({
                                 >
                                     <Card
                                         card={card}
-                                        size="medium"
+                                        size="small"
                                         className="shadow-lg kitty-card"
                                         style={isPoint ? { boxShadow: getKittyDiscardTeamGlow() } : undefined}
                                     />

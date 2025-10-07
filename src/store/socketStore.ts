@@ -268,7 +268,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             // Show notification and trigger visual effect
             const winner = game.players.find((p: any) => p.id === game.lastTrick?.winner);
             if (winner) {
-                toast.success(`${winner.name} won the trick! (+${game.lastTrick?.points} points)`);
+                // toast.success(`${winner.name} won the trick! (+${game.lastTrick?.points} points)`);
                 // Trigger trick winner animation
                 useGameStore.getState().setTrickWinnerAnimation(winner.id);
             }
@@ -296,7 +296,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                     currentBid: previousGame.currentBid,
                     contractorTeam: previousGame.contractorTeam,
                     round: game.round - 1, // The round that just completed
-                    kittyDiscards: previousGame.kittyDiscards // Include kitty discards for display
+                    kittyDiscards: previousGame.kittyDiscards, // Include kitty discards for display
+                    previousTeamScores: previousGame.teamScores // Store previous team scores for score change calculation
                 };
 
                 // Store the completed round results and show glow effect
@@ -307,7 +308,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 setTimeout(() => {
                     gameStore.setCompletedRoundResults(null);
                     gameStore.setShowGlowEffect(false);
-                }, 3500);
+                }, 10000);
             } else if (wasFailedBidding) {
                 // Show reshuffling message and animation for failed bidding
                 playShuffleSound();

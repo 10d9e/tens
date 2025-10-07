@@ -8,7 +8,7 @@ import KittyArea from './KittyArea';
 import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
 import TrickWinnerAnimation from './TrickWinnerAnimation';
-import RoundNotepad from './RoundNotepad';
+import GameInfo from './GameInfo';
 
 const SpectatorView: React.FC = () => {
     const {
@@ -125,9 +125,6 @@ const SpectatorView: React.FC = () => {
         return visualMap[player.position] || 'top';
     };
 
-    const getTeamScore = (team: 'team1' | 'team2') => {
-        return currentGame.teamScores[team];
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900">
@@ -355,46 +352,12 @@ const SpectatorView: React.FC = () => {
                 />
             </div>
 
-            {/* Game Information Display - Team Scores */}
+            {/* Combined Game Information Display */}
             <div className="fixed bottom-0 left-0 right-0 p-4">
-                <div className={`team-scores-display ${showGlowEffect ? 'glow-effect' : ''}`}>
-                    <div className="team-scores-header">
-                        <h3>🏆 Team Scores</h3>
-                    </div>
-
-                    <div className="team-scores-content">
-                        <div className="team-score-row">
-                            <div className="team-score-label" style={{ color: '#ef4444' }}>
-                                🔴 Team 1
-                                <span className="team-position">North & South</span>
-                            </div>
-                            <div className="team-score-value" style={{ color: '#ef4444' }}>{getTeamScore('team1')}</div>
-                        </div>
-
-                        <div className="team-score-row">
-                            <div className="team-score-label" style={{ color: '#3b82f6' }}>
-                                🔵 Team 2
-                                <span className="team-position">East & West</span>
-                            </div>
-                            <div className="team-score-value" style={{ color: '#3b82f6' }}>{getTeamScore('team2')}</div>
-                        </div>
-                    </div>
-
-                    <div className="team-scores-footer">
-                        <div className="team-score-status">
-                            {getTeamScore('team1') > getTeamScore('team2') ? (
-                                <span style={{ color: '#ef4444' }}>🔴 Team 1 leads by {getTeamScore('team1') - getTeamScore('team2')} points</span>
-                            ) : getTeamScore('team2') > getTeamScore('team1') ? (
-                                <span style={{ color: '#3b82f6' }}>🔵 Team 2 leads by {getTeamScore('team2') - getTeamScore('team1')} points</span>
-                            ) : (
-                                <span>Teams are tied!</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Round Notepad */}
-                <RoundNotepad
+                <GameInfo
+                    teamScores={currentGame.teamScores}
+                    completedRoundResults={completedRoundResults}
+                    showGlowEffect={showGlowEffect}
                     roundScores={
                         completedRoundResults?.roundScores ||
                         currentGame.roundScores ||
@@ -413,7 +376,6 @@ const SpectatorView: React.FC = () => {
                         currentGame.round
                     }
                     gamePhase={currentGame.phase}
-                    showGlow={showGlowEffect}
                 />
             </div>
 
