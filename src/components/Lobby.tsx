@@ -14,6 +14,7 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
     const [newTableName, setNewTableName] = useState('');
     const [passwordPrompt, setPasswordPrompt] = useState<{ tableId: string; tableName: string } | null>(null);
     const [joinPassword, setJoinPassword] = useState('');
+    const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
 
     console.log('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
 
@@ -60,6 +61,8 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
             createTable(newTableName.trim());
             // Clear the form after creating
             setNewTableName('');
+            // Close the dialog
+            setShowCreateTableDialog(false);
         } else {
             console.log('Table name is empty');
         }
@@ -119,45 +122,19 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="text-white text-right">
-                        🏠 Main Lobby
-                    </div>
+                    <button
+                        onClick={() => setShowCreateTableDialog(true)}
+                        className="px-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 text-green-300 hover:text-green-200 transition-all text-sm font-medium"
+                        title="Create Table"
+                    >
+                        ➕ Create Table
+                    </button>
+
                 </div>
             </div>
 
             <div style={{ padding: '20px' }}>
                 <div>
-
-                    {/* Create Table Section */}
-                    <motion.div
-                        className="bg-white/10 backdrop-blur-md rounded p-10 mb-12 border border-white/20 shadow-2xl"
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        <h2 className="text-2xl font-bold mb-6 text-white">Create New Table</h2>
-                        <div className="space-y-4">
-                            <input
-                                type="text"
-                                placeholder="Enter table name..."
-                                value={newTableName}
-                                onChange={(e) => setNewTableName(e.target.value)}
-                                className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-                                maxLength={30}
-                            />
-
-                            <button
-                                onClick={handleCreateTable}
-                                disabled={!newTableName.trim()}
-                                className="w-full px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded font-semibold text-white transition-all transform hover:scale-105 disabled:hover:scale-100 shadow-lg"
-                            >
-                                Create Table
-                            </button>
-                        </div>
-                    </motion.div>
-
-                    <br />
-
                     {/* Tables List */}
                     <motion.div
                         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
@@ -362,6 +339,56 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                             >
                                 Cancel
                             </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Create Table Dialog */}
+            {showCreateTableDialog && (
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                    <motion.div
+                        className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 shadow-2xl max-w-md w-full mx-4"
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <h3 className="text-2xl font-bold text-white mb-6">
+                            ➕ Create New Table
+                        </h3>
+                        <div className="space-y-4">
+                            <input
+                                type="text"
+                                placeholder="Enter table name..."
+                                value={newTableName}
+                                onChange={(e) => setNewTableName(e.target.value)}
+                                className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                                maxLength={30}
+                                onKeyPress={(e) => {
+                                    if (e.key === 'Enter' && newTableName.trim()) {
+                                        handleCreateTable();
+                                    }
+                                }}
+                                autoFocus
+                            />
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={handleCreateTable}
+                                    disabled={!newTableName.trim()}
+                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded font-semibold text-white transition-all transform hover:scale-105 disabled:hover:scale-100"
+                                >
+                                    Create Table
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowCreateTableDialog(false);
+                                        setNewTableName('');
+                                    }}
+                                    className="px-4 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 rounded font-semibold text-white transition-all transform hover:scale-105"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
                         </div>
                     </motion.div>
                 </div>

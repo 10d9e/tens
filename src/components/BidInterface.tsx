@@ -15,6 +15,12 @@ interface BidInterfaceProps {
     players: any[];
     playerCards: any[];
     playersWhoHavePassed?: string[];
+    gameState?: {
+        timeoutDuration?: number;
+        playerTurnStartTime?: { [playerId: string]: number };
+        currentPlayer?: string;
+    };
+    currentPlayerId?: string;
 }
 
 const BidInterface: React.FC<BidInterfaceProps> = ({
@@ -24,10 +30,13 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
     currentBid,
     players,
     playerCards,
-    playersWhoHavePassed = []
+    playersWhoHavePassed = [],
+    gameState,
+    currentPlayerId
 }) => {
     const [selectedPoints, setSelectedPoints] = useState<number>(0);
     const [selectedSuit, setSelectedSuit] = useState<Suit | null>(null);
+    const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
     const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
 
@@ -40,6 +49,54 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
             setSelectedSuit(null);
         }
     }, [isOpen, currentBid]);
+
+    // Countdown timer effect - similar to KittyInterface implementation
+    useEffect(() => {
+        let interval: NodeJS.Timeout;
+
+        if (isOpen && currentPlayerId) {
+            const updateTimer = () => {
+                const activePlayerId = gameState?.currentPlayer || currentPlayerId;
+                const turnStartTime = gameState?.playerTurnStartTime?.[activePlayerId];
+                const timeoutDuration = gameState?.timeoutDuration;
+
+                if (turnStartTime && timeoutDuration) {
+                    const elapsed = Date.now() - turnStartTime;
+                    const remaining = Math.max(0, timeoutDuration - elapsed);
+                    const seconds = Math.ceil(remaining / 1000);
+                    setTimeRemaining(seconds);
+
+                    if (seconds <= 0) {
+                        clearInterval(interval);
+                        setTimeRemaining(null);
+                    }
+                } else {
+                    // Fallback to default 30 seconds if no game state data
+                    const defaultTimeout = 30000;
+                    const defaultStartTime = Date.now() - 1000; // Start 1 second ago
+                    const elapsed = Date.now() - defaultStartTime;
+                    const remaining = Math.max(0, defaultTimeout - elapsed);
+                    const seconds = Math.ceil(remaining / 1000);
+                    setTimeRemaining(seconds);
+
+                    if (seconds <= 0) {
+                        clearInterval(interval);
+                        setTimeRemaining(null);
+                    }
+                }
+            };
+
+            // Start the timer immediately
+            updateTimer();
+            interval = setInterval(updateTimer, 1000);
+
+            return () => {
+                if (interval) {
+                    clearInterval(interval);
+                }
+            };
+        }
+    }, [isOpen, currentPlayerId, gameState?.timeoutDuration, gameState?.playerTurnStartTime, gameState?.currentPlayer]);
 
     const getSuitSymbol = (suit: Suit) => {
         switch (suit) {
@@ -129,12 +186,28 @@ const BidInterface: React.FC<BidInterfaceProps> = ({
                 }}
             >
                 <motion.div
-                    className="bid-interface combined"
+                    className="bid-interface combined relative"
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
                     onClick={(e) => e.stopPropagation()}
                 >
+                    {/* Countdown Timer - Top Right Corner */}
+                    {timeRemaining !== null && (
+                        <div className="absolute top-4 right-4 z-10">
+                            <div
+                                className="flex items-center px-3 py-2 rounded-lg border-2 font-bold text-lg shadow-lg"
+                                style={{
+                                    color: timeRemaining <= 5 ? '#f87171' : timeRemaining <= 10 ? '#fbbf24' : '#4ade80',
+                                    borderColor: timeRemaining <= 5 ? '#f87171' : timeRemaining <= 10 ? '#fbbf24' : '#4ade80',
+                                    backgroundColor: timeRemaining <= 5 ? '#f8717110' : timeRemaining <= 10 ? '#fbbf2410' : '#4ade8010'
+                                }}
+                            >
+                                ⏱️ {timeRemaining}s
+                            </div>
+                        </div>
+                    )}
+
                     <h3>Make Your Bid</h3>
 
                     <div className="mb-4 p-3 bg-opacity-30 rounded-lg">
