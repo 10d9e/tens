@@ -27,8 +27,14 @@ function checkPlayerTimeout(game: GameState): boolean {
     if (timeRemaining <= 0) {
         // Player has timed out
         const currentPlayer = game.players.find(p => p.id === currentPlayerId);
-        const playerName = currentPlayer ? currentPlayer.name : 'Unknown player';
 
+        // If we can't find the current player, don't clean up the game - just log the error
+        if (!currentPlayer) {
+            logger.error(`Timeout triggered for unknown player ${currentPlayerId} in game ${game.id}. Skipping cleanup to prevent disrupting game.`);
+            return false;
+        }
+
+        const playerName = currentPlayer.name;
         logger.info(`Player ${playerName} (${currentPlayerId}) timed out after ${game.timeoutDuration}ms`);
 
         // Clean up game and force all players back to lobby

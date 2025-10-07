@@ -232,10 +232,11 @@ export function calculateRoundScores(game: GameState, contractorTeam: 'team1' | 
     let newOpposingScore = opposingScore;
 
     // Calculate kitty discards points (go to defending team)
+    // Only award kitty discard points if the game has kitty enabled
     let kittyDiscardPoints = 0;
-    if (game.kittyDiscards && game.kittyDiscards.length > 0) {
+    if (game.hasKitty && game.kittyDiscards && game.kittyDiscards.length > 0) {
         kittyDiscardPoints = game.kittyDiscards.reduce((total, card) => total + getCardValue(card), 0);
-        logger.info(`Kitty discards worth ${kittyDiscardPoints} points going to defending team`);
+        logger.debug(`Kitty discards worth ${kittyDiscardPoints} points going to defending team`);
     }
 
     // Contractor team scoring
@@ -745,8 +746,8 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
 
         // Pause for 3 seconds to let players see the round results in the notepad
         // jcl
-        //console.log('Pausing for 3 seconds to let players review round results...');
-        //await new Promise(resolve => setTimeout(resolve, 3000));
+        // console.log('Pausing for 10 seconds to let players review round results...');
+        // await new Promise(resolve => setTimeout(resolve, 10000));
 
         // Start bot turn handling for new bidding phase if current player is a bot and hasn't passed
         const currentPlayer = game.players.find(p => p.id === game.currentPlayer);
@@ -1095,7 +1096,7 @@ export async function handleBotTurn(game: GameState): Promise<void> {
 
                         // Calculate kitty discard points for logging
                         let kittyDiscardPoints = 0;
-                        if (game.kittyDiscards && game.kittyDiscards.length > 0) {
+                        if (game.hasKitty && game.kittyDiscards && game.kittyDiscards.length > 0) {
                             kittyDiscardPoints = game.kittyDiscards.reduce((total, card) => total + getCardValue(card), 0);
                         }
 
@@ -1343,7 +1344,7 @@ export async function handleBotTurn(game: GameState): Promise<void> {
 
                     // Calculate kitty discard points for logging
                     let kittyDiscardPoints = 0;
-                    if (game.kittyDiscards && game.kittyDiscards.length > 0) {
+                    if (game.hasKitty && game.kittyDiscards && game.kittyDiscards.length > 0) {
                         kittyDiscardPoints = game.kittyDiscards.reduce((total, card) => total + getCardValue(card), 0);
                     }
 

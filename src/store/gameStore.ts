@@ -18,6 +18,7 @@ interface GameStore {
         contractorTeam?: 'team1' | 'team2';
         round: number;
         kittyDiscards?: Card[];
+        previousTeamScores?: { team1: number; team2: number };
     } | null;
     showShuffleAnimation: boolean;
     showGlowEffect: boolean;

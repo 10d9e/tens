@@ -7,7 +7,7 @@ import PlayerHand from './PlayerHand';
 import TrickArea from './TrickArea';
 import BidInterface from './BidInterface';
 import KittyInterface from './KittyInterface';
-import RoundNotepad from './RoundNotepad';
+import GameInfo from './GameInfo';
 import KittyArea from './KittyArea';
 import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
@@ -275,9 +275,6 @@ const GameTable: React.FC = () => {
         return visualMap[relativePos] || 'bottom';
     };
 
-    const getTeamScore = (team: 'team1' | 'team2') => {
-        return currentGame.teamScores[team];
-    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900">
@@ -566,47 +563,11 @@ const GameTable: React.FC = () => {
                     )}
                 </div>
 
-                {/* Game Information Display - Team Scores */}
-                <div className={`team-scores-display ${showGlowEffect ? 'glow-effect' : ''}`}>
-                    <div className="team-scores-header">
-                        <h3>🏆 Team Scores</h3>
-                    </div>
-
-                    <div className="team-scores-content">
-                        <div className="team-score-row">
-                            <div className="team-score-label" style={{ color: '#ef4444' }}>
-                                🔴 Team 1
-                                <span className="team-position">North & South</span>
-                            </div>
-                            <div className="team-score-value" style={{ color: '#ef4444' }}>{getTeamScore('team1')}</div>
-                        </div>
-
-                        <div className="team-score-row">
-                            <div className="team-score-label" style={{ color: '#3b82f6' }}>
-                                🔵 Team 2
-                                <span className="team-position">East & West</span>
-                            </div>
-                            <div className="team-score-value" style={{ color: '#3b82f6' }}>{getTeamScore('team2')}</div>
-                        </div>
-                    </div>
-
-                    <div className="team-scores-footer">
-                        <div className="team-score-status">
-                            {getTeamScore('team1') > getTeamScore('team2') ? (
-                                <span style={{ color: '#ef4444' }}>🔴 Team 1 leads by {getTeamScore('team1') - getTeamScore('team2')} points</span>
-                            ) : getTeamScore('team2') > getTeamScore('team1') ? (
-                                <span style={{ color: '#3b82f6' }}>🔵 Team 2 leads by {getTeamScore('team2') - getTeamScore('team1')} points</span>
-                            ) : (
-                                <span>Teams are tied!</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-
-
-                {/* Round Notepad - Always visible during the game */}
-                <RoundNotepad
+                {/* Combined Game Information Display */}
+                <GameInfo
+                    teamScores={currentGame.teamScores}
+                    completedRoundResults={completedRoundResults}
+                    showGlowEffect={showGlowEffect}
                     roundScores={
                         completedRoundResults?.roundScores ||
                         currentGame.roundScores ||
@@ -625,7 +586,6 @@ const GameTable: React.FC = () => {
                         currentGame.round
                     }
                     gamePhase={currentGame.phase}
-                    showGlow={showGlowEffect}
                 />
 
 
