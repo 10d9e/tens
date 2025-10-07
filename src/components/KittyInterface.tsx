@@ -170,11 +170,6 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         return suit === 'hearts' || suit === 'diamonds' ? 'text-red-500' : 'text-black';
     };
 
-    const getCardValue = (card: CardType) => {
-        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
-        return values[card.rank as keyof typeof values] || 0;
-    };
-
     // Organize cards by suit into 4 rows, each ordered by face value (5,6,7,8,9,10,J,Q,K,A)
     const organizeCardsBySuit = (cards: CardType[]) => {
         const suits = ['hearts', 'clubs', 'diamonds', 'spades'] as const;
