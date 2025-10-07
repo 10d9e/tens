@@ -893,7 +893,7 @@ class GamePlayer {
 
         while (!this.gameEnded && this.game) {
             // Wait for game updates
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 100));
 
             if (this.game.phase === 'bidding' && this.game.currentPlayer === this.player.id) {
                 await this.makeSmartBid();

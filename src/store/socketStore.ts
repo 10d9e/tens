@@ -301,29 +301,36 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                     previousTeamScores: previousGame.teamScores // Store previous team scores for score change calculation
                 };
 
-                // Store the completed round results and show glow effect
-                gameStore.setCompletedRoundResults(completedResults);
-                gameStore.setShowGlowEffect(true);
+                if (!process.env.INTEGRATION_TEST) {
+                    // Store the completed round results and show glow effect
+                    gameStore.setCompletedRoundResults(completedResults);
+                    gameStore.setShowGlowEffect(true);
 
-                // Clear the completed round results and glow effect after 3.5 seconds (slightly after the server delay)
-                setTimeout(() => {
-                    gameStore.setCompletedRoundResults(null);
-                    gameStore.setShowGlowEffect(false);
-                }, 10000);
+                    // Clear the completed round results and glow effect after 3.5 seconds (slightly after the server delay)
+                    setTimeout(() => {
+                        gameStore.setCompletedRoundResults(null);
+                        gameStore.setShowGlowEffect(false);
+                    }, 10000);
+                }
             } else if (wasFailedBidding) {
-                // Show reshuffling message and animation for failed bidding
-                playShuffleSound();
-                gameStore.setShowShuffleAnimation(true);
-
-                toast.success('🃏 No one bid! Reshuffling cards for new round...', {
-                    duration: 3000,
-                    icon: '🔀'
-                });
-
                 // Hide shuffle animation after 3 seconds (matching the server delay)
-                setTimeout(() => {
+                if (!process.env.INTEGRATION_TEST) {
+                    // Show reshuffling message and animation for failed bidding
+                    playShuffleSound();
+                    gameStore.setShowShuffleAnimation(true);
+
+                    toast.success('🃏 No one bid! Reshuffling cards for new round...', {
+                        duration: 3000,
+                        icon: '🔀'
+                    });
+
+
+                    setTimeout(() => {
+                        gameStore.setShowShuffleAnimation(false);
+                    }, 3000);
+                } else {
                     gameStore.setShowShuffleAnimation(false);
-                }, 3000);
+                }
             }
 
             // Update game state for new round

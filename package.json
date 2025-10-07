@@ -16,7 +16,8 @@
         "start": "npm run build:all && npm run server",
         "test:stress": "node stress-test.js",
         "cli": "node cli-game.js",
-        "test:integration": "node integration-test.js"
+        "test:integration": "node integration-test.js",
+        "test:stress:full": "concurrently \"INTEGRATION_TEST=true npm run dev:full\" \"sleep 3 && npm run test:stress -- 50\""
     },
     "dependencies": {
         "classnames": "^2.3.2",

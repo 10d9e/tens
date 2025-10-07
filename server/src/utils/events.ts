@@ -1079,9 +1079,13 @@ export function setupSocketEvents(): void {
 
                             // Clean up game room and reset table state after game completion
                             cleanupGameRoom(game);
-                            setTimeout(() => {
+                            if (!process.env.INTEGRATION_TEST) {
+                                setTimeout(() => {
+                                    resetTableAfterGameCompletion(game.tableId);
+                                }, 3000); // Give players 3 seconds to see the game end message
+                            } else {
                                 resetTableAfterGameCompletion(game.tableId);
-                            }, 3000); // Give players 3 seconds to see the game end message
+                            }
 
                             return;
                         }
@@ -1252,13 +1256,17 @@ export function setupSocketEvents(): void {
                             finalScores: game.teamScores
                         };
 
-                        logger.debug(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
+                        logger.info(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
                         io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
 
                         // Reset table state after game completion
-                        setTimeout(() => {
+                        if (!process.env.INTEGRATION_TEST) {
+                            setTimeout(() => {
+                                resetTableAfterGameCompletion(game.tableId);
+                            }, 3000); // Give players 3 seconds to see the game end message
+                        } else {
                             resetTableAfterGameCompletion(game.tableId);
-                        }, 3000); // Give players 3 seconds to see the game end message
+                        }
                     }
                 }
 
@@ -1525,8 +1533,9 @@ export function setupSocketEvents(): void {
 
                 const game = games.get(gameId);
                 if (!game) {
-                    logger.debug('Game not found:', gameId);
-                    throw new Error('Game not found');
+                    logger.warn('Game not found on [exit_game]:', gameId);
+                    return;
+                    // throw new Error('Game not found');
                 }
 
                 // Verify the player is in this game
@@ -1687,9 +1696,13 @@ export function setupSocketEvents(): void {
                                 });
 
                                 // Reset table state after game ends due to disconnect
-                                setTimeout(() => {
+                                if (!process.env.INTEGRATION_TEST) {
+                                    setTimeout(() => {
+                                        resetTableAfterGameCompletion(game.tableId);
+                                    }, 3000); // Give players 3 seconds to see the game end message
+                                } else {
                                     resetTableAfterGameCompletion(game.tableId);
-                                }, 3000); // Give players 3 seconds to see the game end message
+                                }
                             }
                         }
                     }

@@ -136,10 +136,9 @@ const SpectatorView: React.FC = () => {
             />
 
             {/* Game Header */}
-            <div className="flex justify-between items-center p-2 bg-white/10 backdrop-blur-md border-b border-white/20 relative">
+            <div className="flex justify-between items-center p-3 bg-white/10 backdrop-blur-md border-b border-white/20 relative">
                 <div className="flex items-center gap-6 header-content">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-2xl font-bold text-white">👁️ Spectating 200</h2>
                         {currentTable && (
                             <div className="flex items-center gap-4 text-sm text-white/80">
                                 <span className="font-medium">{currentTable.name}</span>

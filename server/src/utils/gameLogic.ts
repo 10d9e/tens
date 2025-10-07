@@ -783,7 +783,9 @@ export async function handleBotTurn(game: GameState): Promise<void> {
 
     if (game.phase === 'kitty') {
         // Add 1 second delay for bot kitty handling to make it feel more natural
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!process.env.INTEGRATION_TEST) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
         // Bot takes kitty cards
         if (game.kitty && game.kitty.length > 0) {
@@ -825,7 +827,9 @@ export async function handleBotTurn(game: GameState): Promise<void> {
         await handleBotTurn(game);
     } else if (game.phase === 'bidding') {
         // Add 1 second delay for bot bidding to make it feel more natural
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!process.env.INTEGRATION_TEST) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
         const handValue = currentPlayer.cards.reduce((total, card) => total + getCardValue(card), 0);
         const bidPoints = currentPlayer.botSkill === 'acadien'
@@ -958,7 +962,9 @@ export async function handleBotTurn(game: GameState): Promise<void> {
         }
     } else if (game.phase === 'playing') {
         // Add 1 second delay for bot card playing to make it feel more natural
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        if (!process.env.INTEGRATION_TEST) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
 
         // Determine lead suit from current trick
         const leadSuit = game.currentTrick.cards.length > 0 && game.currentTrick.cards[0]
@@ -1069,9 +1075,11 @@ export async function handleBotTurn(game: GameState): Promise<void> {
                 //const finalCardDelay = Math.random() * 1000 + 1500; // Random delay between 1500-2500ms
 
                 // jcl
-                const finalCardDelay = 2000; // 2 seconds
-                logger.debug(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
-                await new Promise(resolve => setTimeout(resolve, finalCardDelay));
+                if (!process.env.INTEGRATION_TEST) {
+                    const finalCardDelay = 2000; // 2 seconds
+                    logger.debug(`Pausing ${Math.round(finalCardDelay)}ms to show final card...`);
+                    await new Promise(resolve => setTimeout(resolve, finalCardDelay));
+                }
 
                 // Emit trick completed event with the completed trick
                 emitGameEvent(game, 'trick_completed', { game });
@@ -1137,9 +1145,13 @@ export async function handleBotTurn(game: GameState): Promise<void> {
                         emitGameEvent(game, 'game_ended', gameEndInfo);
 
                         // Reset table state after game completion
-                        setTimeout(() => {
+                        if (!process.env.INTEGRATION_TEST) {
+                            setTimeout(() => {
+                                resetTableAfterGameCompletion(game.tableId);
+                            }, 3000); // Give players 3 seconds to see the game end message
+                        } else {
                             resetTableAfterGameCompletion(game.tableId);
-                        }, 3000); // Give players 3 seconds to see the game end message
+                        }
 
                         return;
                     }
@@ -1308,9 +1320,13 @@ export async function handleBotTurn(game: GameState): Promise<void> {
 
                     // Clean up game room and reset table state after game completion
                     cleanupGameRoom(game);
-                    setTimeout(() => {
+                    if (!process.env.INTEGRATION_TEST) {
+                        setTimeout(() => {
+                            resetTableAfterGameCompletion(game.tableId);
+                        }, 3000); // Give players 3 seconds to see the game end message
+                    } else {
                         resetTableAfterGameCompletion(game.tableId);
-                    }, 3000); // Give players 3 seconds to see the game end message
+                    }
 
                     return;
                 }

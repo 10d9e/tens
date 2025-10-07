@@ -201,7 +201,22 @@ class StressTestRunner {
 
 // Main execution
 async function runStressTest() {
-    const runner = new StressTestRunner(100);
+    // Parse command-line argument for number of tests
+    const args = process.argv.slice(2);
+    let numTests = 100; // Default value
+
+    if (args.length > 0) {
+        const parsed = parseInt(args[0], 10);
+        if (isNaN(parsed) || parsed < 1) {
+            console.error('❌ Error: Number of tests must be a positive integer');
+            console.log('Usage: node stress-test.js [number_of_tests]');
+            console.log('Example: node stress-test.js 50');
+            process.exit(1);
+        }
+        numTests = parsed;
+    }
+
+    const runner = new StressTestRunner(numTests);
 
     // Handle graceful shutdown
     process.on('SIGINT', async () => {
