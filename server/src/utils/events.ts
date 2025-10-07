@@ -65,8 +65,7 @@ export function setupSocketEvents(): void {
                     logger.debug('Lobby not found for ID:', lobbyId);
                 }
             } catch (error) {
-                logger.error('Error in join_lobby handler:', error);
-                socket.emit('error', { message: error instanceof Error ? error.message : 'Unknown error' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -128,8 +127,7 @@ export function setupSocketEvents(): void {
                 // Send confirmation to creator
                 socket.emit('table_created', { table, success: true });
             } catch (error) {
-                logger.error('Error creating table:', error);
-                socket.emit('error', { message: 'Error creating table' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -198,8 +196,7 @@ export function setupSocketEvents(): void {
                 // Notify all lobby members about the updated lobby
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                logger.error('Error adding bot:', error);
-                socket.emit('error', { message: 'Error adding bot' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -251,8 +248,7 @@ export function setupSocketEvents(): void {
                 // Notify all lobby members about the updated lobby
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                logger.error('Error removing bot:', error);
-                socket.emit('error', { message: 'Error removing bot' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -314,8 +310,7 @@ export function setupSocketEvents(): void {
                 // Notify all lobby members about the updated lobby
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                logger.error('Error moving player:', error);
-                socket.emit('error', { message: 'Error moving player' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -395,8 +390,7 @@ export function setupSocketEvents(): void {
                     await handleBotTurn(game);
                 }
             } catch (error) {
-                logger.error('Error starting game:', error);
-                socket.emit('error', { message: 'Error starting game' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -813,6 +807,10 @@ export function setupSocketEvents(): void {
                     throw new Error('Game not found');
                 }
 
+                if (!game.hasKitty) {
+                    throw new Error('Kitty is not enabled for this game');
+                }
+
                 // Check if it's the kitty phase and this player is the bid winner
                 if (game.phase !== 'kitty') {
                     throw new Error('Not in kitty phase');
@@ -856,6 +854,10 @@ export function setupSocketEvents(): void {
                 if (!game) {
                     logger.debug('Game not found:', gameId);
                     throw new Error('Game not found');
+                }
+
+                if (!game.hasKitty) {
+                    throw new Error('Kitty is not enabled for this game');
                 }
 
                 // Check if it's the kitty phase and this player is the bid winner
@@ -1606,8 +1608,7 @@ export function setupSocketEvents(): void {
 
                 logger.debug(`Game ${gameId} ended due to player exit by ${player.name}`);
             } catch (error) {
-                logger.error('Error exiting game:', error);
-                socket.emit('error', { message: 'Error exiting game' });
+                handleSocketError(socket, error);
             }
         });
 
@@ -1696,11 +1697,15 @@ export function setupSocketEvents(): void {
 
                 players.delete(socket.id);
             } catch (error) {
-                logger.error('Error disconnecting:', error);
-                socket.emit('error', { message: 'Error disconnecting' });
+                handleSocketError(socket, error);
             }
         });
     });
+}
+
+function handleSocketError(socket: Socket, error: any): void {
+    logger.error('Error:', error);
+    socket.emit('error', { message: 'Error' });
 }
 
 // Helper function to emit game events to the correct room (game-specific if active, table-specific if not)

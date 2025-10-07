@@ -84,11 +84,17 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900">
+            {/* Fixed Logo */}
+            <img
+                src="/header-logo.png"
+                alt="200 Logo"
+                className="header-logo"
+            />
+
             {/* Header */}
-            <div className="flex justify-between items-center p-4 bg-white/10 backdrop-blur-md border-b border-white/20">
-                <div className="flex items-center gap-6">
+            <div className="flex justify-between items-center p-3 bg-white/10 backdrop-blur-md border-b border-white/20">
+                <div className="flex items-center gap-6 header-content">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-2xl font-bold text-white">🎴 200 Lobby</h2>
                         <div className="flex items-center gap-4 text-sm text-white/80">
                             {currentPlayer?.name ? (
                                 <UsernameEditor

@@ -278,11 +278,17 @@ const GameTable: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900">
+            {/* Fixed Logo */}
+            <img
+                src="/header-logo.png"
+                alt="200 Logo"
+                className="header-logo"
+            />
+
             {/* Game Header */}
-            <div className="flex justify-between items-center p-2 bg-white/10 backdrop-blur-md border-b border-white/20">
-                <div className="flex items-center gap-6">
+            <div className="flex justify-between items-center p-3 bg-white/10 backdrop-blur-md border-b border-white/20">
+                <div className="flex items-center gap-6 header-content">
                     <div className="flex items-center gap-4">
-                        <h2 className="text-2xl font-bold text-white">🎴 200</h2>
                         {currentTable && (
                             <div className="flex items-center gap-4 text-sm text-white/80">
                                 <span className="font-medium">{currentTable.name}</span>
@@ -311,7 +317,7 @@ const GameTable: React.FC = () => {
                     {createPortal(
                         <button
                             onClick={handleExitGame}
-                            className="fixed top-2 right-2 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
+                            className="fixed top-3 right-2 px-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 hover:text-red-200 transition-all text-sm font-medium"
                             style={{ zIndex: 10001 }}
                             title="Exit Game"
                         >

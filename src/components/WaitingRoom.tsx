@@ -137,10 +137,17 @@ const WaitingRoom: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900">
+            {/* Fixed Logo */}
+            <img
+                src="/header-logo.png"
+                alt="200 Logo"
+                className="header-logo"
+            />
+
             {/* Header */}
-            <div className="flex justify-between items-center p-6 bg-white/10 backdrop-blur-md border-b border-white/20">
-                <div className="flex items-center gap-6">
-                    <h1 className="text-2xl font-bold text-white">🎴 Waiting Room</h1>
+            <div className="flex justify-between items-center p-2 bg-white/10 backdrop-blur-md border-b border-white/20 relative">
+                <div className="flex items-center gap-6 header-content">
+                    <h1 className="text-2xl font-bold text-white">Waiting Room</h1>
                 </div>
                 <div className="text-white text-right">
                     🃏 {currentPlayer.name}
