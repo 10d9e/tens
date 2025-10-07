@@ -9,7 +9,7 @@ export const players = new Map<string, Player>();
 export const defaultLobby: Lobby = {
     id: 'default',
     name: 'Main Lobby',
-    tables: new Map(),
+    tables: new Map<string, LobbyTable>,
     players: new Map(),
     chatMessages: []
 };

@@ -8,8 +8,11 @@ export function startTimeoutCheck(): void {
     // Periodic timeout check for all active games
     setInterval(() => {
         games.forEach((game, gameId) => {
+            logger.debug(`Checking player timeout for game ${gameId}`);
             if (checkPlayerTimeout(game)) {
-                logger.info(`Game ${gameId} was cleaned up due to timeout`);
+                logger.warn(`Game ${gameId} was cleaned up due to timeout`);
+            } else {
+                logger.debug(`Game ${gameId} is not timed out`);
             }
         });
     }, 1000); // Check every second
@@ -30,11 +33,10 @@ function checkPlayerTimeout(game: GameState): boolean {
 
         // If we can't find the current player, don't clean up the game - just log the error
         if (!currentPlayer) {
-            logger.error(`Timeout triggered for unknown player ${currentPlayerId} in game ${game.id}. Skipping cleanup to prevent disrupting game.`);
-            return false;
+            logger.warn(`Timeout triggered for unknown player in game ${game.id}. Skipping cleanup to prevent disrupting game.`);
         }
 
-        const playerName = currentPlayer.name;
+        const playerName = currentPlayer?.name || 'Unknown player';
         logger.info(`Player ${playerName} (${currentPlayerId}) timed out after ${game.timeoutDuration}ms`);
 
         // Clean up game and force all players back to lobby
@@ -45,12 +47,19 @@ function checkPlayerTimeout(game: GameState): boolean {
     return false;
 }
 
+export function resetPlayerTimeouts(game: GameState): void {
+    if (game.playerTurnStartTime) {
+        logger.info(`Resetting player timeouts for game ${game.id}`);
+        game.playerTurnStartTime = {};
+    }
+}
+
 function cleanupGameDueToTimeout(game: GameState, timeoutPlayerName: string): void {
     // Get all players in this game
     const gamePlayers = [...game.players];
 
-    // Remove game from memory
-    games.delete(game.id);
+    // Reset all player timeouts before cleanup
+    resetPlayerTimeouts(game);
 
     // Get the lobby and table
     const lobby = lobbies.get('default');
@@ -79,4 +88,7 @@ function cleanupGameDueToTimeout(game: GameState, timeoutPlayerName: string): vo
             }
         });
     }
+
+    // Remove game from memory
+    games.delete(game.id);
 }
