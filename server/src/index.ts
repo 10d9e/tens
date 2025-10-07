@@ -39,11 +39,14 @@ app.use(cors({
 app.use(express.json());
 
 // Serve static files from the React app build
-app.use(express.static('dist'));
+// In production: __dirname is server/dist, so ../../dist points to root dist
+// In development: adjust as needed
+const distPath = path.join(__dirname, '../../dist');
+app.use(express.static(distPath));
 
 // Handle React routing, return all requests to React app
 app.get('*', (req: Request, res: Response) => {
-    res.sendFile(path.join(__dirname, '../dist/index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // Start timeout check
