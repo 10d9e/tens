@@ -469,6 +469,12 @@ const GameTable: React.FC = () => {
                     players={currentGame.players}
                     playerCards={myPlayer?.cards || []}
                     playersWhoHavePassed={Array.isArray(currentGame.playersWhoHavePassed) ? currentGame.playersWhoHavePassed : Array.from(currentGame.playersWhoHavePassed || [])}
+                    gameState={{
+                        timeoutDuration: currentGame.timeoutDuration,
+                        playerTurnStartTime: currentGame.playerTurnStartTime,
+                        currentPlayer: currentGame.currentPlayer
+                    }}
+                    currentPlayerId={currentPlayer?.id || ''}
                 />
 
                 {/* Kitty Interface */}
