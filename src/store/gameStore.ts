@@ -23,6 +23,7 @@ interface GameStore {
     showShuffleAnimation: boolean;
     showGlowEffect: boolean;
     gameEndedByExit: boolean;
+    soundEnabled: boolean;
 
     // Actions
     setCurrentGame: (game: Game | null) => void;
@@ -41,7 +42,18 @@ interface GameStore {
     setShowShuffleAnimation: (show: boolean) => void;
     setShowGlowEffect: (show: boolean) => void;
     setGameEndedByExit: (ended: boolean) => void;
+    setSoundEnabled: (enabled: boolean) => void;
 }
+
+// Load sound preference from localStorage
+const loadSoundPreference = (): boolean => {
+    try {
+        const saved = localStorage.getItem('soundEnabled');
+        return saved === null ? true : saved === 'true'; // Default to enabled
+    } catch {
+        return true;
+    }
+};
 
 export const useGameStore = create<GameStore>((set) => ({
     currentGame: null,
@@ -58,6 +70,7 @@ export const useGameStore = create<GameStore>((set) => ({
     showShuffleAnimation: false,
     showGlowEffect: false,
     gameEndedByExit: false,
+    soundEnabled: loadSoundPreference(),
 
     setCurrentGame: (game) => set({ currentGame: game }),
     setCurrentTable: (table) => set({ currentTable: table }),
@@ -105,5 +118,15 @@ export const useGameStore = create<GameStore>((set) => ({
 
     setShowGlowEffect: (show) => set({ showGlowEffect: show }),
 
-    setGameEndedByExit: (ended) => set({ gameEndedByExit: ended })
+    setGameEndedByExit: (ended) => set({ gameEndedByExit: ended }),
+
+    setSoundEnabled: (enabled) => {
+        // Save preference to localStorage
+        try {
+            localStorage.setItem('soundEnabled', enabled.toString());
+        } catch (error) {
+            console.error('Failed to save sound preference:', error);
+        }
+        set({ soundEnabled: enabled });
+    }
 }));

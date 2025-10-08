@@ -664,6 +664,9 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
 // Sound effects
 function playCardSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
     // Create a simple beep sound
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -683,6 +686,9 @@ function playCardSound() {
 }
 
 function playTrickSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
     // Create a different sound for trick completion
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -703,6 +709,9 @@ function playTrickSound() {
 }
 
 function playBidTurnSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
     // Create a gentle notification sound for bid turn
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -725,6 +734,9 @@ function playBidTurnSound() {
 }
 
 function playCowbellSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
     // Create a cowbell-like sound for bids
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
 
@@ -759,6 +771,9 @@ function playCowbellSound() {
 }
 
 function playPassTickSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
     // Create a subtle tick sound for when players pass
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();
@@ -781,6 +796,9 @@ function playPassTickSound() {
 }
 
 function playShuffleSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
     // Create a simple single shuffle sound effect
     const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioContext.createOscillator();

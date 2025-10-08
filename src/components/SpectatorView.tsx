@@ -20,6 +20,8 @@ const SpectatorView: React.FC = () => {
         completedRoundResults,
         showShuffleAnimation,
         showGlowEffect,
+        soundEnabled,
+        setSoundEnabled
     } = useGameStore();
 
     const { leaveTable } = useSocketStore();
@@ -42,8 +44,8 @@ const SpectatorView: React.FC = () => {
                     const seconds = Math.ceil(remaining / 1000);
                     setTimeRemaining(seconds);
 
-                    // Play tick sound for last 5 seconds
-                    if (seconds <= 5 && seconds > 0 && seconds !== lastPlayedSecond) {
+                    // Play tick sound for last 5 seconds (only if sound is enabled)
+                    if (soundEnabled && seconds <= 5 && seconds > 0 && seconds !== lastPlayedSecond) {
                         try {
                             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
                             const oscillator = audioContext.createOscillator();
@@ -83,7 +85,7 @@ const SpectatorView: React.FC = () => {
                 clearInterval(interval);
             }
         };
-    }, [currentGame?.currentPlayer, currentGame?.playerTurnStartTime, currentGame?.timeoutDuration]);
+    }, [currentGame?.currentPlayer, currentGame?.playerTurnStartTime, currentGame?.timeoutDuration, soundEnabled, lastPlayedSecond]);
 
     // Early returns after all hooks
     if (!currentGame || !currentPlayer) {
@@ -162,6 +164,19 @@ const SpectatorView: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* Sound Toggle Button - rendered in portal */}
+                    {createPortal(
+                        <button
+                            onClick={() => setSoundEnabled(!soundEnabled)}
+                            className="fixed top-2 right-44 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-blue-300 hover:text-blue-200 transition-all text-sm font-medium"
+                            style={{ zIndex: 10001 }}
+                            title={soundEnabled ? "Disable Sound" : "Enable Sound"}
+                        >
+                            {soundEnabled ? '🔊' : '🔇'} Sound
+                        </button>,
+                        document.body
+                    )}
+
                     {/* Exit Spectating Button */}
                     {createPortal(
                         <button
