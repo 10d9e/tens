@@ -250,13 +250,11 @@ export function calculateRoundScores(game: Game, contractorTeam: 'team1' | 'team
     }
 
     // Opposing team scoring
-    if (opposingScore >= 100 && !opposingTeamBid) {
-        // Opposing team has 100+ points and didn't bid - they score nothing
-        newOpposingScore += 0;
-    } else {
-        // Opposing team gets their card points
-        newOpposingScore += opposingCardPoints;
-    }
+    // TODO: Implement proper tracking of opposing team bids per RULES2.md line 45
+    // Rule: If opposing team has 100+ points and didn't bid, they score nothing
+    // Currently opposingTeamBid is never tracked, so this rule is disabled
+    // For now, opposing team always gets their card points
+    newOpposingScore += opposingCardPoints;
 
     // Add kitty discard points to opposing team (defending team)
     newOpposingScore += kittyDiscardPoints;

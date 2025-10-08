@@ -3,6 +3,7 @@ import { getAllGames, deleteGame } from "./state";
 import { Game } from "../types/game";
 import { io } from "../index";
 import { lobbies } from "./state";
+import { notifyLobbyMembers } from "./gameLogic";
 
 export function startTimeoutCheck(): void {
     // Periodic timeout check for all active games
@@ -74,6 +75,10 @@ function cleanupGameDueToTimeout(game: Game, timeoutPlayerName: string): void {
 
         // Notify all table members about the updated table
         io.to(`table-${game.tableId}`).emit('table_updated', { table });
+
+        // Notify all lobby members about the updated table state
+        logger.debug(`Notifying lobby members about timeout cleanup for table ${game.tableId}`);
+        notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
 
         // Force only human players back to lobby with timeout message
         // Only send to players who are actually still in this game room

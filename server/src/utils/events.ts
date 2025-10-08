@@ -1686,7 +1686,59 @@ export function setupSocketEvents(): void {
                     releasePlayerName(player.name);
                     logger.debug(`Released name "${player.name}"`);
 
-                    // Remove player from any tables and games
+                    // Remove player from any active games first
+                    const affectedTables = new Set<string>();
+                    if (player) {
+                        const allGames = getAllGames();
+                        for (const game of allGames) {
+                            const playerIndex = game.players.findIndex(p => p.id === player.id);
+                            if (playerIndex !== -1) {
+                                logger.debug(`Removing disconnected player ${player.name} from game ${game.id}`);
+                                game.players.splice(playerIndex, 1);
+
+                                // If game becomes invalid (less than 4 players), end it
+                                if (game.players.length < 4 && game.phase !== 'finished') {
+                                    logger.debug(`Game ${game.id} has insufficient players (${game.players.length}), ending game`);
+
+                                    // Reset all player timeouts before cleanup
+                                    if (game.playerTurnStartTime) {
+                                        logger.debug(`Resetting player timeouts for game ${game.id} due to player disconnect`);
+                                        game.playerTurnStartTime = {};
+                                    }
+
+                                    game.phase = 'finished';
+                                    cleanupGameRoom(game);
+
+                                    // Notify remaining players that the game ended due to player disconnect
+                                    emitGameEvent(game, 'game_ended', {
+                                        game,
+                                        reason: 'Player disconnected',
+                                        disconnectedPlayer: player.name
+                                    });
+
+                                    // Clear the table's gameState immediately
+                                    const lobby = lobbies.get('default');
+                                    const table = lobby?.tables.get(game.tableId);
+                                    if (table) {
+                                        logger.debug(`Clearing gameState for table ${game.tableId} due to player disconnect`);
+                                        table.gameState = undefined;
+                                        affectedTables.add(game.tableId);
+                                    }
+
+                                    // Reset table state after game ends due to disconnect
+                                    if (!process.env.INTEGRATION_TEST) {
+                                        setTimeout(() => {
+                                            resetTableAfterGameCompletion(game.tableId);
+                                        }, 3000); // Give players 3 seconds to see the game end message
+                                    } else {
+                                        resetTableAfterGameCompletion(game.tableId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Remove player from any tables
                     const affectedLobbies = new Set<string>();
                     for (const [lobbyId, lobby] of lobbies) {
                         for (const [tableId, table] of lobby.tables) {
@@ -1722,48 +1774,6 @@ export function setupSocketEvents(): void {
                             notifyLobbyMembers(lobbyId, 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
                         }
                     });
-                }
-
-                // Remove player from any active games
-                if (player) {
-                    const allGames = getAllGames();
-                    for (const game of allGames) {
-                        const playerIndex = game.players.findIndex(p => p.id === player.id);
-                        if (playerIndex !== -1) {
-                            logger.debug(`Removing disconnected player ${player.name} from game ${game.id}`);
-                            game.players.splice(playerIndex, 1);
-
-                            // If game becomes invalid (less than 4 players), end it
-                            if (game.players.length < 4 && game.phase !== 'finished') {
-                                logger.debug(`Game ${game.id} has insufficient players (${game.players.length}), ending game`);
-
-                                // Reset all player timeouts before cleanup
-                                if (game.playerTurnStartTime) {
-                                    logger.debug(`Resetting player timeouts for game ${game.id} due to player disconnect`);
-                                    game.playerTurnStartTime = {};
-                                }
-
-                                game.phase = 'finished';
-                                cleanupGameRoom(game);
-
-                                // Notify remaining players that the game ended due to player disconnect
-                                emitGameEvent(game, 'game_ended', {
-                                    game,
-                                    reason: 'Player disconnected',
-                                    disconnectedPlayer: player.name
-                                });
-
-                                // Reset table state after game ends due to disconnect
-                                if (!process.env.INTEGRATION_TEST) {
-                                    setTimeout(() => {
-                                        resetTableAfterGameCompletion(game.tableId);
-                                    }, 3000); // Give players 3 seconds to see the game end message
-                                } else {
-                                    resetTableAfterGameCompletion(game.tableId);
-                                }
-                            }
-                        }
-                    }
                 }
 
                 players.delete(socket.id);

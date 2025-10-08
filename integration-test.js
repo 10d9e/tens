@@ -19,6 +19,7 @@ class GamePlayer {
         this.scoringHistory = [];
         this.roundScores = { team1: 0, team2: 0 };
         this.totalScores = { team1: 0, team2: 0 };
+        this.previousTotalScores = { team1: 0, team2: 0 };
         this.currentRound = 0;
         this.contractorTeam = null;
         this.currentBid = null;
@@ -102,6 +103,7 @@ class GamePlayer {
             this.myTeam = this.getMyTeam();
             this.currentRound = this.game.round;
             this.totalScores = { ...this.game.teamScores };
+            this.previousTotalScores = { ...this.game.teamScores }; // Track previous scores for verification
             this.log(`Game started! I'm at position ${this.myPosition} (${this.getPositionName(this.myPosition)}) on ${this.myTeam}`);
             this.log(`Game phase: ${this.currentPhase}`);
             this.log(`My cards: ${this.getMyCards().map(c => `${c.rank}${c.suit}`).join(', ')}`);
@@ -126,12 +128,6 @@ class GamePlayer {
             if (this.game.phase !== this.currentPhase) {
                 this.currentPhase = this.game.phase;
                 this.log(`Phase changed to: ${this.currentPhase}`);
-
-                // Reset trick points when starting a new round
-                if (this.currentPhase === 'bidding' && previousGame && previousGame.phase === 'playing') {
-                    this.trickPoints = { team1: 0, team2: 0 };
-                    this.log('Reset trick points for new round');
-                }
 
                 // Verify notepad data when phase changes (especially during bidding and playing)
                 if (this.currentPhase === 'bidding' || this.currentPhase === 'playing') {
@@ -201,6 +197,16 @@ class GamePlayer {
 
             // Verify notepad data that would be shown to players
             this.verifyNotepadData(data.game);
+
+            // Update previous scores for next round verification
+            this.previousTotalScores = { ...data.game.teamScores };
+
+            // Reset trick points for the next round
+            this.trickPoints = { team1: 0, team2: 0 };
+            this.kittyDiscards = [];
+            this.contractorTeam = null;
+            this.currentBid = null;
+            this.log('Reset trick points and kitty data for new round');
 
             // Reset the card play flag for the new round
             this.hasPlayedCardThisTurn = false;
@@ -534,6 +540,30 @@ class GamePlayer {
         this.log(`Game team scores: Team1: ${gameTeamScores.team1}, Team2: ${gameTeamScores.team2}`);
         this.log(`Our tracked trick points: Team1: ${this.trickPoints.team1}, Team2: ${this.trickPoints.team2}`);
 
+        // Verify trick points add up to expected total (100 for all deck variants)
+        // For kitty games: trick points + kitty discard points should equal 100
+        // For non-kitty games: trick points should equal 100
+        // Exception: If everyone passes during bidding, no tricks are played (0 points total)
+        const totalTrickPoints = this.trickPoints.team1 + this.trickPoints.team2;
+        const kittyDiscardPoints = this.calculateKittyDiscardPoints();
+        const totalPoints = totalTrickPoints + kittyDiscardPoints;
+        const expectedTotal = 100; // Always 100 points in the deck
+
+        // Check if everyone passed (no contractor team set and no tricks played)
+        if (totalPoints === 0 && !this.contractorTeam) {
+            this.log(`✅ Round skipped: Everyone passed during bidding, no tricks played`);
+        } else if (totalPoints !== expectedTotal) {
+            const error = `❌ POINTS DON'T ADD UP! Trick points: ${totalTrickPoints}, Kitty discards: ${kittyDiscardPoints}, Total: ${totalPoints}, Expected: ${expectedTotal} (Difference: ${totalPoints - expectedTotal})`;
+            this.log(error);
+            throw new Error(error);
+        } else {
+            if (this.game.hasKitty && kittyDiscardPoints > 0) {
+                this.log(`✅ Total points verified: ${totalTrickPoints} trick points + ${kittyDiscardPoints} kitty points = ${totalPoints} (as expected)`);
+            } else {
+                this.log(`✅ Trick points verified: ${totalTrickPoints} total points (as expected)`);
+            }
+        }
+
         // Note: Round scores are reset to 0 after each round, so we don't compare them to trick points
         // The trick points represent the cumulative points for the completed round
         this.log(`Round scores (reset for new round): Team1: ${gameRoundScores.team1}, Team2: ${gameRoundScores.team2}`);
@@ -542,6 +572,13 @@ class GamePlayer {
         // Verify contractor team scoring logic
         if (this.contractorTeam && this.currentBid) {
             this.verifyContractorScoring(game);
+        } else if (totalPoints === 0) {
+            // Everyone passed during bidding - no contractor, no scoring
+            this.log('✅ No contractor scoring to verify (everyone passed)');
+        } else {
+            const error = '❌ Round completed but no contractor team or bid set!';
+            this.log(error);
+            throw new Error(error);
         }
 
         // Store scoring history
@@ -604,35 +641,55 @@ class GamePlayer {
             this.log('ℹ️  Kitty game: No kitty discards in this round');
         }
 
-        // Calculate expected scores based on contractor scoring rules
-        let expectedContractorScore = 0;
-        let expectedOpposingScore = 0;
+        // Calculate expected round score changes based on contractor scoring rules
+        let expectedContractorRoundScore = 0;
+        let expectedOpposingRoundScore = 0;
 
         // Contractor team scoring
         if (contractorCardPoints >= this.currentBid.points) {
             // Contractor made their bid - add card points to their score
-            expectedContractorScore = contractorCardPoints;
+            expectedContractorRoundScore = contractorCardPoints;
             this.log(`✅ Contractor made bid (${contractorCardPoints} >= ${this.currentBid.points})`);
         } else {
             // Contractor failed - subtract bid amount from their score
-            expectedContractorScore = -this.currentBid.points;
+            expectedContractorRoundScore = -this.currentBid.points;
             this.log(`❌ Contractor failed bid (${contractorCardPoints} < ${this.currentBid.points})`);
         }
 
         // Opposing team scoring
-        expectedOpposingScore = opposingCardPoints + kittyDiscardPoints;
-        this.log(`Opposing team gets: ${opposingCardPoints} card points + ${kittyDiscardPoints} kitty points = ${expectedOpposingScore}`);
+        expectedOpposingRoundScore = opposingCardPoints + kittyDiscardPoints;
+        this.log(`Opposing team gets: ${opposingCardPoints} card points + ${kittyDiscardPoints} kitty points = ${expectedOpposingRoundScore}`);
 
-        // Check if the actual scores match our calculations
-        const actualContractorScore = game.teamScores[this.contractorTeam];
-        const actualOpposingScore = game.teamScores[opposingTeam];
+        // Calculate expected total scores
+        const expectedContractorTotal = this.previousTotalScores[this.contractorTeam] + expectedContractorRoundScore;
+        const expectedOpposingTotal = this.previousTotalScores[opposingTeam] + expectedOpposingRoundScore;
 
-        this.log(`Expected contractor score: ${expectedContractorScore}, Actual: ${actualContractorScore}`);
-        this.log(`Expected opposing score: ${expectedOpposingScore}, Actual: ${actualOpposingScore}`);
+        // Get actual scores from server
+        const actualContractorTotal = game.teamScores[this.contractorTeam];
+        const actualOpposingTotal = game.teamScores[opposingTeam];
 
-        // Note: We can't directly verify the absolute scores since we don't track previous round totals
-        // But we can verify that the scoring logic is being applied correctly
-        // We'll add more specific verification here if needed in the future
+        this.log(`Previous total scores: ${this.contractorTeam}: ${this.previousTotalScores[this.contractorTeam]}, ${opposingTeam}: ${this.previousTotalScores[opposingTeam]}`);
+        this.log(`Expected round change: ${this.contractorTeam}: ${expectedContractorRoundScore}, ${opposingTeam}: ${expectedOpposingRoundScore}`);
+        this.log(`Expected total scores: ${this.contractorTeam}: ${expectedContractorTotal}, ${opposingTeam}: ${expectedOpposingTotal}`);
+        this.log(`Actual total scores: ${this.contractorTeam}: ${actualContractorTotal}, ${opposingTeam}: ${actualOpposingTotal}`);
+
+        // Assert that actual scores match expected scores
+        if (actualContractorTotal !== expectedContractorTotal) {
+            const error = `❌ CONTRACTOR SCORE MISMATCH! Expected ${this.contractorTeam} total: ${expectedContractorTotal}, Actual: ${actualContractorTotal} (Difference: ${actualContractorTotal - expectedContractorTotal})`;
+            this.log(error);
+            throw new Error(error);
+        }
+
+        if (actualOpposingTotal !== expectedOpposingTotal) {
+            const error = `❌ OPPOSING SCORE MISMATCH! Expected ${opposingTeam} total: ${expectedOpposingTotal}, Actual: ${actualOpposingTotal} (Difference: ${actualOpposingTotal - expectedOpposingTotal})`;
+            this.log(error);
+            throw new Error(error);
+        }
+
+        this.log(`✅ Contractor scoring verified correctly!`);
+        this.log(`✅ ${this.contractorTeam} score: ${actualContractorTotal} (matches expected)`);
+        this.log(`✅ ${opposingTeam} score: ${actualOpposingTotal} (matches expected)`);
+
         this.log('🔍 CONTRACTOR SCORING VERIFICATION COMPLETE');
     }
 
@@ -645,9 +702,44 @@ class GamePlayer {
         }
 
         this.log(`Scoring history for ${this.scoringHistory.length} rounds:`);
+
+        let totalVerifications = 0;
+
         this.scoringHistory.forEach((entry, index) => {
-            this.log(`Round ${entry.round}: Team1: ${entry.teamScores.team1}, Team2: ${entry.teamScores.team2}`);
+            this.log(`Round ${entry.round}:`);
+            this.log(`  Team Scores: Team1: ${entry.teamScores.team1}, Team2: ${entry.teamScores.team2}`);
+            this.log(`  Trick Points: Team1: ${entry.trickPoints.team1}, Team2: ${entry.trickPoints.team2}`);
+            this.log(`  Contractor: ${entry.contractorTeam}, Bid: ${entry.currentBid?.points || 'N/A'}`);
+
+            // Verify each round had 100 total points (trick points + kitty discards)
+            const totalTrickPoints = entry.trickPoints.team1 + entry.trickPoints.team2;
+            const kittyPoints = entry.kittyDiscards.reduce((total, card) => {
+                const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
+                return total + (values[card.rank] || 0);
+            }, 0);
+            const totalPoints = totalTrickPoints + kittyPoints;
+
+            // Check if everyone passed (no contractor and no tricks played)
+            if (totalPoints === 0 && !entry.contractorTeam) {
+                this.log(`  ✅ Round skipped: Everyone passed`);
+            } else if (totalPoints !== 100) {
+                const error = `❌ Round ${entry.round} points don't add up to 100! Trick: ${totalTrickPoints}, Kitty: ${kittyPoints}, Total: ${totalPoints}`;
+                this.log(error);
+                throw new Error(error);
+            }
+
+            if (kittyPoints > 0) {
+                this.log(`  ✅ Points verified: ${totalTrickPoints} trick + ${kittyPoints} kitty = ${totalPoints}`);
+            } else {
+                this.log(`  ✅ Points verified: ${totalTrickPoints} total`);
+            }
+
+            totalVerifications++;
         });
+
+        this.log(`✅ All ${totalVerifications} rounds verified: points add up to 100`);
+        this.log(`✅ All ${totalVerifications} rounds verified: contractor scoring logic applied correctly`);
+        this.log(`✅ Total scoring tracked and verified across ${totalVerifications} rounds`);
 
         this.log('🔍 TOTAL SCORING VERIFICATION COMPLETE');
     }
@@ -668,8 +760,8 @@ class GamePlayer {
             throw new Error(error);
         }
 
-        // Calculate expected notepad data based on current game state
-        const expectedNotepadData = {
+        // Get notepad data from game state
+        const actualNotepadData = {
             round: game.round,
             roundScores: game.roundScores || { team1: 0, team2: 0 },
             currentBid: game.currentBid,
@@ -678,44 +770,61 @@ class GamePlayer {
             kittyDiscards: game.kittyDiscards || []
         };
 
-        this.log(`Expected notepad data for Round ${expectedNotepadData.round}:`);
-        this.log(`  Round Scores: Team1: ${expectedNotepadData.roundScores.team1}, Team2: ${expectedNotepadData.roundScores.team2}`);
-        this.log(`  Current Bid: ${expectedNotepadData.currentBid ? `${expectedNotepadData.currentBid.points} points${expectedNotepadData.currentBid.suit ? ` in ${expectedNotepadData.currentBid.suit}` : ''}` : 'None'}`);
-        this.log(`  Contractor Team: ${expectedNotepadData.contractorTeam || 'None'}`);
-        this.log(`  Total Points: ${expectedNotepadData.totalPoints} / 100`);
+        this.log(`Notepad data for Round ${actualNotepadData.round}:`);
+        this.log(`  Round Scores: Team1: ${actualNotepadData.roundScores.team1}, Team2: ${actualNotepadData.roundScores.team2}`);
+        this.log(`  Current Bid: ${actualNotepadData.currentBid ? `${actualNotepadData.currentBid.points} points${actualNotepadData.currentBid.suit ? ` in ${actualNotepadData.currentBid.suit}` : ''}` : 'None'}`);
+        this.log(`  Contractor Team: ${actualNotepadData.contractorTeam || 'None'}`);
+        this.log(`  Total Points: ${actualNotepadData.totalPoints} / 100`);
         this.log(`  Game has kitty: ${game.hasKitty}`);
-        if (expectedNotepadData.kittyDiscards.length > 0) {
-            this.log(`  Kitty Discards: ${expectedNotepadData.kittyDiscards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
+        if (actualNotepadData.kittyDiscards.length > 0) {
+            this.log(`  Kitty Discards: ${actualNotepadData.kittyDiscards.map(c => `${c.rank}${c.suit}`).join(', ')}`);
         }
 
         // Note: Notepad round scores are reset to 0 after each round, so we don't compare them to trick points
         // The trick points represent the cumulative points for the completed round
-        this.log(`Notepad round scores (reset for new round): Team1: ${expectedNotepadData.roundScores.team1}, Team2: ${expectedNotepadData.roundScores.team2}`);
+        this.log(`Notepad round scores (reset for new round): Team1: ${actualNotepadData.roundScores.team1}, Team2: ${actualNotepadData.roundScores.team2}`);
         this.log(`Completed round trick points: Team1: ${this.trickPoints.team1}, Team2: ${this.trickPoints.team2}`);
 
         // Verify contractor team is set when there's a bid
-        if (expectedNotepadData.currentBid && !expectedNotepadData.contractorTeam) {
+        if (actualNotepadData.currentBid && !actualNotepadData.contractorTeam) {
             const error = '❌ Contractor team not set despite having a bid!';
             this.log(error);
             throw new Error(error);
-        } else if (expectedNotepadData.currentBid && expectedNotepadData.contractorTeam) {
+        } else if (actualNotepadData.currentBid && actualNotepadData.contractorTeam) {
             this.log('✅ Contractor team properly set');
         }
 
         // Verify total points calculation
-        const expectedTotal = expectedNotepadData.roundScores.team1 + expectedNotepadData.roundScores.team2;
-        if (expectedNotepadData.totalPoints === expectedTotal) {
-            this.log('✅ Total points calculation is correct');
-        } else {
-            const error = `❌ Total points calculation is incorrect! Expected: ${expectedTotal}, Actual: ${expectedNotepadData.totalPoints}`;
+        const expectedTotal = actualNotepadData.roundScores.team1 + actualNotepadData.roundScores.team2;
+        if (actualNotepadData.totalPoints !== expectedTotal) {
+            const error = `❌ NOTEPAD TOTAL POINTS MISMATCH! Expected: ${expectedTotal}, Actual: ${actualNotepadData.totalPoints} (Difference: ${actualNotepadData.totalPoints - expectedTotal})`;
             this.log(error);
             throw new Error(error);
+        }
+        this.log(`✅ Notepad total points correct: ${actualNotepadData.totalPoints}`);
+
+        // Verify round scores are valid numbers
+        if (typeof actualNotepadData.roundScores.team1 !== 'number' || typeof actualNotepadData.roundScores.team2 !== 'number') {
+            const error = `❌ NOTEPAD ROUND SCORES INVALID! Team1: ${actualNotepadData.roundScores.team1}, Team2: ${actualNotepadData.roundScores.team2}`;
+            this.log(error);
+            throw new Error(error);
+        }
+        this.log(`✅ Notepad round scores are valid numbers`);
+
+        // Verify bid structure if present
+        if (actualNotepadData.currentBid) {
+            if (typeof actualNotepadData.currentBid.points !== 'number' || actualNotepadData.currentBid.points < 0) {
+                const error = `❌ NOTEPAD BID INVALID! Bid points: ${actualNotepadData.currentBid.points}`;
+                this.log(error);
+                throw new Error(error);
+            }
+            this.log(`✅ Notepad bid structure is valid`);
         }
 
         // Store notepad data for history
         this.notepadHistory.push({
-            round: expectedNotepadData.round,
-            data: { ...expectedNotepadData },
+            round: actualNotepadData.round,
+            data: { ...actualNotepadData },
             timestamp: Date.now()
         });
 
@@ -898,7 +1007,7 @@ class GamePlayer {
 
         while (!this.gameEnded && this.game) {
             // Wait for game updates
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             if (this.game.phase === 'bidding' && this.game.currentPlayer === this.player.id) {
                 await this.makeSmartBid();
@@ -987,12 +1096,14 @@ async function runKittyIntegrationTest() {
         console.log('✅ All game phases handled correctly');
         console.log('✅ Bot interactions worked properly');
         console.log('✅ Games ended naturally');
-        console.log('✅ Scoring verification completed for all rounds');
-        console.log('✅ Round scores properly calculated and applied');
-        console.log('✅ Total scores correctly updated throughout games');
-        console.log('✅ Notepad data verified for every hand and round');
-        console.log('✅ All notepad scoring data updates correctly');
-        console.log('✅ Kitty scoring logic verified');
+        console.log('✅ SCORING VERIFIED: All trick points add up to 100 per round');
+        console.log('✅ SCORING VERIFIED: Contractor scoring logic matches expectations');
+        console.log('✅ SCORING VERIFIED: Team scores calculated correctly with assertions');
+        console.log('✅ SCORING VERIFIED: Kitty discard points properly applied');
+        console.log('✅ NOTEPAD VERIFIED: All notepad data structure is valid');
+        console.log('✅ NOTEPAD VERIFIED: Round scores and totals match expectations');
+        console.log('✅ NOTEPAD VERIFIED: Contractor team and bid data correct');
+        console.log('✅ All verification includes ASSERTIONS that throw errors on mismatch');
     } else {
         console.log('❌ SOME TESTS FAILED!');
         console.log('❌ Check the individual test results above');
@@ -1021,11 +1132,13 @@ async function runStandardIntegrationTest() {
         console.log('✅ All game phases handled correctly');
         console.log('✅ Bot interactions worked properly');
         console.log('✅ Games ended naturally');
-        console.log('✅ Scoring verification completed for all rounds');
-        console.log('✅ Round scores properly calculated and applied');
-        console.log('✅ Total scores correctly updated throughout games');
-        console.log('✅ Notepad data verified for every hand and round');
-        console.log('✅ All notepad scoring data updates correctly');
+        console.log('✅ SCORING VERIFIED: All trick points add up to 100 per round');
+        console.log('✅ SCORING VERIFIED: Contractor scoring logic matches expectations');
+        console.log('✅ SCORING VERIFIED: Team scores calculated correctly with assertions');
+        console.log('✅ NOTEPAD VERIFIED: All notepad data structure is valid');
+        console.log('✅ NOTEPAD VERIFIED: Round scores and totals match expectations');
+        console.log('✅ NOTEPAD VERIFIED: Contractor team and bid data correct');
+        console.log('✅ All verification includes ASSERTIONS that throw errors on mismatch');
     } else {
         console.log('❌ SOME TESTS FAILED!');
         console.log('❌ Check the individual test results above');
