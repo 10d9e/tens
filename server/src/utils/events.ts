@@ -14,7 +14,7 @@ import { createBigBubTable, createAcadieTable, createAcadienTestTable } from './
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
 import { games, lobbies, players, defaultLobby } from './state';
 import { resetPlayerTimeouts } from './timeouts';
-import { LobbyTable, Player, GameState, Card } from "../types/game";
+import { Table, Player, Game, Card } from "../types/game";
 
 /* socket handlers */
 // Socket.io connection handling
@@ -93,7 +93,7 @@ export function setupSocketEvents(): void {
                 }
 
                 logger.debug('Creating new table:', tableId, 'with name:', tableName, 'deckVariant:', deckVariant, 'hasKitty:', hasKitty);
-                const table: LobbyTable = {
+                const table: Table = {
                     id: tableId,
                     name: tableName || `Table ${tableId}`,
                     players: [],
@@ -426,8 +426,14 @@ export function setupSocketEvents(): void {
                     // Don't reset positions - preserve original bot positions
                     // This allows bots to maintain their strategic team positions (NS vs WE)
 
-                    // Remove from socket room
+                    // Remove from socket rooms
                     socket.leave(`table-${tableId}`);
+
+                    // Also leave game room if there's an active game
+                    if (table.gameState && table.gameState.id) {
+                        socket.leave(`game-${table.gameState.id}`);
+                        logger.debug(`Player ${player.name} left game room: game-${table.gameState.id}`);
+                    }
 
                     // Notify other players in the table
                     socket.to(`table-${tableId}`).emit('player_left_table', { table, player });
@@ -450,6 +456,12 @@ export function setupSocketEvents(): void {
                         // Remove from socket rooms
                         socket.leave(`table-${tableId}`);
                         socket.leave(`spectator-${tableId}`);
+
+                        // Also leave game room if there's an active game
+                        if (table.gameState && table.gameState.id) {
+                            socket.leave(`game-${table.gameState.id}`);
+                            logger.debug(`Spectator ${player.name} left game room: game-${table.gameState.id}`);
+                        }
 
                         // Notify other players and spectators in the table
                         socket.to(`table-${tableId}`).emit('spectator_left_table', { table, spectator: player });
@@ -1763,7 +1775,7 @@ export function setupSocketEvents(): void {
 }
 
 // Helper function to emit game events to the correct room (game-specific if active, table-specific if not)
-export function emitGameEvent(game: GameState | null, event: string, data: any): void {
+export function emitGameEvent(game: Game | null, event: string, data: any): void {
     // Ensure playersWhoHavePassed is a Set before processing
     if (data && data.game) {
         ensurePlayersWhoHavePassedIsSet(data.game);

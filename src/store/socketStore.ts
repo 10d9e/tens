@@ -378,7 +378,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 gameStore.addChatMessage(systemMessage);
 
                 // Set a flag to indicate the game has ended
-                gameStore.updateGameState({ phase: 'finished' });
+                gameStore.updateGame({ phase: 'finished' });
             } else {
                 console.log('Game ended due to exit/disconnect - not showing winning dialog');
             }

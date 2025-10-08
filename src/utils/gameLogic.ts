@@ -1,4 +1,4 @@
-import { Card, Suit, Rank, Player, Bid, Trick, GameState } from '../types/game';
+import { Card, Suit, Rank, Player, Bid, Trick, Game } from '../types/game';
 
 // Card values for scoring
 export const CARD_VALUES: Record<Rank, number> = {
@@ -136,13 +136,13 @@ export function getPlayerTeam(playerId: string, players: Player[]): 'team1' | 't
     return player.position % 2 === 0 ? 'team1' : 'team2';
 }
 
-export function isGameOver(gameState: GameState): boolean {
+export function isGameOver(gameState: Game): boolean {
     const target = gameState.scoreTarget || 200;
     return gameState.teamScores.team1 >= target || gameState.teamScores.team2 >= target ||
         gameState.teamScores.team1 <= -target || gameState.teamScores.team2 <= -target;
 }
 
-export function getWinningTeam(gameState: GameState): 'team1' | 'team2' | null {
+export function getWinningTeam(gameState: Game): 'team1' | 'team2' | null {
     const target = gameState.scoreTarget || 200;
     if (gameState.teamScores.team1 >= target) return 'team1';
     if (gameState.teamScores.team2 >= target) return 'team2';
@@ -152,7 +152,7 @@ export function getWinningTeam(gameState: GameState): 'team1' | 'team2' | null {
 }
 
 export function calculateRoundScores(
-    gameState: GameState,
+    gameState: Game,
     contractorTeam: 'team1' | 'team2',
     contractorCardPoints: number,
     opposingCardPoints: number,
