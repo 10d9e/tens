@@ -1,8 +1,8 @@
 import logger from "../logger";
-import { GameState } from "../types/game";
+import { Game } from "../types/game";
 
 // Function to debug and print all players' cards
-export function debugPrintAllPlayerCards(game: GameState, context: string = ''): void {
+export function debugPrintAllPlayerCards(game: Game, context: string = ''): void {
     logger.debug(`\n🃏 DEBUG: All Players' Cards ${context ? `(${context})` : ''}`);
     logger.debug('='.repeat(50));
     game.players.forEach((player, index) => {
@@ -30,7 +30,7 @@ export function debugPrintAllPlayerCards(game: GameState, context: string = ''):
 }
 
 // Function to debug kitty state
-export function debugKittyState(game: GameState, context: string = ''): void {
+export function debugKittyState(game: Game, context: string = ''): void {
     logger.debug(`\n🐱 DEBUG: Kitty State ${context ? `(${context})` : ''}`);
     logger.debug('='.repeat(50));
     logger.debug(`Round: ${game.round}`);

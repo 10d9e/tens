@@ -1,4 +1,4 @@
-import { Lobby, LobbyTable } from "../types/game";
+import { Lobby, Table } from "../types/game";
 import { v4 as uuidv4 } from 'uuid';
 import { getRandomHumanName } from './gameLogic';
 import { Player } from "../types/game";
@@ -6,9 +6,9 @@ import logger from '../logger';
 import { defaultLobby } from './state';
 
 // Create a Big Bub table with 2 bot players
-export function createBigBubTable(): LobbyTable {
+export function createBigBubTable(): Table {
     const tableId = 'big-bub-table';
-    const table: LobbyTable = {
+    const table: Table = {
         id: tableId,
         name: 'Big Bub',
         players: [],
@@ -48,7 +48,7 @@ export function createBigBubTable(): LobbyTable {
 export function createAcadieTable(): void {
     const tableId = 'acadie-table';
 
-    const table: LobbyTable = {
+    const table: Table = {
         id: tableId,
         name: 'Acadie',
         players: [],
@@ -86,7 +86,7 @@ export function createAcadieTable(): void {
 // Create an Acadien test table with advanced bots
 export function createAcadienTestTable() {
     const tableId = 'acadien-test-table';
-    const table: LobbyTable = {
+    const table: Table = {
         id: tableId,
         name: 'Acadien Test Table',
         players: [],

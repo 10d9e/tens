@@ -1,4 +1,4 @@
-import { Bid, Player, Card, Suit, GameState } from '../types/game';
+import { Bid, Player, Card, Suit, Game } from '../types/game';
 import { getCardValue, getCardRank } from './gameLogic';
 import logger from '../logger';
 
@@ -155,7 +155,7 @@ class AcadienBotAI {
     }
 
     // Initialize card tracking at start of round
-    initializeCardTracking(game: GameState, myPlayerId: string): void {
+    initializeCardTracking(game: Game, myPlayerId: string): void {
         const myPlayer = game.players.find(p => p.id === myPlayerId);
         if (!myPlayer) return;
 
@@ -202,7 +202,7 @@ class AcadienBotAI {
     }
 
     // Advanced bidding logic based on hand analysis and game state
-    makeBid(handValue: number, currentBid: Bid | null, currentBidderId: string | null, myPlayerId: string, players: Player[], game: GameState): Bid | null {
+    makeBid(handValue: number, currentBid: Bid | null, currentBidderId: string | null, myPlayerId: string, players: Player[], game: Game): Bid | null {
         const myPlayer = players.find(p => p.id === myPlayerId);
         if (!myPlayer) return null;
 
@@ -219,7 +219,7 @@ class AcadienBotAI {
         const teamAnalysis = this.analyzeTeamSituation(game, myPlayer, players);
 
         // Game state analysis
-        const gameStateAnalysis = this.analyzeGameState(game, myPlayer);
+        const gameStateAnalysis = this.analyzeGame(game, myPlayer);
 
         // Calculate theoretical maximum based on comprehensive analysis
         let theoreticalMax = Math.min(adjustedHandValue + 20, 100); // More aggressive than simple bots
@@ -385,7 +385,7 @@ class AcadienBotAI {
     }
 
     // Analyze team situation for bidding decisions
-    analyzeTeamSituation(game: GameState, myPlayer: Player, players: Player[]): any {
+    analyzeTeamSituation(game: Game, myPlayer: Player, players: Player[]): any {
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const partner = players.find(p => p.id !== myPlayer.id && (p.position % 2) === (myPlayer.position % 2));
 
@@ -397,7 +397,7 @@ class AcadienBotAI {
     }
 
     // Analyze overall game state
-    analyzeGameState(game: GameState, myPlayer: Player): any {
+    analyzeGame(game: Game, myPlayer: Player): any {
         const target = game.scoreTarget || 200;
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const myScore = game.teamScores[myTeam];
@@ -433,7 +433,7 @@ class AcadienBotAI {
     }
 
     // Advanced card playing strategy
-    async playCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, game: GameState, myPlayerId: string): Promise<Card> {
+    async playCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, game: Game, myPlayerId: string): Promise<Card> {
         if (playableCards.length === 0) throw new Error('No playable cards available');
 
         const myPlayer = game.players.find(p => p.id === myPlayerId);
@@ -482,7 +482,7 @@ class AcadienBotAI {
     }
 
     // Analyze current trick for playing decisions
-    analyzeTrick(game: GameState, myPlayer: Player): any {
+    analyzeTrick(game: Game, myPlayer: Player): any {
         const currentTrick = game.currentTrick;
         const cardsPlayed = currentTrick.cards || [];
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
@@ -525,7 +525,7 @@ class AcadienBotAI {
     }
 
     // Determine overall playing strategy
-    determinePlayingStrategy(game: GameState, myPlayer: Player, trickAnalysis: any): 'default' | 'win_trick' | 'lose_trick' | 'conserve_trump' | 'signal_partner' {
+    determinePlayingStrategy(game: Game, myPlayer: Player, trickAnalysis: any): 'default' | 'win_trick' | 'lose_trick' | 'conserve_trump' | 'signal_partner' {
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const isContractorTeam = game.contractorTeam === myTeam;
         const pointsInTrick = trickAnalysis.pointsInTrick;
@@ -685,7 +685,7 @@ class AcadienBotAI {
     }
 
     // Helper method to get team points so far in current round
-    getTeamPointsSoFar(game: GameState, team: 'team1' | 'team2'): number {
+    getTeamPointsSoFar(game: Game, team: 'team1' | 'team2'): number {
         // This would need to be implemented based on how points are tracked during the round
         // For now, return 0 as a placeholder
         return 0;

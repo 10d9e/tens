@@ -32,7 +32,7 @@ export interface Trick {
     points: number;
 }
 
-export interface GameState {
+export interface Game {
     id: string;
     tableId: string; // Add tableId property
     players: Player[];
@@ -65,11 +65,11 @@ export interface GameState {
     opposingTeamBid?: number; // Track opposing team's bid
 }
 
-export interface LobbyTable {
+export interface Table {
     id: string;
     name: string;
     players: Player[];
-    gameState?: GameState | undefined;
+    gameState?: Game | undefined;
     maxPlayers: number;
     isPrivate: boolean;
     password?: string;

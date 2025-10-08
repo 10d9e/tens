@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import { GameState, Player, LobbyTable, ChatMessage, Card } from '../types/game';
+import { Game, Player, Table, ChatMessage, Card } from '../types/game';
 
 interface GameStore {
-    currentGame: GameState | null;
-    currentTable: LobbyTable | null;
+    currentGame: Game | null;
+    currentTable: Table | null;
     currentPlayer: Player | null;
-    lobby: LobbyTable[] | null;
+    lobby: Table[] | null;
     chatMessages: ChatMessage[];
     lastTrick: any;
     isBidding: boolean;
@@ -25,16 +25,16 @@ interface GameStore {
     gameEndedByExit: boolean;
 
     // Actions
-    setCurrentGame: (game: GameState | null) => void;
-    setCurrentTable: (table: LobbyTable | null) => void;
+    setCurrentGame: (game: Game | null) => void;
+    setCurrentTable: (table: Table | null) => void;
     setCurrentPlayer: (player: Player | null) => void;
-    setLobby: (lobby: LobbyTable[]) => void;
+    setLobby: (lobby: Table[]) => void;
     addChatMessage: (message: ChatMessage) => void;
     setLastTrick: (trick: any) => void;
     setIsBidding: (bidding: boolean) => void;
     setSelectedCard: (cardId: string | null) => void;
     updatePlayerCards: (playerId: string, cards: any[]) => void;
-    updateGameState: (updates: Partial<GameState>) => void;
+    updateGame: (updates: Partial<Game>) => void;
     setBellAnimation: (playerId: string) => void;
     setTrickWinnerAnimation: (playerId: string) => void;
     setCompletedRoundResults: (results: any) => void;
@@ -83,7 +83,7 @@ export const useGameStore = create<GameStore>((set) => ({
         return { currentGame: updatedGame };
     }),
 
-    updateGameState: (updates) => set((state) => {
+    updateGame: (updates) => set((state) => {
         if (!state.currentGame) return state;
 
         return {

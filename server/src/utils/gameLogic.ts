@@ -1,4 +1,4 @@
-import { Rank, Card, LobbyTable, Player, Lobby, Suit, GameState } from "../types/game";
+import { Rank, Card, Table, Player, Lobby, Suit, Game } from "../types/game";
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../logger';
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
@@ -19,7 +19,7 @@ export function getCardRank(rank: Rank): number {
 }
 
 // Function to validate kitty state and log warnings
-export function validateKittyState(game: GameState, context: string = ''): boolean {
+export function validateKittyState(game: Game, context: string = ''): boolean {
     const issues = [];
 
     if (game.hasKitty && game.deckVariant !== '40') {
@@ -59,7 +59,7 @@ export function create3BotTables(numTables = 1): void {
         const tableId = tableNum === 1 ? 'robot-fun-table' : `robot-fun-table-${tableNum}`;
         const tableName = tableNum === 1 ? 'Robot Fun' : `Robot Fun ${tableNum}`;
 
-        const table: LobbyTable = {
+        const table: Table = {
             id: tableId,
             name: tableName,
             players: [],
@@ -222,7 +222,7 @@ export function getNextPlayerByPosition(currentPlayerId: string, players: Player
     return nextPlayer ? nextPlayer.id : (players[0] ? players[0].id : '');
 }
 
-export function calculateRoundScores(game: GameState, contractorTeam: 'team1' | 'team2', contractorCardPoints: number, opposingCardPoints: number, opposingTeamBid: number): { team1Score: number; team2Score: number } {
+export function calculateRoundScores(game: Game, contractorTeam: 'team1' | 'team2', contractorCardPoints: number, opposingCardPoints: number, opposingTeamBid: number): { team1Score: number; team2Score: number } {
     const currentBid = game.currentBid;
     if (!currentBid) return { team1Score: 0, team2Score: 0 };
 
@@ -268,14 +268,14 @@ export function calculateRoundScores(game: GameState, contractorTeam: 'team1' | 
 }
 
 // Helper function to check if game has ended
-export function isGameEnded(game: GameState): boolean {
+export function isGameEnded(game: Game): boolean {
     const target = game.scoreTarget || 200;
     return game.teamScores.team1 >= target || game.teamScores.team2 >= target ||
         game.teamScores.team1 <= -target || game.teamScores.team2 <= -target;
 }
 
 // Helper function to determine winning team
-export function getWinningTeam(game: GameState): { team: 'team1' | 'team2'; name: string } | null {
+export function getWinningTeam(game: Game): { team: 'team1' | 'team2'; name: string } | null {
     const target = game.scoreTarget || 200;
     if (game.teamScores.team1 >= target) return { team: 'team1', name: 'Team 1' };
     if (game.teamScores.team2 >= target) return { team: 'team2', name: 'Team 2' };
@@ -284,14 +284,14 @@ export function getWinningTeam(game: GameState): { team: 'team1' | 'team2'; name
     return null;
 }
 
-export function createGame(tableId: string, games: Map<string, GameState>, timeoutDuration: number = 30000, deckVariant: '36' | '40' = '36', scoreTarget: 200 | 300 | 500 | 1000 = 200): GameState {
+export function createGame(tableId: string, games: Map<string, Game>, timeoutDuration: number = 30000, deckVariant: '36' | '40' = '36', scoreTarget: 200 | 300 | 500 | 1000 = 200): Game {
     const gameId = uuidv4();
 
     // Get the table to copy players from
     const lobby = defaultLobby;
     const table = lobby?.tables.get(tableId);
 
-    const game: GameState = {
+    const game: Game = {
         id: gameId,
         tableId,
         players: table ? [...table.players] : [], // Copy players from table
@@ -323,7 +323,7 @@ export function createGame(tableId: string, games: Map<string, GameState>, timeo
     return game;
 }
 
-export function addBotPlayer(game: GameState, skill: 'easy' | 'medium' | 'hard' | 'acadien' = 'medium'): Player {
+export function addBotPlayer(game: Game, skill: 'easy' | 'medium' | 'hard' | 'acadien' = 'medium'): Player {
     const botId = `bot-${uuidv4()}`;
     const botName = getRandomHumanName();
     const bot: Player = {
@@ -342,7 +342,7 @@ export function addBotPlayer(game: GameState, skill: 'easy' | 'medium' | 'hard' 
     return bot;
 }
 
-export function addAItoExistingBots(game: GameState): void {
+export function addAItoExistingBots(game: Game): void {
     // Add AI to existing bot players
     game.players.forEach(player => {
         if (player.isBot && !player.ai) {
@@ -355,7 +355,7 @@ export function addAItoExistingBots(game: GameState): void {
     });
 }
 
-export function startGame(game: GameState): GameState {
+export function startGame(game: Game): Game {
     logger.info('Starting game with players:', game.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot })));
 
     // Reset all player timeouts at the start of a new game to prevent bleeding from previous games
@@ -487,7 +487,7 @@ export function startGame(game: GameState): GameState {
 
 
 // Helper function to ensure playersWhoHavePassed is always a Set
-export function ensurePlayersWhoHavePassedIsSet(game: GameState): void {
+export function ensurePlayersWhoHavePassedIsSet(game: Game): void {
     if (game.playersWhoHavePassed && !(game.playersWhoHavePassed instanceof Set)) {
         logger.info('Converting playersWhoHavePassed from', typeof game.playersWhoHavePassed, 'to Set');
         game.playersWhoHavePassed = new Set(game.playersWhoHavePassed);
@@ -495,7 +495,7 @@ export function ensurePlayersWhoHavePassedIsSet(game: GameState): void {
 }
 
 
-export async function checkBiddingCompletion(game: GameState): Promise<void> {
+export async function checkBiddingCompletion(game: Game): Promise<void> {
     // Ensure playersWhoHavePassed is always a Set
     ensurePlayersWhoHavePassedIsSet(game);
 
@@ -765,7 +765,7 @@ export async function checkBiddingCompletion(game: GameState): Promise<void> {
 }
 
 
-export async function handleBotTurn(game: GameState): Promise<void> {
+export async function handleBotTurn(game: Game): Promise<void> {
     // Ensure playersWhoHavePassed is always a Set
     ensurePlayersWhoHavePassedIsSet(game);
 
@@ -1534,7 +1534,7 @@ export function notifyLobbyMembers(lobbyId: string, event: string, data: any): v
 
 
 // Helper function to clean up game-specific socket rooms when game ends
-export function cleanupGameRoom(game: GameState): void {
+export function cleanupGameRoom(game: Game): void {
     if (game && game.id) {
         // Reset all player timeouts to prevent bleeding into next game
         resetPlayerTimeouts(game);

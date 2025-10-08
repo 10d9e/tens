@@ -1,6 +1,6 @@
 import logger from "../logger";
 import { games } from "./state";
-import { GameState } from "../types/game";
+import { Game } from "../types/game";
 import { io } from "../index";
 import { lobbies } from "./state";
 
@@ -18,7 +18,7 @@ export function startTimeoutCheck(): void {
     }, 1000); // Check every second
 }
 
-function checkPlayerTimeout(game: GameState): boolean {
+function checkPlayerTimeout(game: Game): boolean {
     const currentPlayerId = game.currentPlayer;
     const turnStartTime = game.playerTurnStartTime?.[currentPlayerId];
 
@@ -47,14 +47,14 @@ function checkPlayerTimeout(game: GameState): boolean {
     return false;
 }
 
-export function resetPlayerTimeouts(game: GameState): void {
+export function resetPlayerTimeouts(game: Game): void {
     if (game.playerTurnStartTime) {
         logger.info(`Resetting player timeouts for game ${game.id}`);
         game.playerTurnStartTime = {};
     }
 }
 
-function cleanupGameDueToTimeout(game: GameState, timeoutPlayerName: string): void {
+function cleanupGameDueToTimeout(game: Game, timeoutPlayerName: string): void {
     // Get all players in this game
     const gamePlayers = [...game.players];
 
@@ -75,16 +75,27 @@ function cleanupGameDueToTimeout(game: GameState, timeoutPlayerName: string): vo
         io.to(`table-${game.tableId}`).emit('table_updated', { table });
 
         // Force only human players back to lobby with timeout message
+        // Only send to players who are actually still in this game room
         gamePlayers.forEach(player => {
             if (!player.isBot) {
-                // For human players, emit to their socket
-                io.to(player.id).emit('game_timeout', {
-                    message: `Game ended due to ${timeoutPlayerName} timing out. Returning to lobby.`
-                });
-                io.to(player.id).emit('lobby_joined', {
-                    lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
-                    player: player
-                });
+                // Check if the socket is still in the game room
+                const socket = io.sockets.sockets.get(player.id);
+                const gameRoom = `game-${game.id}`;
+
+                // Only send timeout messages if the player is still in this game's room
+                if (socket && socket.rooms.has(gameRoom)) {
+                    logger.debug(`Sending timeout notification to ${player.name} who is still in ${gameRoom}`);
+                    // For human players, emit to their socket
+                    io.to(player.id).emit('game_timeout', {
+                        message: `Game ended due to ${timeoutPlayerName} timing out. Returning to lobby.`
+                    });
+                    io.to(player.id).emit('lobby_joined', {
+                        lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
+                        player: player
+                    });
+                } else {
+                    logger.debug(`Skipping timeout notification for ${player.name} - not in ${gameRoom} anymore`);
+                }
             }
         });
     }

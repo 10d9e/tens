@@ -56,8 +56,8 @@ npm run server
 
 ### Core Types
 - `ServerPlayer`: Player with socket connection info
-- `ServerGameState`: Game state with server-specific fields
-- `ServerLobbyTable`: Table with server-specific properties
+- `ServerGame`: Game state with server-specific fields
+- `ServerTable`: Table with server-specific properties
 - `SocketEvents`: Typed Socket.IO events
 
 ### Bot AI Types

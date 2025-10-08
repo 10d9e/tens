@@ -1,15 +1,15 @@
-import { GameState, LobbyTable, Player, Lobby } from "../types/game";
+import { Game, Table, Player, Lobby } from "../types/game";
 
 // Game state storage
-export const games = new Map<string, GameState>();
-export const lobbies = new Map<string, { id: string; name: string; tables: Map<string, LobbyTable> }>();
+export const games = new Map<string, Game>();
+export const lobbies = new Map<string, { id: string; name: string; tables: Map<string, Table> }>();
 export const players = new Map<string, Player>();
 
 // Initialize a default lobby
 export const defaultLobby: Lobby = {
     id: 'default',
     name: 'Main Lobby',
-    tables: new Map<string, LobbyTable>,
+    tables: new Map<string, Table>,
     players: new Map(),
     chatMessages: []
 };
