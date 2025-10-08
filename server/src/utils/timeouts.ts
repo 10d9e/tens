@@ -1,5 +1,5 @@
 import logger from "../logger";
-import { games } from "./state";
+import { getAllGames, deleteGame } from "./state";
 import { Game } from "../types/game";
 import { io } from "../index";
 import { lobbies } from "./state";
@@ -7,12 +7,13 @@ import { lobbies } from "./state";
 export function startTimeoutCheck(): void {
     // Periodic timeout check for all active games
     setInterval(() => {
-        games.forEach((game, gameId) => {
-            logger.debug(`Checking player timeout for game ${gameId}`);
+        const games = getAllGames();
+        games.forEach((game) => {
+            logger.debug(`Checking player timeout for game ${game.id}`);
             if (checkPlayerTimeout(game)) {
-                logger.warn(`Game ${gameId} was cleaned up due to timeout`);
+                logger.warn(`Game ${game.id} was cleaned up due to timeout`);
             } else {
-                logger.debug(`Game ${gameId} is not timed out`);
+                logger.debug(`Game ${game.id} is not timed out`);
             }
         });
     }, 1000); // Check every second
@@ -101,5 +102,5 @@ function cleanupGameDueToTimeout(game: Game, timeoutPlayerName: string): void {
     }
 
     // Remove game from memory
-    games.delete(game.id);
+    deleteGame(game.id);
 }

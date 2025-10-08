@@ -5,7 +5,7 @@ import { debugPrintAllPlayerCards, debugKittyState } from './debug';
 import { AcadienBotAI, SimpleBotAI } from './bots';
 import { emitGameEvent } from './events';
 import { io } from '../index';
-import { defaultLobby, lobbies, games } from './state';
+import { defaultLobby, lobbies, deleteGame } from './state';
 import { resetPlayerTimeouts } from "./timeouts";
 
 export function getCardValue(card: Card): number {
@@ -284,7 +284,7 @@ export function getWinningTeam(game: Game): { team: 'team1' | 'team2'; name: str
     return null;
 }
 
-export function createGame(tableId: string, games: Map<string, Game>, timeoutDuration: number = 30000, deckVariant: '36' | '40' = '36', scoreTarget: 200 | 300 | 500 | 1000 = 200): Game {
+export function createGame(tableId: string, timeoutDuration: number = 30000, deckVariant: '36' | '40' = '36', scoreTarget: 200 | 300 | 500 | 1000 = 200): Game {
     const gameId = uuidv4();
 
     // Get the table to copy players from
@@ -319,7 +319,6 @@ export function createGame(tableId: string, games: Map<string, Game>, timeoutDur
         timeoutDuration: timeoutDuration // Custom timeout duration in milliseconds
     };
 
-    games.set(gameId, game);
     return game;
 }
 
@@ -1549,7 +1548,7 @@ export function cleanupGameRoom(game: Game): void {
                 }
             });
         }
-        games.delete(game.id);
+        deleteGame(game.id);
         logger.info(`Cleaned up game room: game-${game.id}`);
     }
 }
