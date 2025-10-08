@@ -12,6 +12,7 @@
         "server:build": "tsc -p server/tsconfig.json",
         "server:watch": "tsc -p server/tsconfig.json --watch",
         "dev:full": "concurrently \"npm run server:dev\" \"npm run dev\"",
+        "dev:full:integration": "concurrently \"INTEGRATION_TEST=true npm run server:dev\" \"INTEGRATION_TEST=true npm run dev\"",
         "build:all": "npm run server:build && npm run build",
         "start": "npm run build:all && npm run server",
         "test:stress": "node stress-test.js",

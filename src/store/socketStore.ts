@@ -69,7 +69,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             const { message } = data;
             console.log('Game timeout:', message);
 
-            toast.error('Game timeout:' + message);
+            toast.error(message);
 
             const gameStore = useGameStore.getState();
             gameStore.setCurrentGame(null);
@@ -81,7 +81,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('name_taken', (data) => {
             console.log('Name taken error:', data);
-            toast.error('Name taken:' + data.message);
+            // toast.error(data.message);
             // Don't clear the current player state, just show the error
         });
 
@@ -160,7 +160,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 // Don't clear currentPlayer - keep the player info for the lobby
                 gameStore.setIsBidding(false);
                 gameStore.setSelectedCard(null);
-                toast('You have been returned to the lobby', { icon: 'ℹ️' });
+                // toast('You have been returned to the lobby', { icon: 'ℹ️' });
             }
         });
 
@@ -235,7 +235,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
             if (game.phase === 'playing') {
                 gameStore.setIsBidding(false);
-                //toast.success('Bidding complete! Game starting...');
+                // toast.success('Bidding complete! Game starting...');
             }
         });
 
@@ -307,37 +307,30 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                     previousTeamScores: previousGame.teamScores // Store previous team scores for score change calculation
                 };
 
-                if (!process.env.INTEGRATION_TEST) {
-                    // Store the completed round results and show glow effect
-                    gameStore.setCompletedRoundResults(completedResults);
-                    gameStore.setShowGlowEffect(true);
+                // Store the completed round results and show glow effect
+                gameStore.setCompletedRoundResults(completedResults);
+                gameStore.setShowGlowEffect(true);
 
-                    // Clear the completed round results and glow effect after 3.5 seconds (slightly after the server delay)
-                    setTimeout(() => {
-                        gameStore.setCompletedRoundResults(null);
-                        gameStore.setShowGlowEffect(false);
-                    }, 10000);
-                }
+                // Clear the completed round results and glow effect after 3.5 seconds (slightly after the server delay)
+                setTimeout(() => {
+                    gameStore.setCompletedRoundResults(null);
+                    gameStore.setShowGlowEffect(false);
+                }, 10000);
             } else if (wasFailedBidding) {
+                // Show reshuffling message and animation for failed bidding
+                playShuffleSound();
+                gameStore.setShowShuffleAnimation(true);
+
+                //toast.success('🃏 No one bid! Reshuffling cards for new round...', {
+                //    duration: 3000,
+                //    icon: '🔀'
+                //});
+
+
                 // Hide shuffle animation after 3 seconds (matching the server delay)
-                if (!process.env.INTEGRATION_TEST) {
-                    // Show reshuffling message and animation for failed bidding
-                    playShuffleSound();
-                    gameStore.setShowShuffleAnimation(true);
-
-                    /*
-                    toast.success('🃏 No one bid! Reshuffling cards for new round...', {
-                        duration: 3000,
-                        icon: '🔀'
-                    });
-                    */
-
-                    setTimeout(() => {
-                        gameStore.setShowShuffleAnimation(false);
-                    }, 3000);
-                } else {
+                setTimeout(() => {
                     gameStore.setShowShuffleAnimation(false);
-                }
+                }, 1000);
             }
 
             // Update game state for new round
@@ -396,8 +389,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('error', (data) => {
-            console.error('Socket error:', data.message);
-            toast.error('Socket error:' + data.message);
+            console.error('error:', data.message);
+            toast.error(data.message);
         });
 
         socket.on('table_deleted', (data) => {
