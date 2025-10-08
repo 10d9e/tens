@@ -832,13 +832,13 @@ export async function handleBotTurn(game: GameState): Promise<void> {
         }
 
         const handValue = currentPlayer.cards.reduce((total, card) => total + getCardValue(card), 0);
-        const bidPoints = currentPlayer.botSkill === 'acadien'
+        const bidResult = currentPlayer.botSkill === 'acadien'
             ? currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players, game)
             : currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players);
 
-        logger.debug(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid: ${bidPoints} points`);
+        logger.debug(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid decision: ${bidResult ? bidResult.points + ' points' : 'pass'}`);
 
-        if (bidPoints > 0) {
+        if (bidResult && bidResult.points > 0) {
             // Trump suit selection is required for any bid
             const suits = ['hearts', 'diamonds', 'clubs', 'spades'];
             const suitCounts = { hearts: 0, diamonds: 0, clubs: 0, spades: 0 };
@@ -855,10 +855,10 @@ export async function handleBotTurn(game: GameState): Promise<void> {
 
             // Bot made a bid - remove them from passed list if they were there
             game.playersWhoHavePassed?.delete(currentPlayer.id);
-            game.currentBid = { playerId: currentPlayer.id, points: bidPoints, suit: bestSuit };
+            game.currentBid = { playerId: currentPlayer.id, points: bidResult.points, suit: bestSuit };
             game.biddingPasses = 0; // Reset pass counter when someone bids
 
-            logger.debug(`Bot ${currentPlayer.name} bid ${bidPoints} points with ${bestSuit} as trump suit`);
+            logger.debug(`Bot ${currentPlayer.name} bid ${bidResult.points} points with ${bestSuit} as trump suit`);
         } else {
             // Bot passed - they cannot bid again until new round
             game.playersWhoHavePassed?.add(currentPlayer.id);

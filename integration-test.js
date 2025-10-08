@@ -244,7 +244,8 @@ class GamePlayer {
 
         // Error events
         this.socket.on('error', (data) => {
-            this.log(`ERROR: ${data.message}`);
+            this.log(`Server error: ${data.message}`);
+            throw new Error(data.message);
         });
     }
 
@@ -754,6 +755,10 @@ class GamePlayer {
         const currentBid = this.game.currentBid;
 
         let myBid = 0;
+        // bid has to have a suit
+        // randomly choose a suit
+        let suits = ['hearts', 'diamonds', 'clubs', 'spades'];
+        let suit = suits[Math.floor(Math.random() * suits.length)];
 
         // Bidding logic - more aggressive for kitty games to test kitty discard scoring
         if (this.game.hasKitty) {
@@ -784,7 +789,7 @@ class GamePlayer {
 
         if (myBid > 0) {
             this.log(`Making bid: ${myBid} points (hand value: ${handValue})`);
-            await this.makeBid(myBid);
+            await this.makeBid(myBid, suit);
         } else {
             this.log(`Passing (hand value: ${handValue})`);
             await this.makeBid(0); // Pass
@@ -893,7 +898,7 @@ class GamePlayer {
 
         while (!this.gameEnded && this.game) {
             // Wait for game updates
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 500));
 
             if (this.game.phase === 'bidding' && this.game.currentPlayer === this.player.id) {
                 await this.makeSmartBid();
@@ -931,9 +936,9 @@ async function testGameScenario(scenarioName, hasKitty) {
         player.log(`✅ Created table with kitty ${hasKitty ? 'enabled' : 'disabled'}`);
 
         // Add 3 bots to fill the table
-        await player.addBot(1, 'medium'); // East
-        await player.addBot(2, 'hard');   // South  
-        await player.addBot(3, 'easy');   // West
+        await player.addBot(1, 'acadien'); // East
+        await player.addBot(2, 'acadien');   // South  
+        await player.addBot(3, 'acadien');   // West
         player.log('✅ Added 3 bots to table');
 
         // Start the game

@@ -69,7 +69,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             const { message } = data;
             console.log('Game timeout:', message);
 
-            toast.error(message);
+            toast.error('Game timeout:' + message);
 
             const gameStore = useGameStore.getState();
             gameStore.setCurrentGame(null);
@@ -81,7 +81,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('name_taken', (data) => {
             console.log('Name taken error:', data);
-            toast.error(data.message);
+            toast.error('Name taken:' + data.message);
             // Don't clear the current player state, just show the error
         });
 
@@ -101,9 +101,11 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('table_created', (data) => {
             console.log('Table created:', data);
+            /*
             if (data.success) {
                 toast.success(`Table "${data.table.name}" created successfully!`);
             }
+            */
         });
 
         socket.on('table_left', (data) => {
@@ -114,7 +116,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             // Don't clear currentPlayer - keep the player info for the lobby
             gameStore.setIsBidding(false);
             gameStore.setSelectedCard(null);
-            toast.success('Left table successfully');
+            // toast.success('Left table successfully');
         });
 
         socket.on('table_joined', (data) => {
@@ -140,7 +142,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 console.log('Spectator joined active game, setting game state immediately');
             }
 
-            toast.success(`Joined as spectator to "${table.name}"`);
+            // toast.success(`Joined as spectator to "${table.name}"`);
         });
 
         socket.on('table_updated', (data) => {
@@ -165,25 +167,29 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         socket.on('player_joined_table', (data) => {
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
-            toast.success(`${player.name} joined the table`);
+            console.log(`${player.name} joined the table`);
+            // toast.success(`${player.name} joined the table`);
         });
 
         socket.on('player_left_table', (data) => {
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
-            toast(`${player.name} left the table`);
+            console.log(`${player.name} left the table`);
+            // toast(`${player.name} left the table`);
         });
 
         socket.on('spectator_joined_table', (data) => {
             const { table, spectator } = data;
             useGameStore.getState().setCurrentTable(table);
-            toast(`${spectator.name} is now watching`);
+            console.log(`${spectator.name} is now watching`);
+            // toast(`${spectator.name} is now watching`);
         });
 
         socket.on('spectator_left_table', (data) => {
             const { table, spectator } = data;
             useGameStore.getState().setCurrentTable(table);
-            toast(`${spectator.name} stopped watching`);
+            console.log(`${spectator.name} stopped watching`);
+            // toast(`${spectator.name} stopped watching`);
         });
 
         socket.on('game_started', (data) => {
@@ -200,7 +206,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 }
             }
 
-            toast.success('Game started!');
+            // toast.success('Game started!');
         });
 
         socket.on('bid_made', (data) => {
@@ -229,7 +235,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
             if (game.phase === 'playing') {
                 gameStore.setIsBidding(false);
-                toast.success('Bidding complete! Game starting...');
+                //toast.success('Bidding complete! Game starting...');
             }
         });
 
@@ -319,11 +325,12 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                     playShuffleSound();
                     gameStore.setShowShuffleAnimation(true);
 
+                    /*
                     toast.success('🃏 No one bid! Reshuffling cards for new round...', {
                         duration: 3000,
                         icon: '🔀'
                     });
-
+                    */
 
                     setTimeout(() => {
                         gameStore.setShowShuffleAnimation(false);
@@ -390,12 +397,12 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('error', (data) => {
             console.error('Socket error:', data.message);
-            toast.error(data.message);
+            toast.error('Socket error:' + data.message);
         });
 
         socket.on('table_deleted', (data) => {
             console.log('Table deleted:', data.tableId);
-            toast.success('Table deleted successfully');
+            // toast.success('Table deleted successfully');
             // Clear current table if we were in the deleted table
             const currentTable = useGameStore.getState().currentTable;
             if (currentTable && currentTable.id === data.tableId) {

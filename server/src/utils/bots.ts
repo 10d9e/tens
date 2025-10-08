@@ -84,27 +84,6 @@ class SimpleBotAI {
     }
 
     async playCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null): Promise<Card> {
-        // Add variable delay based on skill level to simulate thinking time
-        /*
-        let delay;
-        switch (this.skill) {
-            case 'easy':
-                delay = Math.random() * 6000 + 2000; // Random delay between 2000-8000ms (2-8 seconds)
-                break;
-            case 'medium':
-                delay = Math.random() * 3000 + 1000; // Random delay between 1000-4000ms (1-4 seconds)
-                break;
-            case 'hard':
-                delay = Math.random() * 1000 + 1000; // Random delay between 1000-2000ms (1-2 seconds)
-                break;
-            default:
-                delay = Math.random() * 2000 + 1000; // Default fallback
-        }
-        const delay = 1000;
-        logger.debug(`${this.skill} bot thinking for ${Math.round(delay)}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        */
-
         if (playableCards.length === 0) throw new Error('No playable cards available');
 
         // Simple strategy: prefer playing high-value cards if we have the lead suit
@@ -280,8 +259,11 @@ class AcadienBotAI {
             suggestedBid = Math.min(adjustedHandValue + 10, 80);
         } else if (adjustedHandValue >= 35) {
             suggestedBid = Math.min(adjustedHandValue + 15, 70);
+        } else if (adjustedHandValue >= 30) {
+            // Lower threshold - don't automatically pass on 30-35 point hands
+            suggestedBid = Math.min(adjustedHandValue + 20, 70);
         } else {
-            return null; // Don't bid with less than 35 points
+            return null; // Don't bid with less than 30 points
         }
 
         // Adjust based on game state
@@ -290,6 +272,45 @@ class AcadienBotAI {
         }
         if (gameStateAnalysis.lateInGame) {
             suggestedBid -= 5; // Be more conservative if late in game
+        }
+
+        // CRITICAL: 100+ point rule - be much more aggressive
+        // If my team is at 100+, we MUST bid or we score NOTHING this round
+        if (gameStateAnalysis.myTeamAbove100) {
+            logger.debug(`Acadien bot team is at 100+ (critical threshold) - increasing aggression`);
+            suggestedBid += 15; // Significantly more aggressive
+            theoreticalMax += 15; // Raise theoretical max too
+
+            // Lower the minimum hand value threshold when at 100+
+            if (adjustedHandValue >= 25 && suggestedBid === 0) {
+                suggestedBid = 50; // Make minimum bid even with weaker hand
+                logger.debug(`Acadien bot making minimum bid to avoid 100+ penalty`);
+            }
+        }
+
+        // If opponent is at 100+ and there's no bid yet, bidding prevents them from scoring
+        // This is a strategic advantage - be more aggressive
+        if (gameStateAnalysis.opponentTeamAbove100 && !currentBid) {
+            logger.debug(`Acadien bot: opponents at 100+ with no bid yet - increasing aggression to pressure them`);
+            suggestedBid += 10; // More aggressive to force them to either outbid or score nothing
+            theoreticalMax += 10;
+        }
+
+        // If opponent is at 100+ and HAS bid, outbidding them can deny them points
+        // Be more willing to take the risk
+        if (gameStateAnalysis.opponentTeamAbove100 && currentBid && currentBidderId) {
+            const currentBidder = players.find(p => p.id === currentBidderId);
+            if (currentBidder) {
+                const bidderTeam = currentBidder.position % 2 === 0 ? 'team1' : 'team2';
+                const opponentTeam = myPlayer.position % 2 === 0 ? 'team2' : 'team1';
+
+                // Check if the current bidder is on the opponent team
+                if (bidderTeam === opponentTeam && game.teamScores[opponentTeam] >= 100) {
+                    logger.debug(`Acadien bot: opponent at 100+ already bid - worth being more aggressive to deny them`);
+                    suggestedBid += 5; // Moderately more aggressive
+                    theoreticalMax += 5;
+                }
+            }
         }
 
         // Ensure minimum bid is 50
@@ -385,7 +406,9 @@ class AcadienBotAI {
         return {
             teamBehind: myScore < opponentScore,
             lateInGame: Math.max(myScore, opponentScore) > target * 0.7,
-            criticalStage: Math.max(Math.abs(myScore), Math.abs(opponentScore)) > target * 0.8
+            criticalStage: Math.max(Math.abs(myScore), Math.abs(opponentScore)) > target * 0.8,
+            myTeamAbove100: myScore >= 100,
+            opponentTeamAbove100: opponentScore >= 100
         };
     }
 
