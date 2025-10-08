@@ -12,7 +12,7 @@ import {
 import { AcadienBotAI, SimpleBotAI } from './bots';
 import { createBigBubTable, createAcadieTable, createAcadienTestTable } from './misc';
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
-import { games, lobbies, players, defaultLobby } from './state';
+import { lobbies, players, defaultLobby, getGameById, setGameForTable, deleteGame, getAllGames } from './state';
 import { resetPlayerTimeouts } from './timeouts';
 import { Table, Player, Game, Card } from "../types/game";
 
@@ -356,9 +356,8 @@ export function setupSocketEvents(): void {
                 }
 
                 logger.debug('Starting game manually for table:', tableId);
-                const game = createGame(tableId, games, table.timeoutDuration, table.deckVariant || '36', table.scoreTarget || 200);
+                const game = createGame(tableId, table.timeoutDuration, table.deckVariant || '36', table.scoreTarget || 200);
                 table.gameState = startGame(game);
-                games.set(game.id, game);
 
                 // Add all players to the game-specific socket room
                 table.players.forEach(player => {
@@ -494,9 +493,10 @@ export function setupSocketEvents(): void {
                 }
 
                 // Check if player is already in an active game
-                for (const [gameId, game] of games) {
+                const allGames = getAllGames();
+                for (const game of allGames) {
                     if (game.players.some(p => p.id === player.id) && game.phase !== 'finished') {
-                        logger.debug(`Player ${player.name} is already in an active game (${gameId}). Cannot join another table.`);
+                        logger.debug(`Player ${player.name} is already in an active game (${game.id}). Cannot join another table.`);
                         throw new Error('You are already in an active game. Please finish your current game before joining another table.');
                     }
                 }
@@ -549,9 +549,8 @@ export function setupSocketEvents(): void {
 
                     if (table.players.length === 4) {
                         logger.debug('Table is full - auto-starting game...');
-                        const game = createGame(tableId, games, table.timeoutDuration, table.deckVariant || '36', table.scoreTarget || 200);
+                        const game = createGame(tableId, table.timeoutDuration, table.deckVariant || '36', table.scoreTarget || 200);
                         table.gameState = startGame(game);
-                        games.set(game.id, game);
 
                         // Add all players to the game-specific socket room
                         table.players.forEach(player => {
@@ -655,7 +654,7 @@ export function setupSocketEvents(): void {
                 socket.join(`spectator-${tableId}`);
 
                 // Send spectator the current game state if the game is in progress
-                const game = games.get(table.gameState?.id);
+                const game = table.gameState?.id ? getGameById(table.gameState.id) : undefined;
                 if (game) {
                     socket.emit('spectator_joined', { table, spectator, game });
                     // Also add spectator to the game room immediately
@@ -678,7 +677,7 @@ export function setupSocketEvents(): void {
         socket.on('make_bid', async (data) => {
             try {
                 const { gameId, points, suit } = data;
-                const game = games.get(gameId);
+                const game = getGameById(gameId);
 
                 if (points > 0 && !suit) {
                     throw new Error('Suit is undefined');
@@ -817,7 +816,7 @@ export function setupSocketEvents(): void {
                     throw new Error('Player not found for socket');
                 }
 
-                const game = games.get(gameId);
+                const game = getGameById(gameId);
                 if (!game) {
                     logger.debug('Game not found:', gameId);
                     throw new Error('Game not found');
@@ -865,7 +864,7 @@ export function setupSocketEvents(): void {
                     throw new Error('Player not found for socket');
                 }
 
-                const game = games.get(gameId);
+                const game = getGameById(gameId);
                 if (!game) {
                     logger.debug('Game not found:', gameId);
                     throw new Error('Game not found');
@@ -937,7 +936,7 @@ export function setupSocketEvents(): void {
         socket.on('play_card', async (data) => {
             try {
                 const { gameId, card } = data;
-                const game = games.get(gameId);
+                const game = getGameById(gameId);
                 if (!game) {
                     logger.error('Game not found');
                     throw new Error('Game not found');
@@ -1589,7 +1588,7 @@ export function setupSocketEvents(): void {
                     throw new Error('Player not found for socket');
                 }
 
-                const game = games.get(gameId);
+                const game = getGameById(gameId);
                 if (!game) {
                     logger.warn('Game not found on [exit_game]:', gameId);
                     return;
@@ -1617,7 +1616,7 @@ export function setupSocketEvents(): void {
                 const table = lobby?.tables.get(game.tableId);
 
                 // Remove the game from memory
-                games.delete(gameId);
+                deleteGame(gameId);
 
                 if (lobby && table) {
                     // Remove all spectators and notify them
@@ -1727,19 +1726,20 @@ export function setupSocketEvents(): void {
 
                 // Remove player from any active games
                 if (player) {
-                    for (const [gameId, game] of games) {
+                    const allGames = getAllGames();
+                    for (const game of allGames) {
                         const playerIndex = game.players.findIndex(p => p.id === player.id);
                         if (playerIndex !== -1) {
-                            logger.debug(`Removing disconnected player ${player.name} from game ${gameId}`);
+                            logger.debug(`Removing disconnected player ${player.name} from game ${game.id}`);
                             game.players.splice(playerIndex, 1);
 
                             // If game becomes invalid (less than 4 players), end it
                             if (game.players.length < 4 && game.phase !== 'finished') {
-                                logger.debug(`Game ${gameId} has insufficient players (${game.players.length}), ending game`);
+                                logger.debug(`Game ${game.id} has insufficient players (${game.players.length}), ending game`);
 
                                 // Reset all player timeouts before cleanup
                                 if (game.playerTurnStartTime) {
-                                    logger.debug(`Resetting player timeouts for game ${gameId} due to player disconnect`);
+                                    logger.debug(`Resetting player timeouts for game ${game.id} due to player disconnect`);
                                     game.playerTurnStartTime = {};
                                 }
 

@@ -194,17 +194,28 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('game_started', (data) => {
             const { game } = data;
-            useGameStore.getState().setCurrentGame(game);
-            useGameStore.getState().setIsBidding(true);
+            const gameStore = useGameStore.getState();
+
+            gameStore.setCurrentGame(game);
+            gameStore.setIsBidding(true);
 
             // Update the current player with the correct data from the game state
-            const currentPlayerId = useGameStore.getState().currentPlayer?.id;
+            const currentPlayerId = gameStore.currentPlayer?.id;
             if (currentPlayerId) {
                 const updatedPlayer = game.players.find((p: any) => p.id === currentPlayerId);
                 if (updatedPlayer) {
-                    useGameStore.getState().setCurrentPlayer(updatedPlayer);
+                    gameStore.setCurrentPlayer(updatedPlayer);
                 }
             }
+
+            // Show shuffle animation when game starts
+            playShuffleSound();
+            gameStore.setShowShuffleAnimation(true);
+
+            // Hide shuffle animation after 2.5 seconds
+            setTimeout(() => {
+                gameStore.setShowShuffleAnimation(false);
+            }, 2500);
 
             // toast.success('Game started!');
         });
