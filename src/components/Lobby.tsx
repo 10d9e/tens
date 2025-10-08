@@ -6,9 +6,10 @@ import UsernameEditor from './UsernameEditor';
 
 interface LobbyProps {
     onResetUsername: () => void;
+    onShowRules: () => void;
 }
 
-const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
+const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
     const { lobby, currentPlayer } = useGameStore();
     const { joinTable, joinAsSpectator, createTable, deleteTable, socket } = useSocketStore();
     const [newTableName, setNewTableName] = useState('');
@@ -122,6 +123,13 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={onShowRules}
+                        className="px-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 text-blue-300 hover:text-blue-200 transition-all text-sm font-medium"
+                        title="View Game Rules"
+                    >
+                        📖 Rules
+                    </button>
                     <button
                         onClick={() => setShowCreateTableDialog(true)}
                         className="px-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 text-green-300 hover:text-green-200 transition-all text-sm font-medium"
@@ -262,39 +270,6 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername }) => {
                         )}
                     </motion.div>
 
-                    <br />
-
-                    {/* Game Rules */}
-                    <motion.div
-                        className="mt-20 bg-white/10 backdrop-blur-md rounded p-8 border border-white/20 shadow-2xl"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.5 }}
-                    >
-                        <h2 className="text-3xl font-bold mb-8 text-white text-center">How to Play 200</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="font-bold text-white mb-2 text-lg">🎯 Objective</h3>
-                                    <p className="text-white/80">Be the first team to reach 200 points by winning tricks with valuable cards.</p>
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-white mb-2 text-lg">💰 Scoring Cards</h3>
-                                    <p className="text-white/80">Aces (10 pts), 10s (10 pts), 5s (5 pts)</p>
-                                </div>
-                            </div>
-                            <div className="space-y-4">
-                                <div>
-                                    <h3 className="font-bold text-white mb-2 text-lg">🎲 Bidding</h3>
-                                    <p className="text-white/80">Bid on how many points your team will score. Highest bidder chooses trump suit.</p>
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-white mb-2 text-lg">🃏 Gameplay</h3>
-                                    <p className="text-white/80">Follow suit if possible. Highest trump wins, otherwise highest card of lead suit.</p>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
                 </div>
             </div>
 

@@ -5,6 +5,7 @@ import Lobby from './components/Lobby';
 import GameTable from './components/GameTable';
 import WaitingRoom from './components/WaitingRoom';
 import SpectatorView from './components/SpectatorView';
+import Rules from './components/Rules';
 import { useGameStore } from './store/gameStore';
 import { useSocketStore } from './store/socketStore';
 import { getStoredUsername, storeUsername } from './utils/cookieUtils';
@@ -15,6 +16,7 @@ function App() {
     const { socket, isConnected } = useSocketStore();
     const [playerName, setPlayerName] = useState('');
     const [showNameInput, setShowNameInput] = useState(true);
+    const [showRules, setShowRules] = useState(false);
 
     // Check for stored username on component mount
     useEffect(() => {
@@ -93,7 +95,17 @@ function App() {
     return (
         <div className="app">
             <AnimatePresence mode="wait">
-                {currentGame ? (
+                {showRules ? (
+                    <motion.div
+                        key="rules"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <Rules onClose={() => setShowRules(false)} />
+                    </motion.div>
+                ) : currentGame ? (
                     <motion.div
                         key="game"
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -125,7 +137,10 @@ function App() {
                         exit={{ opacity: 0, scale: 0.95 }}
                         transition={{ duration: 0.3 }}
                     >
-                        <Lobby onResetUsername={handleResetUsername} />
+                        <Lobby
+                            onResetUsername={handleResetUsername}
+                            onShowRules={() => setShowRules(true)}
+                        />
                     </motion.div>
                 )}
             </AnimatePresence>

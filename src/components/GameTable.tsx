@@ -28,8 +28,10 @@ const GameTable: React.FC = () => {
         showShuffleAnimation,
         showGlowEffect,
         gameEndedByExit,
+        soundEnabled,
         setSelectedCard,
-        setIsBidding
+        setIsBidding,
+        setSoundEnabled
     } = useGameStore();
 
     // Helper function to check if a player has passed (handles both Set and Array)
@@ -109,8 +111,8 @@ const GameTable: React.FC = () => {
                     const seconds = Math.ceil(remaining / 1000);
                     setTimeRemaining(seconds);
 
-                    // Play tick sound for last 5 seconds
-                    if (seconds <= 5 && seconds > 0 && seconds !== lastPlayedSecond) {
+                    // Play tick sound for last 5 seconds (only if sound is enabled)
+                    if (soundEnabled && seconds <= 5 && seconds > 0 && seconds !== lastPlayedSecond) {
                         // Create a simple beep sound using Web Audio API
                         try {
                             const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -151,7 +153,7 @@ const GameTable: React.FC = () => {
                 clearInterval(interval);
             }
         };
-    }, [currentGame?.currentPlayer, currentGame?.playerTurnStartTime, currentGame?.timeoutDuration]);
+    }, [currentGame?.currentPlayer, currentGame?.playerTurnStartTime, currentGame?.timeoutDuration, soundEnabled, lastPlayedSecond]);
 
     // Early returns after all hooks
     if (!currentGame || !currentPlayer) {
@@ -312,6 +314,19 @@ const GameTable: React.FC = () => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+
+                    {/* Sound Toggle Button - rendered in portal to ensure it's above bid interface */}
+                    {createPortal(
+                        <button
+                            onClick={() => setSoundEnabled(!soundEnabled)}
+                            className="fixed top-3 right-32 px-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 text-blue-300 hover:text-blue-200 transition-all text-sm font-medium"
+                            style={{ zIndex: 10001 }}
+                            title={soundEnabled ? "Disable Sound" : "Enable Sound"}
+                        >
+                            {soundEnabled ? '🔊' : '🔇'} Sound
+                        </button>,
+                        document.body
+                    )}
 
                     {/* Exit Game Button - rendered in portal to ensure it's above bid interface */}
                     {createPortal(
