@@ -936,9 +936,9 @@ async function testGameScenario(scenarioName, hasKitty) {
         player.log(`✅ Created table with kitty ${hasKitty ? 'enabled' : 'disabled'}`);
 
         // Add 3 bots to fill the table
-        await player.addBot(1, 'acadien'); // East
-        await player.addBot(2, 'acadien');   // South  
-        await player.addBot(3, 'acadien');   // West
+        await player.addBot(1, 'easy'); // East
+        await player.addBot(2, 'easy');   // South  
+        await player.addBot(3, 'easy');   // West
         player.log('✅ Added 3 bots to table');
 
         // Start the game

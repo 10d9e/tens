@@ -66,7 +66,7 @@ export function setupSocketEvents(): void {
                 }
             } catch (error) {
                 logger.error('Error in join_lobby:', error);
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'join_lobby', error);
             }
         });
 
@@ -128,7 +128,7 @@ export function setupSocketEvents(): void {
                 // Send confirmation to creator
                 socket.emit('table_created', { table, success: true });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'create_table', error);
             }
         });
 
@@ -197,7 +197,7 @@ export function setupSocketEvents(): void {
                 // Notify all lobby members about the updated lobby
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'add_bot', error);
             }
         });
 
@@ -249,7 +249,7 @@ export function setupSocketEvents(): void {
                 // Notify all lobby members about the updated lobby
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'remove_bot', error);
             }
         });
 
@@ -311,7 +311,7 @@ export function setupSocketEvents(): void {
                 // Notify all lobby members about the updated lobby
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'move_player', error);
             }
         });
 
@@ -391,7 +391,7 @@ export function setupSocketEvents(): void {
                     await handleBotTurn(game);
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'start_game', error);
             }
         });
 
@@ -467,7 +467,7 @@ export function setupSocketEvents(): void {
                     }
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'leave_table', error);
             }
         });
 
@@ -576,7 +576,7 @@ export function setupSocketEvents(): void {
                     }
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'join_table', error);
             }
         });
 
@@ -659,7 +659,7 @@ export function setupSocketEvents(): void {
 
                 logger.debug(`Player ${player.name} joined table ${tableId} as spectator`);
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'join_as_spectator', error);
             }
         });
 
@@ -791,7 +791,7 @@ export function setupSocketEvents(): void {
                     }
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'make_bid', error);
             }
         });
 
@@ -839,7 +839,7 @@ export function setupSocketEvents(): void {
                     emitGameEvent(game, 'game_updated', { game });
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'take_kitty', error);
             }
         });
 
@@ -918,7 +918,7 @@ export function setupSocketEvents(): void {
                     await handleBotTurn(game);
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'discard_to_kitty', error);
             }
         });
 
@@ -933,7 +933,6 @@ export function setupSocketEvents(): void {
 
                 const player = game.players.find(p => p.id === socket.id);
                 if (!player || player.id !== game.currentPlayer) {
-                    logger.error('Player not found or not current player');
                     throw new Error('Player not found or not current player');
                 }
 
@@ -1285,7 +1284,7 @@ export function setupSocketEvents(): void {
                     await handleBotTurn(game);
                 }
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'make_bid', error);
             }
         });
 
@@ -1309,7 +1308,7 @@ export function setupSocketEvents(): void {
 
                 socket.to(`table-${tableId}`).emit('chat_message', chatMessage);
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'send_chat', error);
             }
         });
 
@@ -1345,7 +1344,7 @@ export function setupSocketEvents(): void {
                 // Also update lobby for players not in the table
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'update_table_timeout', error);
             }
         });
 
@@ -1389,7 +1388,7 @@ export function setupSocketEvents(): void {
                 // Also update lobby for players not in the table
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'update_table_deck_variant', error);
             }
         });
 
@@ -1433,7 +1432,7 @@ export function setupSocketEvents(): void {
                 // Also update lobby for players not in the table
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'update_table_score_target', error);
             }
         });
 
@@ -1482,7 +1481,7 @@ export function setupSocketEvents(): void {
                 // Also update lobby for players not in the table
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'update_table_kitty', error);
             }
         });
 
@@ -1518,7 +1517,7 @@ export function setupSocketEvents(): void {
                 // Also update lobby for players not in the table
                 notifyLobbyMembers('default', 'lobby_updated', { lobby: { ...lobby, tables: Array.from(lobby.tables.values()) } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'update_table_privacy', error);
             }
         });
 
@@ -1564,7 +1563,7 @@ export function setupSocketEvents(): void {
                 const tablesArray = Array.from(lobby.tables.values());
                 io.to(lobbyId).emit('lobby_updated', { lobby: { ...lobby, tables: tablesArray } });
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'delete_table', error);
             }
         });
 
@@ -1664,7 +1663,7 @@ export function setupSocketEvents(): void {
 
                 logger.debug(`Game ${gameId} ended due to player exit by ${player.name}`);
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'exit_game', error);
             }
         });
 
@@ -1757,15 +1756,10 @@ export function setupSocketEvents(): void {
 
                 players.delete(socket.id);
             } catch (error) {
-                handleSocketError(socket, error);
+                handleSocketError(socket, 'disconnect', error);
             }
         });
     });
-}
-
-function handleSocketError(socket: Socket, error: any): void {
-    logger.error('Error:', error);
-    socket.emit('error', { message: 'Error: ' + error });
 }
 
 // Helper function to emit game events to the correct room (game-specific if active, table-specific if not)
@@ -1793,4 +1787,9 @@ export function emitGameEvent(game: GameState | null, event: string, data: any):
         // Game is finished or not active, use table room
         io.to(`table-${game.tableId}`).emit(event, serializedData);
     }
+}
+
+function handleSocketError(socket: Socket, phase: string, error: any): void {
+    logger.error('Error:', error);
+    socket.emit('error', { message: `${phase}: ${error}` });
 }

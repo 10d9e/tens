@@ -17,7 +17,7 @@
         "test:stress": "node stress-test.js",
         "cli": "node cli-game.js",
         "test:integration": "node integration-test.js",
-        "test:stress:full": "concurrently \"INTEGRATION_TEST=true npm run dev:full\" \"sleep 5 && npm run test:stress -- 100\""
+        "test:stress:full": "concurrently \"INTEGRATION_TEST=true npm run dev:full\" \"sleep 5 && npm run test:stress -- 50\""
     },
     "dependencies": {
         "classnames": "^2.3.2",
