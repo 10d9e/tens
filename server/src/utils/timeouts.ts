@@ -10,7 +10,7 @@ export function startTimeoutCheck(): void {
         games.forEach((game, gameId) => {
             logger.debug(`Checking player timeout for game ${gameId}`);
             if (checkPlayerTimeout(game)) {
-                logger.info(`Game ${gameId} was cleaned up due to timeout`);
+                logger.warn(`Game ${gameId} was cleaned up due to timeout`);
             } else {
                 logger.debug(`Game ${gameId} is not timed out`);
             }
@@ -37,7 +37,7 @@ function checkPlayerTimeout(game: GameState): boolean {
         }
 
         const playerName = currentPlayer?.name || 'Unknown player';
-        logger.info(`Player ${playerName} (${currentPlayerId}) timed out after ${game.timeoutDuration}ms`);
+        logger.warn(`Player ${playerName} (${currentPlayerId}) timed out after ${game.timeoutDuration}ms`);
 
         // Clean up game and force all players back to lobby
         cleanupGameDueToTimeout(game, playerName);
