@@ -14,7 +14,7 @@ interface SocketStore {
     joinLobby: (playerName: string) => void;
     joinTable: (tableId: string, tableName?: string, numBots?: number, password?: string) => void;
     joinAsSpectator: (tableId: string) => void;
-    createTable: (tableName: string) => void;
+    createTable: (tableName: string, timeoutDuration?: number, deckVariant?: '36' | '40', scoreTarget?: 200 | 300 | 500 | 1000, hasKitty?: boolean, isPrivate?: boolean, password?: string) => void;
     addBot: (tableId: string, position: number, skill?: string) => void;
     removeBot: (tableId: string, botId: string) => void;
     movePlayer: (tableId: string, newPosition: number) => void;
@@ -486,15 +486,20 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         }
     },
 
-    createTable: (tableName) => {
+    createTable: (tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false, isPrivate = false, password) => {
         const { socket } = get();
         if (socket) {
             const tableId = `table-${Date.now()}`;
-            console.log('Creating table:', tableId, 'with name:', tableName);
+            console.log('Creating table:', tableId, 'with name:', tableName, 'timeout:', timeoutDuration, 'deck:', deckVariant, 'score:', scoreTarget, 'kitty:', hasKitty, 'private:', isPrivate);
             socket.emit('create_table', {
                 tableId,
                 tableName,
-                timeoutDuration: 30000 // Default 30 seconds
+                timeoutDuration,
+                deckVariant,
+                scoreTarget,
+                hasKitty,
+                isPrivate,
+                password
             });
         } else {
             console.log('Socket not connected');

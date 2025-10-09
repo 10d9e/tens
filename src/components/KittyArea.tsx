@@ -21,13 +21,34 @@ const KittyArea: React.FC<KittyAreaProps> = ({
         return card.rank === 'A' || card.rank === '10' || card.rank === '5';
     };
 
+    // Get point value for a card
+    const getCardPoints = (card: CardType): number => {
+        if (card.rank === 'A') return 11;
+        if (card.rank === '10') return 10;
+        if (card.rank === '5') return 5;
+        return 0;
+    };
+
+    // Get the defending team (who receives the kitty points)
+    const getDefendingTeam = () => {
+        if (!contractorTeam) return 'team1';
+        return contractorTeam === 'team1' ? 'team2' : 'team1';
+    };
+
+    // Get the text color for the defending team
+    const getDefendingTeamColor = () => {
+        const defendingTeam = getDefendingTeam();
+        // Team 1 = red/pink, Team 2 = blue
+        return defendingTeam === 'team1' ? 'text-red-400' : 'text-blue-400';
+    };
+
     // Determine which team gets the kitty discard points and get glow color
     // Kitty discards always go to the defending team (the team that didn't win the bid)
     const getKittyDiscardTeamGlow = () => {
         if (!contractorTeam) return '0 0 30px rgba(239, 68, 68, 1), 0 0 60px rgba(239, 68, 68, 0.8), 0 0 90px rgba(239, 68, 68, 0.6)'; // Default red glow
 
         // The defending team is the opposite of the contractor team
-        const defendingTeam = contractorTeam === 'team1' ? 'team2' : 'team1';
+        const defendingTeam = getDefendingTeam();
 
         // Team 1 = red glow, Team 2 = blue glow - Multiple layers for more prominent glow
         return defendingTeam === 'team1'
@@ -47,30 +68,48 @@ const KittyArea: React.FC<KittyAreaProps> = ({
                         // Show actual discarded cards
                         kittyDiscards.map((card, index) => {
                             const isPoint = isPointCard(card);
+                            const points = getCardPoints(card);
 
                             return (
-                                <motion.div
-                                    key={card.id}
-                                    initial={{ opacity: 0, y: 20, rotateY: 180 }}
-                                    animate={{
-                                        opacity: 1,
-                                        y: isPoint ? -8 : 0, // Raise point cards slightly
-                                        rotateY: 0
-                                    }}
-                                    transition={{
-                                        duration: 0.6,
-                                        delay: index * 0.1,
-                                        ease: "easeOut"
-                                    }}
-                                    className={`relative ${isPoint ? 'z-50' : 'z-40'}`}
-                                >
-                                    <Card
-                                        card={card}
-                                        size="small"
-                                        className="shadow-lg kitty-card"
-                                        style={isPoint ? { boxShadow: getKittyDiscardTeamGlow() } : undefined}
-                                    />
-                                </motion.div>
+                                <div key={card.id} className="flex flex-col items-center">
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20, rotateY: 180 }}
+                                        animate={{
+                                            opacity: 1,
+                                            y: isPoint ? -8 : 0, // Raise point cards slightly
+                                            rotateY: 0
+                                        }}
+                                        transition={{
+                                            duration: 0.6,
+                                            delay: index * 0.1,
+                                            ease: "easeOut"
+                                        }}
+                                        className={`relative ${isPoint ? 'z-50' : 'z-40'}`}
+                                    >
+                                        <Card
+                                            card={card}
+                                            size="small"
+                                            className="shadow-lg kitty-card"
+                                            style={isPoint ? { boxShadow: getKittyDiscardTeamGlow() } : undefined}
+                                        />
+                                    </motion.div>
+                                    {isPoint && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: -5 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            transition={{
+                                                duration: 0.4,
+                                                delay: index * 0.1 + 0.3
+                                            }}
+                                            className={`text-lg font-extrabold mt-1 ${getDefendingTeamColor()}`}
+                                            style={{
+                                                textShadow: '0 0 12px currentColor, 0 0 24px currentColor, 0 2px 4px rgba(0,0,0,0.8)'
+                                            }}
+                                        >
+                                            +{points}
+                                        </motion.div>
+                                    )}
+                                </div>
                             );
                         })
                     ) : (

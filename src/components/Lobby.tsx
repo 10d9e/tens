@@ -17,6 +17,14 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
     const [joinPassword, setJoinPassword] = useState('');
     const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
 
+    // Table creation options
+    const [timeoutDuration, setTimeoutDuration] = useState(30);
+    const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
+    const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
+    const [hasKitty, setHasKitty] = useState(false);
+    const [isPrivate, setIsPrivate] = useState(false);
+    const [tablePassword, setTablePassword] = useState('');
+
     console.log('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
 
     // If lobby data is not available, request it from the server
@@ -59,14 +67,31 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
         console.log('Create table clicked, name:', newTableName);
         if (newTableName.trim()) {
             console.log('Creating table with name:', newTableName.trim());
-            createTable(newTableName.trim());
-            // Clear the form after creating
-            setNewTableName('');
-            // Close the dialog
-            setShowCreateTableDialog(false);
+            createTable(
+                newTableName.trim(),
+                timeoutDuration * 1000, // Convert to milliseconds
+                deckVariant,
+                scoreTarget,
+                hasKitty,
+                isPrivate,
+                isPrivate ? tablePassword : undefined
+            );
+            // Reset form and close dialog
+            resetCreateTableForm();
         } else {
             console.log('Table name is empty');
         }
+    };
+
+    const resetCreateTableForm = () => {
+        setNewTableName('');
+        setTimeoutDuration(30);
+        setDeckVariant('36');
+        setScoreTarget(200);
+        setHasKitty(false);
+        setIsPrivate(false);
+        setTablePassword('');
+        setShowCreateTableDialog(false);
     };
 
     const handleDeleteTable = (tableId: string) => {
@@ -321,9 +346,9 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
 
             {/* Create Table Dialog */}
             {showCreateTableDialog && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4">
                     <motion.div
-                        className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 shadow-2xl max-w-md w-full mx-4"
+                        className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 shadow-2xl max-w-2xl w-full my-8"
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ duration: 0.2 }}
@@ -331,39 +356,222 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                         <h3 className="text-2xl font-bold text-white mb-6">
                             ➕ Create New Table
                         </h3>
-                        <div className="space-y-4">
-                            <input
-                                type="text"
-                                placeholder="Enter table name..."
-                                value={newTableName}
-                                onChange={(e) => setNewTableName(e.target.value)}
-                                className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-                                maxLength={30}
-                                onKeyPress={(e) => {
-                                    if (e.key === 'Enter' && newTableName.trim()) {
-                                        handleCreateTable();
-                                    }
-                                }}
-                                autoFocus
-                            />
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleCreateTable}
-                                    disabled={!newTableName.trim()}
-                                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded font-semibold text-white transition-all transform hover:scale-105 disabled:hover:scale-100"
-                                >
-                                    Create Table
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setShowCreateTableDialog(false);
-                                        setNewTableName('');
-                                    }}
-                                    className="px-4 py-3 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 rounded font-semibold text-white transition-all transform hover:scale-105"
-                                >
-                                    Cancel
-                                </button>
+                        <div className="max-h-[70vh] overflow-y-auto pr-2">
+                            {/* Table Name - Full Width */}
+                            <div className="mb-6">
+                                <label className="block text-white font-medium mb-2">Table Name:</label>
+                                <input
+                                    type="text"
+                                    placeholder="Enter table name..."
+                                    value={newTableName}
+                                    onChange={(e) => setNewTableName(e.target.value)}
+                                    className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                                    maxLength={30}
+                                    autoFocus
+                                />
                             </div>
+
+                            {/* Two Column Layout */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                                {/* Left Column */}
+                                <div className="space-y-6">
+                                    {/* Privacy Settings */}
+                                    <div className="pb-4">
+                                        <h4 className="text-lg font-semibold text-white mb-3">🔒 Privacy Settings</h4>
+                                        <div className="space-y-3 pl-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isPrivate}
+                                                    onChange={(e) => setIsPrivate(e.target.checked)}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 rounded focus:ring-green-400 focus:ring-2"
+                                                />
+                                                <span className="text-white font-medium">Make table private</span>
+                                            </label>
+                                            {isPrivate && (
+                                                <div>
+                                                    <input
+                                                        type="password"
+                                                        placeholder="Enter password..."
+                                                        value={tablePassword}
+                                                        onChange={(e) => setTablePassword(e.target.value)}
+                                                        className="w-full px-3 py-2 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all text-sm"
+                                                        maxLength={50}
+                                                    />
+                                                    <p className="text-white/70 text-xs mt-2">
+                                                        Players need this password to join.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Deck Variant */}
+                                    <div className="pb-4">
+                                        <h4 className="text-lg font-semibold text-white mb-3">🃏 Deck Variant</h4>
+                                        <div className="space-y-2 pl-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="deckVariant"
+                                                    value="36"
+                                                    checked={deckVariant === '36'}
+                                                    onChange={(e) => setDeckVariant(e.target.value as '36' | '40')}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                                />
+                                                <span className="text-white">36 Cards (Standard)</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="deckVariant"
+                                                    value="40"
+                                                    checked={deckVariant === '40'}
+                                                    onChange={(e) => setDeckVariant(e.target.value as '36' | '40')}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                                />
+                                                <span className="text-white">40 Cards (with 6s)</span>
+                                            </label>
+                                            <p className="text-white/70 text-xs mt-2">
+                                                Standard or with 6s included.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Kitty Feature - Only shown when 40-card deck is selected */}
+                                    {deckVariant === '40' && (
+                                        <div className="pb-4">
+                                            <h4 className="text-lg font-semibold text-white mb-3">🐱 Kitty Feature</h4>
+                                            <div className="space-y-2 pl-4">
+                                                <label className="flex items-center space-x-2 cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={hasKitty}
+                                                        onChange={(e) => setHasKitty(e.target.checked)}
+                                                        className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400 rounded"
+                                                    />
+                                                    <span className="text-white">Enable Kitty</span>
+                                                </label>
+                                                <p className="text-white/70 text-xs mt-2">
+                                                    Winner takes 4 cards from kitty, discards 4 back. Discards go to defending team.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Right Column */}
+                                <div className="space-y-6">
+                                    {/* Score Target */}
+                                    <div className="pb-4">
+                                        <h4 className="text-lg font-semibold text-white mb-3">🎯 Score Target</h4>
+                                        <div className="space-y-2 pl-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="scoreTarget"
+                                                    value="200"
+                                                    checked={scoreTarget === 200}
+                                                    onChange={(e) => setScoreTarget(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                                />
+                                                <span className="text-white">200 Points (Standard)</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="scoreTarget"
+                                                    value="300"
+                                                    checked={scoreTarget === 300}
+                                                    onChange={(e) => setScoreTarget(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                                />
+                                                <span className="text-white">300 Points</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="scoreTarget"
+                                                    value="500"
+                                                    checked={scoreTarget === 500}
+                                                    onChange={(e) => setScoreTarget(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                                />
+                                                <span className="text-white">500 Points</span>
+                                            </label>
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="scoreTarget"
+                                                    value="1000"
+                                                    checked={scoreTarget === 1000}
+                                                    onChange={(e) => setScoreTarget(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
+                                                />
+                                                <span className="text-white">1000 Points</span>
+                                            </label>
+                                            <p className="text-white/70 text-xs mt-2">
+                                                Target score to win the game.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Turn Timeout - Full Width */}
+                            <div className="border-t border-white/20 pt-6 pb-4">
+                                <h4 className="text-lg font-semibold text-white mb-3">⏱️ Turn Timeout</h4>
+                                <div className="space-y-3 pl-4">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-white font-medium">
+                                            {timeoutDuration} seconds
+                                        </label>
+                                        <span className="text-white/60 text-sm">
+                                            {timeoutDuration <= 60 ? `${timeoutDuration}s` : `${Math.floor(timeoutDuration / 60)}m ${timeoutDuration % 60}s`}
+                                        </span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="30"
+                                        max="300"
+                                        step="10"
+                                        value={timeoutDuration}
+                                        onChange={(e) => setTimeoutDuration(parseInt(e.target.value))}
+                                        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
+                                        style={{
+                                            background: `linear-gradient(to right, #4ade80 0%, #4ade80 ${((timeoutDuration - 30) / (300 - 30)) * 100}%, rgba(255,255,255,0.2) ${((timeoutDuration - 30) / (300 - 30)) * 100}%, rgba(255,255,255,0.2) 100%)`
+                                        }}
+                                    />
+                                    <div className="flex justify-between text-xs text-white/60">
+                                        <span>30s</span>
+                                        <span>1m</span>
+                                        <span>2m</span>
+                                        <span>3m</span>
+                                        <span>4m</span>
+                                        <span>5m</span>
+                                    </div>
+                                    <p className="text-white/70 text-xs mt-2">
+                                        Time limit for each turn during bidding and playing.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-4 mt-6 pt-6 border-t border-white/20">
+                            <button
+                                onClick={handleCreateTable}
+                                disabled={!newTableName.trim()}
+                                className="flex-1 px-6 py-3.5 bg-white/10 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-semibold text-white text-base transition-all transform hover:scale-[1.02] disabled:hover:scale-100 hover:shadow-lg disabled:opacity-50"
+                            >
+                                ✓ Create Table
+                            </button>
+                            <button
+                                onClick={resetCreateTableForm}
+                                className="px-8 py-3.5 bg-white/10 hover:bg-white/20 border-2 border-white/30 hover:border-white/50 rounded-lg font-semibold text-white text-base transition-all transform hover:scale-[1.02] hover:shadow-lg"
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </motion.div>
                 </div>

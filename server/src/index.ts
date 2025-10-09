@@ -4,8 +4,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
 import path from 'path';
 import logger from './logger';
-import { create3BotTables } from './utils/gameLogic';
-import { createBigBubTable, createAcadieTable, createAcadienTestTable } from './utils/misc';
+import { createKittyTables, createStandardTables } from './utils/misc';
 import { setupSocketEvents } from './utils/events';
 import { startTimeoutCheck } from './utils/timeouts';
 
@@ -56,10 +55,8 @@ startTimeoutCheck();
 setupSocketEvents();
 
 // Create the default tables after SimpleBotAI is defined
-create3BotTables(5);
-createBigBubTable();
-createAcadieTable();
-createAcadienTestTable();
+createStandardTables(3);
+createKittyTables(3);
 
 /* start server */
 const PORT = process.env.PORT || 3001;

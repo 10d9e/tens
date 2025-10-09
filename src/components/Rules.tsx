@@ -32,12 +32,12 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
 
             {/* Rules Content */}
             <motion.div
-                className="max-w-4xl mx-auto p-8"
+                className="max-w-4xl mx-auto"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5 }}
             >
-                <div className="bg-white/10 backdrop-blur-md rounded-lg p-8 border border-white/20 shadow-2xl">
+                <div className="bg-white/10 backdrop-blur-md p-8 shadow-2xl">
                     <div className="prose prose-invert max-w-none text-white/90">
                         <h2 className="text-3xl font-bold text-white mb-6">Players and Cards</h2>
                         <p>

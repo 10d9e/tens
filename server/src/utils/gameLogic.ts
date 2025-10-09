@@ -49,51 +49,6 @@ export function validateKittyState(game: Game, context: string = ''): boolean {
     return issues.length === 0;
 }
 
-// Create multiple default tables with 3 bot players each
-export function create3BotTables(numTables = 1): void {
-    if (!defaultLobby) {
-        throw new Error('Default lobby not found');
-    }
-
-    for (let tableNum = 1; tableNum <= numTables; tableNum++) {
-        const tableId = tableNum === 1 ? 'robot-fun-table' : `robot-fun-table-${tableNum}`;
-        const tableName = tableNum === 1 ? 'Robot Fun' : `Robot Fun ${tableNum}`;
-
-        const table: Table = {
-            id: tableId,
-            name: tableName,
-            players: [],
-            maxPlayers: 4,
-            isPrivate: false,
-            deckVariant: '36', // Default to 36-card deck
-            scoreTarget: 200, // Default to 200 points
-            hasKitty: false // Default to no kitty
-        };
-
-        // Add 3 bot players (without AI for now, will be added when game starts)
-        // Position them sequentially (0, 1, 2) leaving position 3 for human player
-        const botSkills = ['easy', 'medium', 'hard', 'acadien'];
-        for (let i = 0; i < 3; i++) {
-            const botId = `bot-${uuidv4()}`;
-            const botName = getRandomHumanName();
-            const bot: Player = {
-                id: botId,
-                name: botName,
-                isBot: true,
-                botSkill: botSkills[i] as 'easy' | 'medium' | 'hard' | 'acadien',
-                position: i as 0 | 1 | 2 | 3, // Sequential positions: 0, 1, 2
-                cards: [],
-                score: 0,
-                isReady: true
-            };
-            table.players.push(bot);
-        }
-
-        defaultLobby.tables.set(tableId, table);
-        logger.info(`Created default table "${tableName}" with 3 bot players`);
-    }
-}
-
 // Human names for bots
 const humanNames = [
     'Alice', 'Bob', 'Charlie', 'Diana', 'Eve', 'Frank', 'Grace', 'Henry',
