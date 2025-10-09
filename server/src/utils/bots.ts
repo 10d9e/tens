@@ -457,8 +457,11 @@ class AcadienBotAI {
         let selectedCard;
 
         switch (strategy) {
+            case 'dump_points_to_partner':
+                selectedCard = this.selectCardToDumpPoints(playableCards, leadSuit, trumpSuit, trickAnalysis, myPlayer, game);
+                break;
             case 'win_trick':
-                selectedCard = this.selectCardToWin(playableCards, leadSuit, trumpSuit, trickAnalysis);
+                selectedCard = this.selectCardToWin(playableCards, leadSuit, trumpSuit, trickAnalysis, myPlayer, game);
                 break;
             case 'lose_trick':
                 selectedCard = this.selectCardToLose(playableCards, leadSuit, trumpSuit, trickAnalysis);
@@ -508,8 +511,21 @@ class AcadienBotAI {
                 } else if (currentWinningCard && card.suit === game.trumpSuit && currentWinningCard.card.suit !== game.trumpSuit) {
                     currentWinningCard = play;
                     currentWinningPlayer = play.playerId;
+                } else if (currentWinningCard && card.suit === game.trumpSuit && currentWinningCard.card.suit === game.trumpSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.card.rank)) {
+                    currentWinningCard = play;
+                    currentWinningPlayer = play.playerId;
                 }
             });
+        }
+
+        // Determine if partner is currently winning
+        let partnerIsWinning = false;
+        if (currentWinningPlayer) {
+            const winningPlayer = game.players.find(p => p.id === currentWinningPlayer);
+            if (winningPlayer) {
+                const isPartner = (winningPlayer.position % 2) === (myPlayer.position % 2) && winningPlayer.id !== myPlayer.id;
+                partnerIsWinning = isPartner;
+            }
         }
 
         return {
@@ -520,17 +536,37 @@ class AcadienBotAI {
             leadSuit: cardsPlayed.length > 0 && cardsPlayed[0] ? cardsPlayed[0].card.suit : null,
             isContractorTeam,
             trickPosition: cardsPlayed.length, // 0 = first, 1 = second, etc.
-            isLastToPlay: cardsPlayed.length === 3
+            isLastToPlay: cardsPlayed.length === 3,
+            partnerIsWinning
         };
     }
 
     // Determine overall playing strategy
-    determinePlayingStrategy(game: Game, myPlayer: Player, trickAnalysis: any): 'default' | 'win_trick' | 'lose_trick' | 'conserve_trump' | 'signal_partner' {
+    determinePlayingStrategy(game: Game, myPlayer: Player, trickAnalysis: any): 'default' | 'win_trick' | 'lose_trick' | 'conserve_trump' | 'signal_partner' | 'dump_points_to_partner' {
         const myTeam = myPlayer.position % 2 === 0 ? 'team1' : 'team2';
         const isContractorTeam = game.contractorTeam === myTeam;
         const pointsInTrick = trickAnalysis.pointsInTrick;
 
-        // If we're the contractor team and need points
+        // PRIORITY 1: If partner is winning, dump points to them
+        if (trickAnalysis.partnerIsWinning) {
+            logger.debug(`Partner is winning the trick - dumping points strategy`);
+            return 'dump_points_to_partner';
+        }
+
+        // PRIORITY 2: If opponent is winning with points, try to win it
+        if (trickAnalysis.currentWinningPlayer && pointsInTrick >= 5) {
+            const winningPlayer = game.players.find(p => p.id === trickAnalysis.currentWinningPlayer);
+            if (!winningPlayer) {
+                return 'default';
+            }
+            const isOpponent = (winningPlayer.position % 2) !== (myPlayer.position % 2);
+            if (isOpponent) {
+                logger.debug(`Opponent is winning with ${pointsInTrick} points - trying to win`);
+                return 'win_trick';
+            }
+        }
+
+        // PRIORITY 3: If we're the contractor team and need points
         if (isContractorTeam && game.currentBid) {
             const pointsNeeded = game.currentBid.points - this.getTeamPointsSoFar(game, myTeam);
             if (pointsNeeded > 0 && pointsInTrick >= 10) {
@@ -538,24 +574,12 @@ class AcadienBotAI {
             }
         }
 
-        // If opponent is winning with high-value cards, try to win
-        if (trickAnalysis.currentWinningPlayer && pointsInTrick >= 15) {
-            const winningPlayer = game.players.find(p => p.id === trickAnalysis.currentWinningPlayer);
-            if (!winningPlayer) {
-                return 'default';
-            }
-            const isOpponent = (winningPlayer.position % 2) !== (myPlayer.position % 2);
-            if (isOpponent) {
-                return 'win_trick';
-            }
-        }
-
-        // If we're last to play and can't win, try to lose cheaply
+        // PRIORITY 4: If we're last to play and can't win, try to lose cheaply
         if (trickAnalysis.isLastToPlay && trickAnalysis.pointsInTrick < 10) {
             return 'lose_trick';
         }
 
-        // If we have few trump cards left, conserve them
+        // PRIORITY 5: If we have few trump cards left, conserve them
         const trumpCards = myPlayer.cards.filter(c => c.suit === game.trumpSuit);
         if (trumpCards.length <= 2 && trickAnalysis.leadSuit !== game.trumpSuit) {
             return 'conserve_trump';
@@ -565,8 +589,68 @@ class AcadienBotAI {
         return 'default';
     }
 
+    // NEW METHOD: Select card to dump points to partner
+    selectCardToDumpPoints(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any, myPlayer: Player, game: Game): Card {
+        logger.debug(`Dumping points to partner - cards available: ${playableCards.length}`);
+
+        const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
+        const trumpCards = playableCards.filter(c => c.suit === trumpSuit);
+
+        // CRITICAL: Never cut partner with trump when they're already winning!
+        if (leadSuit && leadSuitCards.length === 0 && trumpCards.length > 0) {
+            // We don't have lead suit and only have trump - we would cut partner!
+            // Instead, play lowest non-trump card (or any low card if all are trump)
+            const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
+            if (nonTrumpCards.length > 0) {
+                logger.debug(`Avoiding cutting partner - playing non-trump card`);
+                // Among non-trump cards, prefer point cards
+                const pointCards = nonTrumpCards.filter(c => getCardValue(c) >= 5);
+                if (pointCards.length > 0) {
+                    return pointCards.reduce((highest, current) =>
+                        getCardValue(current) > getCardValue(highest) ? current : highest
+                    );
+                }
+                return this.selectLowCard(nonTrumpCards, leadSuit, trumpSuit);
+            }
+            // All cards are trump - play lowest trump to avoid cutting unnecessarily high
+            logger.debug(`All cards are trump - playing lowest trump to minimize cut`);
+            return this.selectLowCard(trumpCards, leadSuit, trumpSuit);
+        }
+
+        // If we have lead suit cards, dump points
+        if (leadSuitCards.length > 0) {
+            // Prefer 10s and 5s (point cards) to give to partner
+            const pointCards = leadSuitCards.filter(c => getCardValue(c) >= 5);
+            if (pointCards.length > 0) {
+                // Play highest point card (10 over 5)
+                logger.debug(`Dumping point card to partner: ${pointCards.length} point cards available`);
+                return pointCards.reduce((highest, current) =>
+                    getCardValue(current) > getCardValue(highest) ? current : highest
+                );
+            }
+            // No point cards in lead suit, play highest non-point card to keep partner winning
+            logger.debug(`No point cards in lead suit - playing highest non-point card`);
+            return leadSuitCards.reduce((highest, current) =>
+                getCardRank(current.rank) > getCardRank(highest.rank) ? current : highest
+            );
+        }
+
+        // If we don't have lead suit, look for point cards in other suits
+        const pointCards = playableCards.filter(c => getCardValue(c) >= 5 && c.suit !== trumpSuit);
+        if (pointCards.length > 0) {
+            logger.debug(`Playing point card from different suit`);
+            return pointCards.reduce((highest, current) =>
+                getCardValue(current) > getCardValue(highest) ? current : highest
+            );
+        }
+
+        // No point cards available, play low card
+        logger.debug(`No point cards available - playing low card`);
+        return this.selectLowCard(playableCards, leadSuit, trumpSuit);
+    }
+
     // Select card to win the trick
-    selectCardToWin(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
+    selectCardToWin(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any, myPlayer: Player, game: Game): Card {
         if (!leadSuit) {
             // First to play - play a strong card but not necessarily our strongest
             return this.selectStrongCard(playableCards, trumpSuit);
@@ -578,28 +662,34 @@ class AcadienBotAI {
         // If we have the lead suit, play high card
         if (leadSuitCards.length > 0) {
             const currentWinningRank = trickAnalysis.currentWinningCard ?
-                getCardRank(trickAnalysis.currentWinningCard.rank) : 0;
+                getCardRank(trickAnalysis.currentWinningCard.card.rank) : 0;
 
             const winningCards = leadSuitCards.filter(c =>
                 getCardRank(c.rank) > currentWinningRank
             );
 
             if (winningCards.length > 0) {
-                // Play the lowest winning card
+                // Play the lowest winning card (save high cards)
                 return winningCards.reduce((lowest, current) =>
+                    getCardRank(current.rank) < getCardRank(lowest.rank) ? current : lowest
+                );
+            }
+            // Can't win with lead suit, play lowest lead suit card
+            return this.selectLowCard(leadSuitCards, leadSuit, trumpSuit);
+        }
+
+        // If we don't have winning lead suit, consider using trump
+        if (trumpCards.length > 0 && trickAnalysis.currentWinningCard?.card.suit !== trumpSuit) {
+            // Only trump if there are points worth winning (5+)
+            if (trickAnalysis.pointsInTrick >= 5) {
+                // Use lowest trump to win
+                return trumpCards.reduce((lowest, current) =>
                     getCardRank(current.rank) < getCardRank(lowest.rank) ? current : lowest
                 );
             }
         }
 
-        // If we don't have winning lead suit, use trump if available and beneficial
-        if (trumpCards.length > 0 && trickAnalysis.currentWinningCard?.suit !== trumpSuit) {
-            return trumpCards.reduce((lowest, current) =>
-                getCardRank(current.rank) < getCardRank(lowest.rank) ? current : lowest
-            );
-        }
-
-        // Can't win, play low card
+        // Can't win or not worth it, play low card
         return this.selectLowCard(playableCards, leadSuit, trumpSuit);
     }
 
@@ -667,18 +757,48 @@ class AcadienBotAI {
     // Default card selection
     selectCardDefault(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null, trickAnalysis: any): Card {
         if (!leadSuit) {
-            // First to play - play medium value card
-            const mediumCards = playableCards.filter(c => getCardValue(c) >= 5 && getCardValue(c) <= 15);
-            if (mediumCards.length > 0) {
-                const randomIndex = Math.floor(Math.random() * mediumCards.length);
-                return mediumCards[randomIndex]!;
+            // First to play - prefer low to medium cards, avoid high cards and points
+            const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
+            const lowToMediumCards = playableCards.filter(c => {
+                const rank = getCardRank(c.rank);
+                const value = getCardValue(c);
+                // Avoid aces, and avoid 10s and 5s (points)
+                return rank <= 11 && value === 0; // J or below, no point value
+            });
+
+            if (lowToMediumCards.length > 0) {
+                // Play a random low-medium card to avoid being predictable
+                const randomIndex = Math.floor(Math.random() * lowToMediumCards.length);
+                return lowToMediumCards[randomIndex]!;
+            }
+
+            // If no low-medium cards, play lowest available non-trump
+            if (nonTrumpCards.length > 0) {
+                return this.selectLowCard(nonTrumpCards, leadSuit, trumpSuit);
             }
         }
 
-        // Follow suit if possible, otherwise play low
+        // Follow suit if possible, play low to save high cards
         const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
         if (leadSuitCards.length > 0) {
+            // Check if we have a realistic chance to win
+            if (trickAnalysis.currentWinningCard) {
+                const currentWinningRank = getCardRank(trickAnalysis.currentWinningCard.card.rank);
+                const canWin = leadSuitCards.some(c => getCardRank(c.rank) > currentWinningRank);
+
+                if (!canWin || trickAnalysis.pointsInTrick < 5) {
+                    // Can't win or not worth it - play lowest card
+                    return this.selectLowCard(leadSuitCards, leadSuit, trumpSuit);
+                }
+            }
+            // Play lowest card by default
             return this.selectLowCard(leadSuitCards, leadSuit, trumpSuit);
+        }
+
+        // Don't have lead suit - avoid playing trump unless necessary
+        const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
+        if (nonTrumpCards.length > 0) {
+            return this.selectLowCard(nonTrumpCards, leadSuit, trumpSuit);
         }
 
         return this.selectLowCard(playableCards, leadSuit, trumpSuit);
@@ -686,8 +806,7 @@ class AcadienBotAI {
 
     // Helper method to get team points so far in current round
     getTeamPointsSoFar(game: Game, team: 'team1' | 'team2'): number {
-        // This would need to be implemented based on how points are tracked during the round
-        // For now, return 0 as a placeholder
-        return 0;
+        // Return the round scores which track points accumulated during current round
+        return game.roundScores[team] || 0;
     }
 }
