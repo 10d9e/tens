@@ -13,6 +13,7 @@ import { debugPrintAllPlayerCards, debugKittyState } from './debug';
 import { lobbies, players, getGameById, deleteGame, getAllGames } from './state';
 import { resetPlayerTimeouts } from './timeouts';
 import { Table, Player, Game, Card } from "../types/game";
+import { GameError } from "../types/errors";
 
 /* socket handlers */
 // Socket.io connection handling
@@ -75,19 +76,19 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get(lobbyId);
                 if (!lobby) {
                     logger.debug('Lobby not found:', lobbyId);
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 // Check if table already exists
                 if (lobby.tables.has(tableId)) {
                     logger.debug('Table already exists:', tableId);
-                    throw new Error('Table already exists');
+                    throw new GameError('Table already exists');
                 }
 
                 logger.debug('Creating new table:', tableId, 'with name:', tableName, 'deckVariant:', deckVariant, 'hasKitty:', hasKitty);
@@ -138,38 +139,38 @@ export function setupSocketEvents(): void {
                 // Validate skill level
                 const validSkills = ['easy', 'medium', 'hard', 'acadien'];
                 if (!validSkills.includes(skill)) {
-                    throw new Error('Invalid bot skill level');
+                    throw new GameError('Invalid bot skill level');
                 }
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.debug('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if user is the table creator
                 if (table.creator !== player.name) {
                     logger.debug('Only table creator can add bots');
                     socket.emit('error', { message: 'Only the table creator can add bots' });
-                    throw new Error('Only the table creator can add bots');
+                    throw new GameError('Only the table creator can add bots');
                 }
 
                 // Check if position is already occupied
                 if (table.players.some(p => p.position === position)) {
                     logger.debug('Position already occupied:', position);
                     socket.emit('error', { message: 'Position already occupied' });
-                    throw new Error('Position already occupied');
+                    throw new GameError('Position already occupied');
                 }
 
                 // Create bot player
@@ -206,32 +207,32 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.debug('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if user is the table creator
                 if (table.creator !== player.name) {
                     logger.debug('Only table creator can remove bots');
-                    throw new Error('Only the table creator can remove bots');
+                    throw new GameError('Only the table creator can remove bots');
                 }
 
                 // Find and remove the bot
                 const botIndex = table.players.findIndex(p => p.id === botId && p.isBot);
                 if (botIndex === -1) {
                     logger.debug('Bot not found:', botId);
-                    throw new Error('Bot not found');
+                    throw new GameError('Bot not found');
                 }
 
                 const removedBot = table.players.splice(botIndex, 1)[0];
@@ -258,39 +259,39 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.debug('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if the position is valid (0-3)
                 if (newPosition < 0 || newPosition >= table.maxPlayers) {
                     logger.debug('Invalid position:', newPosition);
-                    throw new Error('Invalid position');
+                    throw new GameError('Invalid position');
                 }
 
                 // Check if the new position is already occupied
                 const positionOccupied = table.players.some(p => p.position === newPosition);
                 if (positionOccupied) {
                     logger.debug('Position already occupied:', newPosition);
-                    throw new Error('Position already occupied');
+                    throw new GameError('Position already occupied');
                 }
 
                 // Find the player in the table
                 const playerIndex = table.players.findIndex(p => p.id === socket.id);
                 if (playerIndex === -1) {
                     logger.debug('Player not found in table');
-                    throw new Error('Player not found in table');
+                    throw new GameError('Player not found in table');
                 }
 
                 // Update the player's position
@@ -320,37 +321,37 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.debug('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if user is the table creator
                 if (table.creator !== player.name) {
                     logger.debug('Only table creator can start the game');
-                    throw new Error('Only the table creator can start the game');
+                    throw new GameError('Only the table creator can start the game');
                 }
 
                 // Check if table has exactly 4 players
                 if (table.players.length !== 4) {
                     logger.debug('Table must have exactly 4 players to start');
-                    throw new Error('Table must have exactly 4 players to start');
+                    throw new GameError('Table must have exactly 4 players to start');
                 }
 
                 // Check if game is already started
                 if (table.gameState) {
                     logger.debug('Game already started');
-                    throw new Error('Game already started');
+                    throw new GameError('Game already started');
                 }
 
                 logger.debug('Starting game manually for table:', tableId);
@@ -399,19 +400,19 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get(lobbyId);
                 if (!lobby) {
                     logger.debug('Lobby not found:', lobbyId);
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Remove player from table
@@ -487,7 +488,7 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 // Check if player is already in an active game
@@ -495,27 +496,27 @@ export function setupSocketEvents(): void {
                 for (const game of allGames) {
                     if (game.players.some(p => p.id === player.id) && game.phase !== 'finished') {
                         logger.debug(`Player ${player.name} is already in an active game (${game.id}). Cannot join another table.`);
-                        throw new Error('You are already in an active game. Please finish your current game before joining another table.');
+                        throw new GameError('You are already in an active game. Please finish your current game before joining another table.');
                     }
                 }
 
                 const lobby = lobbies.get(lobbyId);
                 if (!lobby) {
                     logger.debug('Lobby not found:', lobbyId);
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if table is private and validate password
                 if (table.isPrivate && table.password) {
                     if (!password || password !== table.password) {
                         logger.debug(`Player ${player.name} attempted to join private table ${tableId} with incorrect password`);
-                        throw new Error('Incorrect password for private table');
+                        throw new GameError('Incorrect password for private table');
                     }
                 }
 
@@ -596,43 +597,43 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get(lobbyId);
                 if (!lobby) {
                     logger.debug('Lobby not found:', lobbyId);
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.debug('Table not found:', tableId);
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if table is private - spectators cannot join private tables
                 if (table.isPrivate) {
                     logger.debug(`Player ${player.name} attempted to spectate private table ${tableId}`);
-                    throw new Error('Cannot spectate private tables');
+                    throw new GameError('Cannot spectate private tables');
                 }
 
                 // Check if there's an active game to spectate
                 if (!table.gameState) {
                     logger.debug(`Player ${player.name} attempted to spectate table ${tableId} with no active game`);
-                    throw new Error('Cannot spectate a table with no active game');
+                    throw new GameError('Cannot spectate a table with no active game');
                 }
 
                 // Check if player is already in this table as a player
                 if (table.players.some(p => p.id === player.id)) {
                     logger.debug(`Player ${player.name} is already in table ${tableId} as a player`);
-                    throw new Error('You are already in this table as a player');
+                    throw new GameError('You are already in this table as a player');
                 }
 
                 // Check if player is already spectating this table
                 if (table.spectators && table.spectators.some(s => s.id === player.id)) {
                     logger.debug(`Player ${player.name} is already spectating table ${tableId}`);
-                    throw new Error('You are already spectating this table');
+                    throw new GameError('You are already spectating this table');
                 }
 
                 // Initialize spectators array if it doesn't exist
@@ -678,22 +679,24 @@ export function setupSocketEvents(): void {
                 const game = getGameById(gameId);
 
                 if (points > 0 && !suit) {
-                    throw new Error('Suit is undefined');
+                    throw new GameError('Suit is undefined', game);
                 }
 
-                if (!game) throw new Error('Game not found');
+                if (!game) throw new GameError('Game not found', game);
 
                 // Ensure playersWhoHavePassed is always a Set
                 ensurePlayersWhoHavePassedIsSet(game);
 
                 const player = game.players.find(p => p.id === socket.id);
                 if (!player || player.id !== game.currentPlayer) {
-                    throw new Error('Player not found or not current player');
+                    // throw new GameError('Player not found or not current player', game);
+                    logger.warn(`Player ${player?.name} not found or not current player ${game.currentPlayer}`);
+                    return;
                 }
 
                 // Check if player has already passed during this bidding round
                 if (game.playersWhoHavePassed && game.playersWhoHavePassed.has(socket.id) && points > 0) {
-                    throw new Error('Player has already passed and cannot make a bid');
+                    throw new GameError('Player has already passed and cannot make a bid', game);
                 }
 
                 if (points === 0) {
@@ -809,32 +812,35 @@ export function setupSocketEvents(): void {
                 logger.debug('take_kitty received:', data);
                 const { gameId } = data;
                 const player = players.get(socket.id);
+                const game = getGameById(gameId);
+
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket', game);
                 }
 
-                const game = getGameById(gameId);
                 if (!game) {
                     logger.debug('Game not found:', gameId);
-                    throw new Error('Game not found');
+                    throw new GameError('Game not found', game);
                 }
 
                 if (!game.hasKitty) {
-                    throw new Error('Kitty is not enabled for this game');
+                    throw new GameError('Kitty is not enabled for this game', game);
                 }
 
                 // Check if it's the kitty phase and this player is the bid winner
                 if (game.phase !== 'kitty') {
-                    throw new Error('Not in kitty phase');
+                    // throw new GameError('Not in kitty phase: current phase is ' + game.phase, game);
+                    logger.warn(`Player ${player?.name} not in kitty phase: current phase is ${game.phase}`);
+                    return;
                 }
 
                 if (game.currentPlayer !== player.id) {
-                    throw new Error('Not your turn to take kitty');
+                    throw new GameError('Not your turn to take kitty', game);
                 }
 
                 if (!game.kitty || game.kitty.length === 0) {
-                    throw new Error('No kitty available');
+                    throw new GameError('No kitty available', game);
                 }
 
                 // Add kitty cards to player's hand
@@ -857,38 +863,40 @@ export function setupSocketEvents(): void {
                 logger.debug('discard_to_kitty received:', data);
                 const { gameId, discardedCards, trumpSuit } = data;
                 const player = players.get(socket.id);
-                if (!player) {
-                    logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
-                }
-
                 const game = getGameById(gameId);
                 if (!game) {
                     logger.debug('Game not found:', gameId);
-                    throw new Error('Game not found');
+                    throw new GameError('Game not found');
+                }
+
+                if (!player) {
+                    logger.debug('Player not found for socket:', socket.id);
+                    throw new GameError('Player not found for socket', game);
                 }
 
                 if (!game.hasKitty) {
-                    throw new Error('Kitty is not enabled for this game');
+                    throw new GameError('Kitty is not enabled for this game', game);
                 }
 
                 // Check if it's the kitty phase and this player is the bid winner
                 if (game.phase !== 'kitty') {
-                    throw new Error('Not in kitty phase');
+                    // throw new GameError('Not in kitty phase', game);
+                    logger.warn(`Player ${player?.name} not in kitty phase: current phase is ${game.phase}`);
+                    return;
                 }
 
                 if (game.currentPlayer !== player.id) {
-                    throw new Error('Not your turn to discard');
+                    throw new GameError('Not your turn to discard', game);
                 }
 
                 if (!discardedCards || discardedCards.length !== 4) {
-                    throw new Error('Must discard exactly 4 cards');
+                    throw new GameError('Must discard exactly 4 cards', game);
                 }
 
                 // Find the bid winner
                 const bidWinner = game.players.find(p => p.id === player.id);
                 if (!bidWinner) {
-                    throw new Error('Player not found in game');
+                    throw new GameError('Player not found in game', game);
                 }
 
                 // Validate that all discarded cards are in the player's hand
@@ -897,7 +905,7 @@ export function setupSocketEvents(): void {
                 const allCardsValid = discardedCardIds.every((id: string) => playerCardIds.includes(id));
 
                 if (!allCardsValid) {
-                    throw new Error('Invalid cards selected for discard');
+                    throw new GameError('Invalid cards selected for discard', game);
                 }
 
                 // Remove discarded cards from player's hand and add to kitty discards
@@ -937,18 +945,18 @@ export function setupSocketEvents(): void {
                 const game = getGameById(gameId);
                 if (!game) {
                     logger.error('Game not found');
-                    throw new Error('Game not found');
+                    throw new GameError('Game not found', game);
                 }
 
                 const player = game.players.find(p => p.id === socket.id);
                 if (!player || player.id !== game.currentPlayer) {
-                    throw new Error('Player not found or not current player');
+                    throw new GameError('Player not found or not current player', game);
                 }
 
                 // Check if player has any cards left
                 if (player.cards.length === 0) {
                     logger.debug(`Player ${player.name} has no cards left, cannot play`);
-                    throw new Error('Player has no cards left');
+                    throw new GameError('Player has no cards left', game);
                 }
 
                 // Remove card from player's hand
@@ -1303,7 +1311,7 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.error('Player not found for socket');
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const chatMessage = {
@@ -1327,20 +1335,20 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.error('Player not found for socket');
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.error('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
                 const table = lobby.tables.get(tableId);
-                if (!table) throw new Error('Table not found');
+                if (!table) throw new GameError('Table not found');
 
                 // Check if player is the table creator
                 if (table.creator !== player.name) {
-                    throw new Error('Only the table creator can update timeout settings');
+                    throw new GameError('Only the table creator can update timeout settings');
                 }
 
                 // Update timeout duration
@@ -1363,28 +1371,28 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.error('Player not found for socket');
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.error('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.error('Table not found');
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if player is the table creator
                 if (table.creator !== player.name) {
-                    throw new Error('Only the table creator can update deck variant settings');
+                    throw new GameError('Only the table creator can update deck variant settings');
                 }
 
                 // Check if game has already started
                 if (table.gameState) {
-                    throw new Error('Cannot change deck variant after game has started');
+                    throw new GameError('Cannot change deck variant after game has started');
                 }
 
                 // Update deck variant
@@ -1407,28 +1415,28 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.error('Player not found for socket');
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.error('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.error('Table not found');
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if player is the table creator
                 if (table.creator !== player.name) {
-                    throw new Error('Only the table creator can update score target settings');
+                    throw new GameError('Only the table creator can update score target settings');
                 }
 
                 // Check if game has already started
                 if (table.gameState) {
-                    throw new Error('Cannot change score target after game has started');
+                    throw new GameError('Cannot change score target after game has started');
                 }
 
                 // Update score target
@@ -1451,33 +1459,33 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.error('Player not found for socket');
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get('default');
                 if (!lobby) {
                     logger.error('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.error('Table not found');
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Check if player is the table creator
                 if (table.creator !== player.name) {
-                    throw new Error('Only the table creator can update kitty settings');
+                    throw new GameError('Only the table creator can update kitty settings');
                 }
 
                 // Check if game has already started
                 if (table.gameState) {
-                    throw new Error('Cannot change kitty settings after game has started');
+                    throw new GameError('Cannot change kitty settings after game has started');
                 }
 
                 // Check if kitty is only available with 40-card deck
                 if (hasKitty && table.deckVariant !== '40') {
-                    throw new Error('Kitty is only available with 40-card deck');
+                    throw new GameError('Kitty is only available with 40-card deck');
                 }
 
                 // Update kitty setting
@@ -1498,21 +1506,21 @@ export function setupSocketEvents(): void {
             try {
                 const { tableId, isPrivate, password } = data;
                 const player = players.get(socket.id);
-                if (!player) throw new Error('Player not found for socket');
+                if (!player) throw new GameError('Player not found for socket');
 
                 const lobby = lobbies.get('default');
-                if (!lobby) throw new Error('Lobby not found');
+                if (!lobby) throw new GameError('Lobby not found');
                 const table = lobby.tables.get(tableId);
-                if (!table) throw new Error('Table not found');
+                if (!table) throw new GameError('Table not found');
 
                 // Check if player is the table creator
                 if (table.creator !== player.name) {
-                    throw new Error('Only the table creator can update privacy settings');
+                    throw new GameError('Only the table creator can update privacy settings');
                 }
 
                 // Check if game has already started
                 if (table.gameState) {
-                    throw new Error('Cannot change privacy settings after game has started');
+                    throw new GameError('Cannot change privacy settings after game has started');
                 }
 
                 // Update privacy settings
@@ -1536,29 +1544,29 @@ export function setupSocketEvents(): void {
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.error('Player not found for socket');
-                    throw new Error('Player not found for socket');
+                    throw new GameError('Player not found for socket');
                 }
 
                 const lobby = lobbies.get(lobbyId);
                 if (!lobby) {
                     logger.error('Lobby not found');
-                    throw new Error('Lobby not found');
+                    throw new GameError('Lobby not found');
                 }
 
                 const table = lobby.tables.get(tableId);
                 if (!table) {
                     logger.error('Table not found');
-                    throw new Error('Table not found');
+                    throw new GameError('Table not found');
                 }
 
                 // Only allow the creator to delete the table
                 if (table.creator !== player.name) {
-                    throw new Error('Only the table creator can delete this table');
+                    throw new GameError('Only the table creator can delete this table');
                 }
 
                 // Don't allow deleting tables with active games
                 if (table.gameState) {
-                    throw new Error('Cannot delete table with an active game');
+                    throw new GameError('Cannot delete table with an active game');
                 }
 
                 // Remove all players from the table's socket room
@@ -1581,23 +1589,25 @@ export function setupSocketEvents(): void {
                 logger.debug('exit_game received:', data);
                 const { gameId, playerName } = data;
                 const player = players.get(socket.id);
-                if (!player) {
-                    logger.debug('Player not found for socket:', socket.id);
-                    throw new Error('Player not found for socket');
-                }
-
                 const game = getGameById(gameId);
                 if (!game) {
                     logger.warn('Game not found on [exit_game]:', gameId);
                     return;
-                    // throw new Error('Game not found');
+                    // throw new GameError('Game not found');
                 }
+
+                if (!player) {
+                    logger.debug('Player not found for socket:', socket.id);
+                    throw new GameError('Player not found for socket', game);
+                }
+
+
 
                 // Verify the player is in this game
                 const gamePlayer = game.players.find(p => p.id === player.id);
                 if (!gamePlayer) {
                     logger.debug('Player not in game:', player.name);
-                    throw new Error('You are not in this game');
+                    throw new GameError('You are not in this game', game);
                 }
 
                 logger.debug(`Player ${player.name} is exiting game ${gameId}`);
@@ -1809,7 +1819,31 @@ export function emitGameEvent(game: Game | null, event: string, data: any): void
     }
 }
 
-function handleSocketError(socket: Socket, phase: string, error: any): void {
-    logger.error('Error:', error);
-    socket.emit('error', { message: `${phase}: ${error}` });
+function handleSocketError(socket: Socket, phase: string, error: any, game?: Game): void {
+    // Extract game from GameError if available
+    const errorGame = (error as any)?.game || game;
+    const errorCode = (error as any)?.code;
+
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    let message = `${phase}: ${errorMessage}`;
+
+    if (errorGame) {
+        message += `\nGame: ${errorGame.id} 
+                      Phase: ${errorGame.phase} 
+                      Current Player: ${errorGame.currentPlayer} 
+                      Players: ${errorGame.players.length}`;
+    }
+
+    if (errorCode) {
+        message += `\nError Code: ${errorCode}`;
+    }
+
+    logger.error(message);
+    socket.emit('error', {
+        message: errorMessage,
+        phase,
+        gameId: errorGame?.id,
+        code: errorCode
+    });
+
 }

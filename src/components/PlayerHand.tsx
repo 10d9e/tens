@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Card from './Card';
 import { Card as CardType, Player, Trick } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
+import { logger } from '../utils/logging';
 
 interface PlayerHandProps {
     player: Player;
@@ -30,10 +31,13 @@ const PlayerHand: React.FC<PlayerHandProps> = ({
     // Check if the human player has already played a card in the current trick
     const hasPlayedInCurrentTrick = currentTrick.cards.some(trickCard => trickCard.playerId === player.id);
 
-    console.log('PlayerHand render - player:', player);
-    console.log('PlayerHand render - player.cards:', player?.cards);
-    console.log('PlayerHand render - isMyTurn:', isMyTurn);
-    console.log('PlayerHand render - hasPlayedInCurrentTrick:', hasPlayedInCurrentTrick);
+    logger.debug('PlayerHand render - player:', player);
+    logger.debug('PlayerHand render - player.cards:', player?.cards);
+    logger.debug('PlayerHand render - isMyTurn:', isMyTurn);
+    logger.debug('PlayerHand render - hasPlayedInCurrentTrick:', hasPlayedInCurrentTrick);
+    logger.debug('PlayerHand render - player.cards:', player?.cards);
+    logger.debug('PlayerHand render - isMyTurn:', isMyTurn);
+    logger.debug('PlayerHand render - hasPlayedInCurrentTrick:', hasPlayedInCurrentTrick);
 
     const getPlayableCards = () => {
         if (!isMyTurn || hasPlayedInCurrentTrick) return [];

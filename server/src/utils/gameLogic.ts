@@ -100,14 +100,14 @@ export function reservePlayerName(playerName: string): boolean {
         return false; // Name already taken
     }
     usedNames.add(playerName);
-    logger.info(`Reserved name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
+    logger.debug(`Reserved name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
     return true; // Name reserved successfully
 }
 
 // Function to release a name when a player disconnects
 export function releasePlayerName(playerName: string): void {
     usedNames.delete(playerName);
-    logger.info(`Released name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
+    logger.debug(`Released name "${playerName}". Available names: ${usedNames.size} used, ${humanNames.length - usedNames.size} available`);
 }
 
 // Game logic functions
@@ -308,7 +308,7 @@ export function addAItoExistingBots(game: Game): void {
 }
 
 export function startGame(game: Game): Game {
-    logger.info('Starting game with players:', game.players.map(p => ({ id: p.id, name: p.name, isBot: p.isBot })));
+    logger.debug('Starting game: ', game.id);
 
     // Reset all player timeouts at the start of a new game to prevent bleeding from previous games
     if (game.playerTurnStartTime) {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Game, Player, Table, ChatMessage, Card } from '../types/game';
+import { logger } from '../utils/logging';
 
 interface GameStore {
     currentGame: Game | null;
@@ -125,7 +126,7 @@ export const useGameStore = create<GameStore>((set) => ({
         try {
             localStorage.setItem('soundEnabled', enabled.toString());
         } catch (error) {
-            console.error('Failed to save sound preference:', error);
+            logger.error('Failed to save sound preference:', error);
         }
         set({ soundEnabled: enabled });
     }

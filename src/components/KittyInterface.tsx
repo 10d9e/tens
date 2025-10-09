@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useSocketStore } from '../store/socketStore';
 import { Card as CardType } from '../types/game';
 import Card from './Card';
+import { logger } from '../utils/logging';
 
 interface KittyInterfaceProps {
     isOpen: boolean;
@@ -40,7 +41,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
 
     useEffect(() => {
-        console.log('KittyInterface effect:', {
+        logger.debug('KittyInterface effect:', {
             isOpen,
             hasTakenKitty,
             kittyLength: kitty.length,
@@ -51,7 +52,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         });
 
         if (isOpen && !hasTakenKitty && kitty.length > 0) {
-            console.log('Auto-taking kitty for player:', playerId);
+            logger.debug('Auto-taking kitty for player:', playerId);
             // Auto-take kitty when interface opens
             takeKitty(gameId);
             setHasTakenKitty(true);
@@ -63,7 +64,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
     // Reset state when interface closes
     useEffect(() => {
         if (!isOpen) {
-            console.log('KittyInterface closed - resetting state');
+            logger.debug('KittyInterface closed - resetting state');
             setHasTakenKitty(false);
             setSelectedCards([]);
             setAllCards([]);

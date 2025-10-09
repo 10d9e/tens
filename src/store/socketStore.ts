@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { io, Socket } from 'socket.io-client';
 import { useGameStore } from './gameStore';
 import toast from 'react-hot-toast';
+import { logger } from '../utils/logging';
 
 interface SocketStore {
     socket: Socket | null;
@@ -51,26 +52,26 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('connect', () => {
             set({ socket, isConnected: true, playerId: socket.id });
-            console.log('Connected to server with ID:', socket.id);
+            logger.debug('Connected to server with ID:', socket.id);
         });
 
         socket.on('disconnect', () => {
             set({ isConnected: false });
-            console.log('Disconnected from server');
+            logger.debug('Disconnected from server');
         });
 
         socket.on('lobby_joined', (data) => {
-            console.log('Lobby joined data:', data);
+            logger.debug('Lobby joined data:', data);
             const { lobby, player } = data;
             const tablesArray = lobby.tables || [];
-            console.log('Tables array:', tablesArray);
+            logger.debug('Tables array:', tablesArray);
             useGameStore.getState().setLobby(tablesArray);
             useGameStore.getState().setCurrentPlayer(player);
         });
 
         socket.on('game_timeout', (data) => {
             const { message } = data;
-            console.log('Game timeout:', message);
+            logger.debug('Game timeout:', message);
 
             toast.error(message);
 
@@ -83,27 +84,27 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('name_taken', (data) => {
-            console.log('Name taken error:', data);
+            logger.debug('Name taken error:', data);
             // toast.error(data.message);
             // Don't clear the current player state, just show the error
         });
 
         socket.on('player_joined', (data) => {
             const { player } = data;
-            console.log(`${player.name} joined the lobby`);
+            logger.debug(`${player.name} joined the lobby`);
             // toast.success(`${player.name} joined the lobby`);
         });
 
         socket.on('lobby_updated', (data) => {
-            console.log('Lobby updated:', data);
+            logger.debug('Lobby updated:', data);
             const { lobby } = data;
             const tablesArray = lobby.tables || [];
-            console.log('Setting lobby with tables:', tablesArray.map((t: any) => ({ id: t.id, name: t.name, players: t.players.length, gameState: !!t.gameState })));
+            logger.debug('Setting lobby with tables:', tablesArray.map((t: any) => ({ id: t.id, name: t.name, players: t.players.length, gameState: !!t.gameState })));
             useGameStore.getState().setLobby(tablesArray);
         });
 
         socket.on('table_created', (data) => {
-            console.log('Table created:', data);
+            logger.debug('Table created:', data);
             /*
             if (data.success) {
                 toast.success(`Table "${data.table.name}" created successfully!`);
@@ -112,7 +113,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('table_left', (data) => {
-            console.log('Left table:', data);
+            logger.debug('Left table:', data);
             const gameStore = useGameStore.getState();
             gameStore.setCurrentTable(null);
             gameStore.setCurrentGame(null);
@@ -123,18 +124,18 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('table_joined', (data) => {
-            console.log('Table joined data:', data);
+            logger.debug('Table joined data:', data);
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
             useGameStore.getState().setCurrentPlayer(player);
 
             // Check if table is full - if not, we'll be in waiting room
             // If full, game will start automatically and we'll get game_started event
-            console.log('Table players:', table.players.length, 'Max players:', table.maxPlayers);
+            logger.debug('Table players:', table.players.length, 'Max players:', table.maxPlayers);
         });
 
         socket.on('spectator_joined', (data) => {
-            console.log('Spectator joined data:', data);
+            logger.debug('Spectator joined data:', data);
             const { table, spectator, game } = data;
             useGameStore.getState().setCurrentTable(table);
             useGameStore.getState().setCurrentPlayer(spectator);
@@ -142,21 +143,21 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             // If game is provided, set it immediately (game is already in progress)
             if (game) {
                 useGameStore.getState().setCurrentGame(game);
-                console.log('Spectator joined active game, setting game state immediately');
+                logger.debug('Spectator joined active game, setting game state immediately');
             }
 
             // toast.success(`Joined as spectator to "${table.name}"`);
         });
 
         socket.on('table_updated', (data) => {
-            console.log('Table updated:', data);
+            logger.debug('Table updated:', data);
             const { table } = data;
             useGameStore.getState().setCurrentTable(table);
 
             // Check if current player is still in the table
             const currentPlayer = useGameStore.getState().currentPlayer;
             if (currentPlayer && !table.players.find((p: any) => p.id === currentPlayer.id)) {
-                console.log('Current player no longer in table, clearing game state but preserving player info');
+                logger.debug('Current player no longer in table, clearing game state but preserving player info');
                 const gameStore = useGameStore.getState();
                 gameStore.setCurrentGame(null);
                 gameStore.setCurrentTable(null);
@@ -170,28 +171,28 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         socket.on('player_joined_table', (data) => {
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
-            console.log(`${player.name} joined the table`);
+            logger.debug(`${player.name} joined the table`);
             // toast.success(`${player.name} joined the table`);
         });
 
         socket.on('player_left_table', (data) => {
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
-            console.log(`${player.name} left the table`);
+            logger.debug(`${player.name} left the table`);
             // toast(`${player.name} left the table`);
         });
 
         socket.on('spectator_joined_table', (data) => {
             const { table, spectator } = data;
             useGameStore.getState().setCurrentTable(table);
-            console.log(`${spectator.name} is now watching`);
+            logger.debug(`${spectator.name} is now watching`);
             // toast(`${spectator.name} is now watching`);
         });
 
         socket.on('spectator_left_table', (data) => {
             const { table, spectator } = data;
             useGameStore.getState().setCurrentTable(table);
-            console.log(`${spectator.name} stopped watching`);
+            logger.debug(`${spectator.name} stopped watching`);
             // toast(`${spectator.name} stopped watching`);
         });
 
@@ -264,7 +265,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         socket.on('game_updated', (data) => {
             const { game } = data;
             const gameStore = useGameStore.getState();
-            console.log('Received game_updated:', {
+            logger.debug('Received game_updated:', {
                 phase: game.phase,
                 currentPlayer: game.currentPlayer,
                 hasKitty: game.hasKitty,
@@ -395,7 +396,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 const otherTeam = winningTeam === 'team1' ? 'team2' : 'team1';
                 const otherTeamScore = finalScores[otherTeam];
 
-                console.log('Game end details:', { winningTeam, winningTeamName, teamScore, otherTeam, otherTeamScore });
+                logger.debug('Game end details:', { winningTeam, winningTeamName, teamScore, otherTeam, otherTeamScore });
 
                 // Add system message to chat
                 const systemMessage = {
@@ -411,7 +412,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 // Set a flag to indicate the game has ended
                 gameStore.updateGame({ phase: 'finished' });
             } else {
-                console.log('Game ended due to exit/disconnect - not showing winning dialog');
+                logger.debug('Game ended due to exit/disconnect - not showing winning dialog');
             }
         });
 
@@ -419,13 +420,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().addChatMessage(message);
         });
 
-        socket.on('error', (data) => {
-            console.error('error:', data.message);
-            toast.error(data.message);
-        });
-
         socket.on('table_deleted', (data) => {
-            console.log('Table deleted:', data.tableId);
+            logger.debug('Table deleted:', data.tableId);
             // toast.success('Table deleted successfully');
             // Clear current table if we were in the deleted table
             const currentTable = useGameStore.getState().currentTable;
@@ -436,7 +432,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('player_exited_game', (data) => {
             const { message } = data;
-            console.log('Player exited game:', message);
+            logger.debug('Player exited game:', message);
             toast(message, { icon: '🚪' });
 
             // Set flag to indicate game ended by exit (prevents winning dialog from showing)
@@ -456,7 +452,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('game_ended_for_spectator', (data) => {
             const { message } = data;
-            console.log('Game ended for spectator:', message);
+            logger.debug('Game ended for spectator:', message);
             toast(message, { icon: '🏁' });
 
             // Clear spectator game state and return to lobby
@@ -466,6 +462,11 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             gameStore.setCurrentPlayer(null);
             gameStore.setIsBidding(false);
             gameStore.setSelectedCard(null);
+        });
+
+        socket.on('error', (data) => {
+            logger.error('error:', data.message);
+            toast.error(data.message);
         });
 
         set({ socket });
@@ -489,20 +490,20 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
     joinTable: (tableId, tableName, numBots, password) => {
         const { socket } = get();
         if (socket) {
-            console.log('Joining table:', tableId, 'with name:', tableName, 'bots:', numBots, 'password:', password ? '***' : 'none');
+            logger.debug('Joining table:', tableId, 'with name:', tableName, 'bots:', numBots, 'password:', password ? '***' : 'none');
             socket.emit('join_table', { tableId, tableName, numBots, password });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     joinAsSpectator: (tableId) => {
         const { socket } = get();
         if (socket) {
-            console.log('Joining as spectator:', tableId);
+            logger.debug('Joining as spectator:', tableId);
             socket.emit('join_as_spectator', { tableId });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
@@ -510,7 +511,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         const { socket } = get();
         if (socket) {
             const tableId = `table-${Date.now()}`;
-            console.log('Creating table:', tableId, 'with name:', tableName, 'timeout:', timeoutDuration, 'deck:', deckVariant, 'score:', scoreTarget, 'kitty:', hasKitty, 'private:', isPrivate);
+            logger.debug('Creating table:', tableId, 'with name:', tableName, 'timeout:', timeoutDuration, 'deck:', deckVariant, 'score:', scoreTarget, 'kitty:', hasKitty, 'private:', isPrivate);
             socket.emit('create_table', {
                 tableId,
                 tableName,
@@ -522,67 +523,67 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 password
             });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     addBot: (tableId, position, skill) => {
         const { socket } = get();
         if (socket) {
-            console.log('Adding bot to table:', tableId, 'at position:', position, 'with skill:', skill);
+            logger.debug('Adding bot to table:', tableId, 'at position:', position, 'with skill:', skill);
             socket.emit('add_bot', { tableId, position, skill });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     removeBot: (tableId, botId) => {
         const { socket } = get();
         if (socket) {
-            console.log('Removing bot from table:', tableId, 'bot ID:', botId);
+            logger.debug('Removing bot from table:', tableId, 'bot ID:', botId);
             socket.emit('remove_bot', { tableId, botId });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     movePlayer: (tableId, newPosition) => {
         const { socket } = get();
         if (socket) {
-            console.log('Moving player to position:', tableId, 'new position:', newPosition);
+            logger.debug('Moving player to position:', tableId, 'new position:', newPosition);
             socket.emit('move_player', { tableId, newPosition });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     startGame: (tableId) => {
         const { socket } = get();
         if (socket) {
-            console.log('Starting game for table:', tableId);
+            logger.debug('Starting game for table:', tableId);
             socket.emit('start_game', { tableId });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     leaveTable: (tableId) => {
         const { socket } = get();
         if (socket) {
-            console.log('Leaving table:', tableId);
+            logger.debug('Leaving table:', tableId);
             socket.emit('leave_table', { tableId });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     deleteTable: (tableId) => {
         const { socket } = get();
         if (socket) {
-            console.log('Deleting table:', tableId);
+            logger.debug('Deleting table:', tableId);
             socket.emit('delete_table', { tableId });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
@@ -603,7 +604,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
     takeKitty: (gameId) => {
         const { socket } = get();
         if (socket) {
-            console.log('Taking kitty for game:', gameId);
+            logger.debug('Taking kitty for game:', gameId);
             socket.emit('take_kitty', { gameId });
         }
     },
@@ -611,7 +612,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
     discardToKitty: (gameId, discardedCards, trumpSuit) => {
         const { socket } = get();
         if (socket) {
-            console.log('Discarding to kitty for game:', gameId, 'cards:', discardedCards.length, 'trump:', trumpSuit);
+            logger.debug('Discarding to kitty for game:', gameId, 'cards:', discardedCards.length, 'trump:', trumpSuit);
             socket.emit('discard_to_kitty', { gameId, discardedCards, trumpSuit });
         }
     },
@@ -626,63 +627,63 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
     updateTableTimeout: (tableId, timeoutDuration) => {
         const { socket } = get();
         if (socket) {
-            console.log('Updating table timeout:', tableId, 'to:', timeoutDuration);
+            logger.debug('Updating table timeout:', tableId, 'to:', timeoutDuration);
             socket.emit('update_table_timeout', { tableId, timeoutDuration });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     updateTableDeckVariant: (tableId, deckVariant) => {
         const { socket } = get();
         if (socket) {
-            console.log('Updating table deck variant:', tableId, 'to:', deckVariant);
+            logger.debug('Updating table deck variant:', tableId, 'to:', deckVariant);
             socket.emit('update_table_deck_variant', { tableId, deckVariant });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     updateTableScoreTarget: (tableId, scoreTarget) => {
         const { socket } = get();
         if (socket) {
-            console.log('Updating table score target:', tableId, 'to:', scoreTarget);
+            logger.debug('Updating table score target:', tableId, 'to:', scoreTarget);
             socket.emit('update_table_score_target', { tableId, scoreTarget });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     updateTableKitty: (tableId, hasKitty) => {
         const { socket } = get();
         if (socket) {
-            console.log('Updating table kitty setting:', tableId, 'to:', hasKitty);
+            logger.debug('Updating table kitty setting:', tableId, 'to:', hasKitty);
             socket.emit('update_table_kitty', { tableId, hasKitty });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     updateTablePrivacy: (tableId, isPrivate, password) => {
         const { socket } = get();
         if (socket) {
-            console.log('Updating table privacy setting:', tableId, 'to:', isPrivate, 'password:', password ? '***' : 'none');
+            logger.debug('Updating table privacy setting:', tableId, 'to:', isPrivate, 'password:', password ? '***' : 'none');
             socket.emit('update_table_privacy', { tableId, isPrivate, password });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     },
 
     exitGame: (gameId, playerName) => {
         const { socket } = get();
         if (socket) {
-            console.log('Exiting game:', gameId, 'by player:', playerName);
+            logger.debug('Exiting game:', gameId, 'by player:', playerName);
             // Set flag immediately to prevent any race conditions
             const gameStore = useGameStore.getState();
             gameStore.setGameEndedByExit(true);
             socket.emit('exit_game', { gameId, playerName });
         } else {
-            console.log('Socket not connected');
+            logger.debug('Socket not connected');
         }
     }
 }));

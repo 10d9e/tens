@@ -14,6 +14,7 @@ import ShuffleAnimation from './ShuffleAnimation';
 import TrickWinnerAnimation from './TrickWinnerAnimation';
 import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
+import { logger } from '../utils/logging';
 
 const GameTable: React.FC = () => {
     const {
@@ -71,14 +72,14 @@ const GameTable: React.FC = () => {
     // Reset kitty interface when phase changes away from kitty
     useEffect(() => {
         if (currentGame && currentGame.phase !== 'kitty' && showKittyInterface) {
-            console.log('Resetting kitty interface - phase changed to:', currentGame.phase);
+            logger.debug('Resetting kitty interface - phase changed to:', currentGame.phase);
             setShowKittyInterface(false);
         }
     }, [currentGame?.phase, showKittyInterface]);
 
     // Automatically open kitty interface when it's the player's turn in kitty phase
     useEffect(() => {
-        console.log('Kitty phase check:', {
+        logger.debug('Kitty phase check:', {
             currentGame: !!currentGame,
             currentPlayer: !!currentPlayer,
             isMyTurn: currentGame?.currentPlayer === currentPlayer?.id,
@@ -91,7 +92,7 @@ const GameTable: React.FC = () => {
         });
 
         if (currentGame && currentPlayer && currentGame.currentPlayer === currentPlayer.id && currentGame.phase === 'kitty' && !showKittyInterface) {
-            console.log('Opening kitty interface for player:', currentPlayer.name, 'round:', currentGame.round);
+            logger.debug('Opening kitty interface for player:', currentPlayer.name, 'round:', currentGame.round);
             setShowKittyInterface(true);
         }
     }, [currentGame, currentPlayer, showKittyInterface]);
@@ -133,7 +134,7 @@ const GameTable: React.FC = () => {
 
                             setLastPlayedSecond(seconds);
                         } catch (error) {
-                            console.log('Audio not available:', error);
+                            logger.error('Audio not available:', error);
                         }
                     }
                 } else {

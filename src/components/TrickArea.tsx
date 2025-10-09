@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Card from './Card';
 import { Card as CardType } from '../types/game';
+import { logger } from '../utils/logging';
 
 interface TrickAreaProps {
     trick: { cards: { card: CardType; playerId: string }[] };
@@ -13,9 +14,8 @@ interface TrickAreaProps {
 
 const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, children }) => {
     // Debug logging
-    console.log('TrickArea render - trick.cards:', trick.cards);
-    console.log('TrickArea render - trick.cards.length:', trick.cards.length);
-
+    logger.debug('TrickArea render - trick.cards:', trick.cards);
+    logger.debug('TrickArea render - trick.cards.length:', trick.cards.length);
 
     const getCardPosition = (_index: number, playerId: string) => {
         // Find the card player

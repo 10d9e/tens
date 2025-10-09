@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
 import UsernameEditor from './UsernameEditor';
+import { logger } from '../utils/logging';
 
 interface LobbyProps {
     onResetUsername: () => void;
@@ -25,12 +26,12 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
     const [isPrivate, setIsPrivate] = useState(false);
     const [tablePassword, setTablePassword] = useState('');
 
-    console.log('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
+    logger.debug('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
 
     // If lobby data is not available, request it from the server
     React.useEffect(() => {
         if (socket && !lobby && currentPlayer?.name) {
-            console.log('Requesting lobby data from server');
+            logger.debug('Requesting lobby data from server');
             socket.emit('join_lobby', { playerName: currentPlayer.name });
         }
     }, [socket, lobby, currentPlayer]);
@@ -64,9 +65,9 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
     };
 
     const handleCreateTable = () => {
-        console.log('Create table clicked, name:', newTableName);
+        logger.debug('Create table clicked, name:', newTableName);
         if (newTableName.trim()) {
-            console.log('Creating table with name:', newTableName.trim());
+            logger.debug('Creating table with name:', newTableName.trim());
             createTable(
                 newTableName.trim(),
                 timeoutDuration * 1000, // Convert to milliseconds
@@ -79,7 +80,7 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
             // Reset form and close dialog
             resetCreateTableForm();
         } else {
-            console.log('Table name is empty');
+            logger.debug('Table name is empty');
         }
     };
 
@@ -360,15 +361,15 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                             {/* Table Name - Full Width */}
                             <div className="mb-6">
                                 <label className="block text-white font-medium mb-2">Table Name:</label>
-                            <input
-                                type="text"
-                                placeholder="Enter table name..."
-                                value={newTableName}
-                                onChange={(e) => setNewTableName(e.target.value)}
-                                className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-                                maxLength={30}
-                                autoFocus
-                            />
+                                <input
+                                    type="text"
+                                    placeholder="Enter table name..."
+                                    value={newTableName}
+                                    onChange={(e) => setNewTableName(e.target.value)}
+                                    className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
+                                    maxLength={30}
+                                    autoFocus
+                                />
                             </div>
 
                             {/* Two Column Layout */}
@@ -559,19 +560,19 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
 
                         {/* Action Buttons */}
                         <div className="flex gap-4 mt-6 pt-6 border-t border-white/20">
-                                <button
-                                    onClick={handleCreateTable}
-                                    disabled={!newTableName.trim()}
+                            <button
+                                onClick={handleCreateTable}
+                                disabled={!newTableName.trim()}
                                 className="flex-1 px-6 py-3.5 bg-white/10 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed rounded-lg font-semibold text-white text-base transition-all transform hover:scale-[1.02] disabled:hover:scale-100 hover:shadow-lg disabled:opacity-50"
-                                >
+                            >
                                 ✓ Create Table
-                                </button>
-                                <button
+                            </button>
+                            <button
                                 onClick={resetCreateTableForm}
                                 className="px-8 py-3.5 bg-white/10 hover:bg-white/20 border-2 border-white/30 hover:border-white/50 rounded-lg font-semibold text-white text-base transition-all transform hover:scale-[1.02] hover:shadow-lg"
-                                >
-                                    Cancel
-                                </button>
+                            >
+                                Cancel
+                            </button>
                         </div>
                     </motion.div>
                 </div>

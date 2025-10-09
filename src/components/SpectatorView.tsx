@@ -9,6 +9,7 @@ import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
 import TrickWinnerAnimation from './TrickWinnerAnimation';
 import GameInfo from './GameInfo';
+import { logger } from '../utils/logging';
 
 const SpectatorView: React.FC = () => {
     const {
@@ -65,7 +66,7 @@ const SpectatorView: React.FC = () => {
 
                             setLastPlayedSecond(seconds);
                         } catch (error) {
-                            console.log('Audio not available:', error);
+                            logger.error('Audio not available:', error);
                         }
                     }
                 } else {

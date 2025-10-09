@@ -1,3 +1,5 @@
+export * from './game';
+export * from './errors';
 
 // Winston logger types
 export interface Logger {
