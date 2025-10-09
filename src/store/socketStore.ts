@@ -34,6 +34,9 @@ interface SocketStore {
     exitGame: (gameId: string, playerName: string) => void;
 }
 
+// Store timeout IDs for cleanup
+let kittyDisplayTimeout: NodeJS.Timeout | null = null;
+
 export const useSocketStore = create<SocketStore>((set, get) => ({
     socket: null,
     isConnected: false,
@@ -260,6 +263,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
         socket.on('game_updated', (data) => {
             const { game } = data;
+            const gameStore = useGameStore.getState();
             console.log('Received game_updated:', {
                 phase: game.phase,
                 currentPlayer: game.currentPlayer,
@@ -270,7 +274,17 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             useGameStore.getState().setCurrentGame(game);
 
             if (game.phase === 'playing') {
-                useGameStore.getState().setIsBidding(false);
+                gameStore.setIsBidding(false);
+
+                // Clear any pending kitty display timeout
+                if (kittyDisplayTimeout) {
+                    clearTimeout(kittyDisplayTimeout);
+                    kittyDisplayTimeout = null;
+                    // Clear the kitty display immediately when new round starts
+                    gameStore.setShowGlowEffect(false);
+                    gameStore.setCompletedRoundResults(null);
+
+                }
                 // toast.success('Game phase updated to playing!');
             }
         });
@@ -322,10 +336,16 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 gameStore.setCompletedRoundResults(completedResults);
                 gameStore.setShowGlowEffect(true);
 
-                // Clear the completed round results and glow effect after 3.5 seconds (slightly after the server delay)
-                setTimeout(() => {
+                // Clear any existing timeout
+                if (kittyDisplayTimeout) {
+                    clearTimeout(kittyDisplayTimeout);
+                }
+
+                // Clear the completed round results and glow effect after 10 seconds
+                kittyDisplayTimeout = setTimeout(() => {
                     gameStore.setCompletedRoundResults(null);
                     gameStore.setShowGlowEffect(false);
+                    kittyDisplayTimeout = null;
                 }, 10000);
             } else if (wasFailedBidding) {
                 // Show reshuffling message and animation for failed bidding
