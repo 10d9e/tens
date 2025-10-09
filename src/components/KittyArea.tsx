@@ -23,7 +23,7 @@ const KittyArea: React.FC<KittyAreaProps> = ({
 
     // Get point value for a card
     const getCardPoints = (card: CardType): number => {
-        if (card.rank === 'A') return 11;
+        if (card.rank === 'A') return 10;
         if (card.rank === '10') return 10;
         if (card.rank === '5') return 5;
         return 0;
