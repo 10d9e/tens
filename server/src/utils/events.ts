@@ -3,16 +3,14 @@ import { Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../logger';
 import {
-    getCardValue, getCardRank, create3BotTables, reservePlayerName,
+    getCardValue, getCardRank, reservePlayerName,
     releasePlayerName, getRandomHumanName, createDeck, getNextPlayerByPosition,
     calculateRoundScores, isGameEnded, getWinningTeam, createGame, startGame,
     ensurePlayersWhoHavePassedIsSet, handleBotTurn, checkBiddingCompletion, validateKittyState,
     notifyLobbyMembers, cleanupGameRoom, resetTableAfterGameCompletion
 } from './gameLogic';
-import { AcadienBotAI, SimpleBotAI } from './bots';
-import { createBigBubTable, createAcadieTable, createAcadienTestTable } from './misc';
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
-import { lobbies, players, defaultLobby, getGameById, setGameForTable, deleteGame, getAllGames } from './state';
+import { lobbies, players, getGameById, deleteGame, getAllGames } from './state';
 import { resetPlayerTimeouts } from './timeouts';
 import { Table, Player, Game, Card } from "../types/game";
 

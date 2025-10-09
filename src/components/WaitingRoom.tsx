@@ -1,56 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
 
 const WaitingRoom: React.FC = () => {
     const { currentTable, currentPlayer } = useGameStore();
-    const { leaveTable, addBot, removeBot, movePlayer, startGame, updateTableTimeout, updateTableDeckVariant, updateTableScoreTarget, updateTableKitty, updateTablePrivacy } = useSocketStore();
+    const { leaveTable, addBot, removeBot, movePlayer, startGame } = useSocketStore();
     const [selectedSkill, setSelectedSkill] = useState<'easy' | 'medium' | 'hard' | 'acadien'>('medium');
-    const [timeoutDuration, setTimeoutDuration] = useState(30); // Default to 30 seconds
-    const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
-    const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
-    const [hasKitty, setHasKitty] = useState(false);
-    const [isPrivate, setIsPrivate] = useState(false);
-    const [tablePassword, setTablePassword] = useState('');
-
-    // Initialize timeout duration from currentTable when it becomes available
-    useEffect(() => {
-        if (currentTable?.timeoutDuration) {
-            const tableTimeoutSeconds = Math.floor(currentTable.timeoutDuration / 1000);
-            // Ensure minimum timeout is 30 seconds
-            setTimeoutDuration(Math.max(tableTimeoutSeconds, 30));
-        }
-    }, [currentTable?.timeoutDuration]);
-
-    // Initialize deck variant from currentTable when it becomes available
-    useEffect(() => {
-        if (currentTable?.deckVariant) {
-            setDeckVariant(currentTable.deckVariant);
-        }
-    }, [currentTable?.deckVariant]);
-
-    // Initialize score target from currentTable when it becomes available
-    useEffect(() => {
-        if (currentTable?.scoreTarget) {
-            setScoreTarget(currentTable.scoreTarget);
-        }
-    }, [currentTable?.scoreTarget]);
-
-    // Initialize kitty setting from currentTable when it becomes available
-    useEffect(() => {
-        if (currentTable?.hasKitty !== undefined) {
-            setHasKitty(currentTable.hasKitty);
-        }
-    }, [currentTable?.hasKitty]);
-
-    // Initialize privacy settings from currentTable when it becomes available
-    useEffect(() => {
-        if (currentTable) {
-            setIsPrivate(currentTable.isPrivate || false);
-            setTablePassword(currentTable.password || '');
-        }
-    }, [currentTable?.isPrivate, currentTable?.password]);
 
     if (!currentTable || !currentPlayer) {
         return <div>Loading...</div>;
@@ -85,48 +41,6 @@ const WaitingRoom: React.FC = () => {
     const handleStartGame = () => {
         if (currentTable) {
             startGame(currentTable.id);
-        }
-    };
-
-    const handleTimeoutChange = (newTimeout: number) => {
-        setTimeoutDuration(newTimeout);
-        if (currentTable) {
-            updateTableTimeout(currentTable.id, newTimeout * 1000); // Convert to milliseconds
-        }
-    };
-
-    const handleDeckVariantChange = (newDeckVariant: '36' | '40') => {
-        setDeckVariant(newDeckVariant);
-        if (currentTable) {
-            updateTableDeckVariant(currentTable.id, newDeckVariant);
-        }
-    };
-
-    const handleScoreTargetChange = (newScoreTarget: 200 | 300 | 500 | 1000) => {
-        setScoreTarget(newScoreTarget);
-        if (currentTable) {
-            updateTableScoreTarget(currentTable.id, newScoreTarget);
-        }
-    };
-
-    const handleKittyChange = (newHasKitty: boolean) => {
-        setHasKitty(newHasKitty);
-        if (currentTable) {
-            updateTableKitty(currentTable.id, newHasKitty);
-        }
-    };
-
-    const handlePrivacyChange = (newIsPrivate: boolean) => {
-        setIsPrivate(newIsPrivate);
-        if (currentTable) {
-            updateTablePrivacy(currentTable.id, newIsPrivate, newIsPrivate ? tablePassword : undefined);
-        }
-    };
-
-    const handlePasswordChange = (newPassword: string) => {
-        setTablePassword(newPassword);
-        if (currentTable && isPrivate) {
-            updateTablePrivacy(currentTable.id, isPrivate, newPassword);
         }
     };
 
@@ -175,215 +89,26 @@ const WaitingRoom: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Table Settings for Creator */}
+                    {/* Bot Configuration for Creator */}
                     {isCreator && (
                         <div className="bg-white/5 rounded-xl p-6 mb-6">
-                            <h3 className="text-xl font-bold text-white mb-4">⚙️ Table Settings</h3>
-
-                            {/* Bot Configuration */}
-                            <div className="mb-6">
-                                <h4 className="text-lg font-semibold text-white mb-3">🤖 Bot Configuration</h4>
-                                <div className="flex items-center gap-4 mb-4">
-                                    <label className="text-white font-medium">Bot Skill Level:</label>
-                                    <select
-                                        value={selectedSkill}
-                                        onChange={(e) => setSelectedSkill(e.target.value as 'easy' | 'medium' | 'hard' | 'acadien')}
-                                        className="px-3 py-2 rounded-lg bg-white/10 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
-                                    >
-                                        <option value="easy">Easy 🤖</option>
-                                        <option value="medium">Medium 🤖🤖</option>
-                                        <option value="hard">Hard 🤖🤖🤖</option>
-                                        <option value="acadien">Acadien 🧠</option>
-                                    </select>
-                                </div>
-                                <p className="text-white/70 text-sm">
-                                    Click on empty slots below to add bots, or click on existing bots to remove them.
-                                </p>
+                            <h3 className="text-xl font-bold text-white mb-4">🤖 Bot Configuration</h3>
+                            <div className="flex items-center gap-4 mb-4">
+                                <label className="text-white font-medium">Bot Skill Level:</label>
+                                <select
+                                    value={selectedSkill}
+                                    onChange={(e) => setSelectedSkill(e.target.value as 'easy' | 'medium' | 'hard' | 'acadien')}
+                                    className="px-3 py-2 rounded-lg bg-white/10 border border-white/30 text-white focus:outline-none focus:ring-2 focus:ring-green-400"
+                                >
+                                    <option value="easy">Easy 🤖</option>
+                                    <option value="medium">Medium 🤖🤖</option>
+                                    <option value="hard">Hard 🤖🤖🤖</option>
+                                    <option value="acadien">Acadien 🧠</option>
+                                </select>
                             </div>
-
-                            {/* Privacy Configuration */}
-                            <div className="mb-6">
-                                <h4 className="text-lg font-semibold text-white mb-3">🔒 Privacy Settings</h4>
-                                <div className="space-y-4">
-                                    <div className="flex items-center space-x-3">
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={isPrivate}
-                                                onChange={(e) => handlePrivacyChange(e.target.checked)}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 rounded focus:ring-green-400 focus:ring-2"
-                                            />
-                                            <span className="text-white font-medium">Make table private</span>
-                                        </label>
-                                    </div>
-                                    {isPrivate && (
-                                        <div>
-                                            <label className="block text-white font-medium mb-2">Password:</label>
-                                            <input
-                                                type="password"
-                                                placeholder="Enter password for private table..."
-                                                value={tablePassword}
-                                                onChange={(e) => handlePasswordChange(e.target.value)}
-                                                className="w-full px-4 py-3 rounded bg-white/10 border border-white/30 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent transition-all"
-                                                maxLength={50}
-                                            />
-                                            <p className="text-white/70 text-sm mt-2">
-                                                Players will need this password to join your table.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Deck Variant Configuration */}
-                            <div className="mb-6">
-                                <h4 className="text-lg font-semibold text-white mb-3">🃏 Deck Variant</h4>
-                                <div className="space-y-2">
-                                    <div className="flex gap-4">
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="deckVariant"
-                                                value="36"
-                                                checked={deckVariant === '36'}
-                                                onChange={(e) => handleDeckVariantChange(e.target.value as '36' | '40')}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
-                                            />
-                                            <span className="text-white">36 Cards (Standard)</span>
-                                        </label>
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="deckVariant"
-                                                value="40"
-                                                checked={deckVariant === '40'}
-                                                onChange={(e) => handleDeckVariantChange(e.target.value as '36' | '40')}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
-                                            />
-                                            <span className="text-white">40 Cards (with 6s)</span>
-                                        </label>
-                                    </div>
-                                    <p className="text-white/70 text-sm">
-                                        Choose between standard 36-card deck or 40-card deck with 6s included.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Kitty Configuration - Only shown when 40-card deck is selected */}
-                            {deckVariant === '40' && (
-                                <div className="mb-6">
-                                    <h4 className="text-lg font-semibold text-white mb-3">🐱 Kitty Feature</h4>
-                                    <div className="space-y-2">
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                checked={hasKitty}
-                                                onChange={(e) => handleKittyChange(e.target.checked)}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400 rounded"
-                                            />
-                                            <span className="text-white">Enable Kitty</span>
-                                        </label>
-                                        <p className="text-white/70 text-sm">
-                                            When enabled, the winning bidder takes 4 cards from a kitty and discards 4 cards back.
-                                            The discarded cards' points go to the defending team at the end of the hand.
-                                        </p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Score Target Configuration */}
-                            <div className="mb-6">
-                                <h4 className="text-lg font-semibold text-white mb-3">🎯 Score Target</h4>
-                                <div className="space-y-2">
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="scoreTarget"
-                                                value="200"
-                                                checked={scoreTarget === 200}
-                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
-                                            />
-                                            <span className="text-white">200 Points (Standard)</span>
-                                        </label>
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="scoreTarget"
-                                                value="300"
-                                                checked={scoreTarget === 300}
-                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
-                                            />
-                                            <span className="text-white">300 Points</span>
-                                        </label>
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="scoreTarget"
-                                                value="500"
-                                                checked={scoreTarget === 500}
-                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
-                                            />
-                                            <span className="text-white">500 Points</span>
-                                        </label>
-                                        <label className="flex items-center space-x-2 cursor-pointer">
-                                            <input
-                                                type="radio"
-                                                name="scoreTarget"
-                                                value="1000"
-                                                checked={scoreTarget === 1000}
-                                                onChange={(e) => handleScoreTargetChange(parseInt(e.target.value) as 200 | 300 | 500 | 1000)}
-                                                className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400"
-                                            />
-                                            <span className="text-white">1000 Points</span>
-                                        </label>
-                                    </div>
-                                    <p className="text-white/70 text-sm">
-                                        Choose the score target for winning the game. Teams can also lose by going negative the target amount.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Timeout Configuration */}
-                            <div>
-                                <h4 className="text-lg font-semibold text-white mb-3">⏱️ Turn Timeout</h4>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <label className="text-white font-medium">
-                                            {timeoutDuration} seconds
-                                        </label>
-                                        <span className="text-white/60 text-sm">
-                                            {timeoutDuration <= 60 ? `${timeoutDuration}s` : `${Math.floor(timeoutDuration / 60)}m ${timeoutDuration % 60}s`}
-                                        </span>
-                                    </div>
-                                    <input
-                                        type="range"
-                                        min="30"
-                                        max="300"
-                                        step="10"
-                                        value={timeoutDuration}
-                                        onChange={(e) => handleTimeoutChange(parseInt(e.target.value))}
-                                        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer slider"
-                                        style={{
-                                            background: `linear-gradient(to right, #4ade80 0%, #4ade80 ${((timeoutDuration - 30) / (300 - 30)) * 100}%, rgba(255,255,255,0.2) ${((timeoutDuration - 30) / (300 - 30)) * 100}%, rgba(255,255,255,0.2) 100%)`
-                                        }}
-                                    />
-                                    <div className="flex justify-between text-xs text-white/60">
-                                        <span>30s</span>
-                                        <span>1m</span>
-                                        <span>2m</span>
-                                        <span>3m</span>
-                                        <span>4m</span>
-                                        <span>5m</span>
-                                    </div>
-                                </div>
-                                <p className="text-white/70 text-sm mt-2">
-                                    Time limit for each player's turn during bidding and playing phases.
-                                </p>
-                            </div>
+                            <p className="text-white/70 text-sm">
+                                Click on empty slots below to add bots, or click on existing bots to remove them.
+                            </p>
                         </div>
                     )}
 
