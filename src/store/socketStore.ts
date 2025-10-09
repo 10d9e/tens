@@ -35,7 +35,7 @@ interface SocketStore {
 }
 
 // Store timeout IDs for cleanup
-let kittyDisplayTimeout: NodeJS.Timeout | null = null;
+let completedRoundDisplayTimeout: NodeJS.Timeout | null = null;
 
 export const useSocketStore = create<SocketStore>((set, get) => ({
     socket: null,
@@ -277,9 +277,9 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 gameStore.setIsBidding(false);
 
                 // Clear any pending kitty display timeout
-                if (kittyDisplayTimeout) {
-                    clearTimeout(kittyDisplayTimeout);
-                    kittyDisplayTimeout = null;
+                if (completedRoundDisplayTimeout) {
+                    clearTimeout(completedRoundDisplayTimeout);
+                    completedRoundDisplayTimeout = null;
                     // Clear the kitty display immediately when new round starts
                     gameStore.setShowGlowEffect(false);
                     gameStore.setCompletedRoundResults(null);
@@ -337,15 +337,15 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 gameStore.setShowGlowEffect(true);
 
                 // Clear any existing timeout
-                if (kittyDisplayTimeout) {
-                    clearTimeout(kittyDisplayTimeout);
+                if (completedRoundDisplayTimeout) {
+                    clearTimeout(completedRoundDisplayTimeout);
                 }
 
                 // Clear the completed round results and glow effect after 10 seconds
-                kittyDisplayTimeout = setTimeout(() => {
+                completedRoundDisplayTimeout = setTimeout(() => {
                     gameStore.setCompletedRoundResults(null);
                     gameStore.setShowGlowEffect(false);
-                    kittyDisplayTimeout = null;
+                    completedRoundDisplayTimeout = null;
                 }, 10000);
             } else if (wasFailedBidding) {
                 // Show reshuffling message and animation for failed bidding
