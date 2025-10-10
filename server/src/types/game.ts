@@ -96,6 +96,29 @@ export interface GameEvent {
     timestamp: number;
 }
 
+export interface TranscriptEntry {
+    timestamp: number;
+    type: 'game_start' | 'round_start' | 'bid_made' | 'bid_pass' | 'bidding_complete' | 'kitty_pick' | 'kitty_discard' | 'card_played' | 'trick_complete' | 'round_complete' | 'game_complete' | 'player_exit';
+    data: any; // Will contain relevant data for each action type
+    gameState: Partial<Game>; // Snapshot of relevant game state at this point
+}
+
+export interface GameTranscript {
+    gameId: string;
+    tableId: string;
+    tableName?: string;
+    startTime: number;
+    endTime?: number;
+    entries: TranscriptEntry[];
+    metadata: {
+        deckVariant: '36' | '40';
+        scoreTarget: number;
+        hasKitty: boolean;
+        playerNames: { [playerId: string]: string };
+        playerPositions: { [playerId: string]: number };
+    };
+}
+
 export interface Lobby {
     id: string;
     name: string;

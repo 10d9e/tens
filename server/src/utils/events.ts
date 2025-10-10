@@ -10,10 +10,15 @@ import {
     notifyLobbyMembers, cleanupGameRoom, resetTableAfterGameCompletion
 } from './gameLogic';
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
-import { lobbies, players, getGameById, deleteGame, getAllGames } from './state';
+import { lobbies, players, getGameById, deleteGame, getAllGames, getTranscript, getAllTranscripts } from './state';
 import { resetPlayerTimeouts } from './timeouts';
 import { Table, Player, Game, Card } from "../types/game";
 import { GameError } from "../types/errors";
+import {
+    recordBid, recordPass, recordBiddingComplete, recordKittyPick, recordKittyDiscard,
+    recordCardPlayed, recordTrickComplete, recordRoundComplete, recordGameComplete, recordRoundStart,
+    recordPlayerExit
+} from './transcript';
 
 /* socket handlers */
 // Socket.io connection handling
@@ -709,12 +714,14 @@ export function setupSocketEvents(): void {
                     game.playersWhoHavePassed?.add(socket.id);
                     game.biddingPasses = (game.biddingPasses || 0) + 1;
                     logger.debug(`Player ${player.name} passed. Total passes: ${game.biddingPasses}`);
+                    recordPass(game, socket.id);
                 } else {
                     // Player made a bid - remove them from passed list if they were there
                     game.playersWhoHavePassed?.delete(socket.id);
                     game.currentBid = { playerId: socket.id, points, suit };
                     game.biddingPasses = 0; // Reset pass counter when someone bids
                     logger.debug(`Player ${player.name} bid ${points} points with ${suit} as trump`);
+                    recordBid(game, socket.id, { playerId: socket.id, points, suit });
                 }
 
                 // Reset timeout for current player since they just made a move
@@ -769,6 +776,14 @@ export function setupSocketEvents(): void {
                             }
                             logger.debug(`✅ KITTY PHASE TRIGGERED: Bid winner ${game.currentBid.playerId} enters kitty phase for round ${game.round}`);
                             debugKittyState(game, 'Kitty phase triggered');
+
+                            // Record bidding complete in transcript
+                            recordBiddingComplete(game);
+                            // Record kitty pick
+                            if (game.kitty) {
+                                recordKittyPick(game, game.currentBid.playerId, game.kitty);
+                            }
+
                             game.phase = 'kitty';
                             game.currentPlayer = game.currentBid.playerId;
                         } else {
@@ -780,6 +795,10 @@ export function setupSocketEvents(): void {
                                 logger.debug(`⚠️  WARNING: Kitty should exist but is missing or empty! Round: ${game.round}`);
                                 validateKittyState(game, 'Kitty missing when it should exist');
                             }
+
+                            // Record bidding complete in transcript
+                            recordBiddingComplete(game);
+
                             game.phase = 'playing';
                             if (!game.currentBid) {
                                 logger.error('Current bid is undefined');
@@ -930,6 +949,9 @@ export function setupSocketEvents(): void {
                 logger.debug(`Trump suit set to ${game.trumpSuit}, contractor team: ${game.contractorTeam}`);
                 debugKittyState(game, 'Kitty phase completed by human player');
 
+                // Record kitty discard in transcript
+                recordKittyDiscard(game, player.id, discardedCards, trumpSuit || game.currentBid.suit!);
+
                 // Emit game update
                 emitGameEvent(game, 'game_updated', { game });
 
@@ -978,6 +1000,9 @@ export function setupSocketEvents(): void {
                 // Add card to current trick
                 game.currentTrick.cards.push({ card, playerId: socket.id });
                 logger.debug(`Trick now has ${game.currentTrick.cards.length} cards`);
+
+                // Record card played in transcript
+                recordCardPlayed(game, socket.id, card);
 
                 // Reset timeout for current player since they just played a card
                 if (game.playerTurnStartTime) {
@@ -1041,6 +1066,9 @@ export function setupSocketEvents(): void {
                     // Log trick details for debugging
                     logger.debug(`Trick completed! Winner: ${winnerPlayer.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
 
+                    // Record trick complete in transcript
+                    recordTrickComplete(game, winner.playerId, trickPoints, game.currentTrick);
+
                     // Debug: Print all players' cards after trick completion
                     debugPrintAllPlayerCards(game, `After Trick Won by ${winnerPlayer?.name}`);
 
@@ -1089,6 +1117,9 @@ export function setupSocketEvents(): void {
                             logger.debug(`New scores: Team1 ${game.teamScores.team1}, Team2 ${game.teamScores.team2}`);
                         }
 
+                        // Record round complete in transcript
+                        recordRoundComplete(game, game.roundScores);
+
                         // Check for game end before starting a new round
                         if (isGameEnded(game)) {
                             game.phase = 'finished';
@@ -1113,6 +1144,10 @@ export function setupSocketEvents(): void {
                             };
 
                             logger.debug(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
+
+                            // Record game complete in transcript with full details
+                            recordGameComplete(game, winningTeam, winningPlayers.map(p => ({ name: p.name, isBot: p.isBot })));
+
                             emitGameEvent(game, 'game_ended', gameEndInfo);
 
                             // Clean up game room and reset table state after game completion
@@ -1240,6 +1275,9 @@ export function setupSocketEvents(): void {
                         logger.debug('Round reset complete - all bid parameters cleared for new round');
                         debugKittyState(game, 'After round reset');
                         validateKittyState(game, 'After round reset');
+
+                        // Record new round start in transcript
+                        recordRoundStart(game);
 
                         emitGameEvent(game, 'round_completed', { game });
 
@@ -1631,6 +1669,9 @@ export function setupSocketEvents(): void {
 
                 logger.debug(`Player ${player.name} is exiting game ${gameId}`);
 
+                // Record player exit in transcript
+                recordPlayerExit(game, player.id, player.name, 'Player voluntarily exited');
+
                 // Reset all player timeouts before cleanup
                 resetPlayerTimeouts(game);
 
@@ -1702,6 +1743,46 @@ export function setupSocketEvents(): void {
                 logger.debug(`Game ${gameId} ended due to player exit by ${player.name}`);
             } catch (error) {
                 handleSocketError(socket, 'exit_game', error);
+            }
+        });
+
+        socket.on('get_game_transcript', (data: { gameId: string }) => {
+            try {
+                logger.info('[get_game_transcript] received:', data);
+                const { gameId } = data;
+
+                // Get transcript from global storage
+                const transcript = getTranscript(gameId);
+
+                if (!transcript) {
+                    throw new GameError('Transcript not available for this game');
+                }
+
+                socket.emit('game_transcript', { transcript });
+            } catch (error) {
+                handleSocketError(socket, 'get_game_transcript', error);
+            }
+        });
+
+        socket.on('get_all_transcripts', () => {
+            try {
+                logger.info('[get_all_transcripts] received');
+                const allTranscripts = getAllTranscripts();
+
+                // Return transcript metadata (without full entries to keep payload small)
+                const transcriptMetadata = allTranscripts.map(t => ({
+                    gameId: t.gameId,
+                    tableId: t.tableId,
+                    tableName: t.tableName,
+                    startTime: t.startTime,
+                    endTime: t.endTime,
+                    metadata: t.metadata,
+                    entryCount: t.entries.length
+                }));
+
+                socket.emit('all_transcripts', { transcripts: transcriptMetadata });
+            } catch (error) {
+                handleSocketError(socket, 'get_all_transcripts', error);
             }
         });
 
