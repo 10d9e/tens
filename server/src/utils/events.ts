@@ -24,7 +24,7 @@ export function setupSocketEvents(): void {
 
         socket.on('join_lobby', (data: { playerName: string; lobbyId?: string }) => {
             try {
-                logger.debug('join_lobby received:', data);
+                logger.info('[join_lobby] received:', data);
                 const { playerName, lobbyId = 'default' } = data;
 
                 // Check if this is a rejoin with the same name (same socket ID)
@@ -71,7 +71,7 @@ export function setupSocketEvents(): void {
 
         socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number; deckVariant?: '36' | '40'; scoreTarget?: 200 | 300 | 500 | 1000; hasKitty?: boolean }) => {
             try {
-                logger.debug('create_table received:', data);
+                logger.info('[create_table] received:', data);
                 const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -133,7 +133,7 @@ export function setupSocketEvents(): void {
 
         socket.on('add_bot', (data: { tableId: string; position: number; skill?: 'easy' | 'medium' | 'hard' | 'acadien' }) => {
             try {
-                logger.debug('add_bot received:', data);
+                logger.info('[add_bot] received:', data);
                 const { tableId, position, skill = 'medium' } = data;
 
                 // Validate skill level
@@ -202,7 +202,7 @@ export function setupSocketEvents(): void {
 
         socket.on('remove_bot', (data: { tableId: string; botId: string }) => {
             try {
-                logger.debug('remove_bot received:', data);
+                logger.info('[remove_bot] received:', data);
                 const { tableId, botId } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -254,7 +254,7 @@ export function setupSocketEvents(): void {
 
         socket.on('move_player', (data: { tableId: string; newPosition: number }) => {
             try {
-                logger.debug('move_player received:', data);
+                logger.info('[move_player] received:', data);
                 const { tableId, newPosition } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -813,7 +813,7 @@ export function setupSocketEvents(): void {
 
         socket.on('take_kitty', async (data) => {
             try {
-                logger.debug('take_kitty received:', data);
+                logger.info('[take_kitty] received:', data);
                 const { gameId } = data;
                 const player = players.get(socket.id);
                 const game = getGameById(gameId);
@@ -864,7 +864,7 @@ export function setupSocketEvents(): void {
 
         socket.on('discard_to_kitty', async (data) => {
             try {
-                logger.debug('discard_to_kitty received:', data);
+                logger.info('[discard_to_kitty] received:', data);
                 const { gameId, discardedCards, trumpSuit } = data;
                 const player = players.get(socket.id);
                 const game = getGameById(gameId);
@@ -945,6 +945,7 @@ export function setupSocketEvents(): void {
 
         socket.on('play_card', async (data) => {
             try {
+                logger.info('[play_card] received:', data);
                 const { gameId, card } = data;
                 const game = getGameById(gameId);
                 if (!game) {
@@ -1317,6 +1318,7 @@ export function setupSocketEvents(): void {
 
         socket.on('send_chat', (data) => {
             try {
+                logger.info('[send_chat] received:', data);
                 const { message, tableId } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -1341,6 +1343,7 @@ export function setupSocketEvents(): void {
 
         socket.on('update_table_timeout', (data) => {
             try {
+                logger.info('[update_table_timeout] received:', data);
                 const { tableId, timeoutDuration } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -1377,6 +1380,7 @@ export function setupSocketEvents(): void {
 
         socket.on('update_table_deck_variant', (data) => {
             try {
+                logger.info('[update_table_deck_variant] received:', data);
                 const { tableId, deckVariant } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -1421,6 +1425,7 @@ export function setupSocketEvents(): void {
 
         socket.on('update_table_score_target', (data) => {
             try {
+                logger.info('[update_table_score_target] received:', data);
                 const { tableId, scoreTarget } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -1465,6 +1470,7 @@ export function setupSocketEvents(): void {
 
         socket.on('update_table_kitty', (data) => {
             try {
+                logger.info('[update_table_kitty] received:', data);
                 const { tableId, hasKitty } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -1514,6 +1520,7 @@ export function setupSocketEvents(): void {
 
         socket.on('update_table_privacy', (data) => {
             try {
+                logger.info('[update_table_privacy] received:', data);
                 const { tableId, isPrivate, password } = data;
                 const player = players.get(socket.id);
                 if (!player) throw new GameError('Player not found for socket');
@@ -1550,6 +1557,7 @@ export function setupSocketEvents(): void {
 
         socket.on('delete_table', (data) => {
             try {
+                logger.info('[delete_table] received:', data);
                 const { tableId, lobbyId = 'default' } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -1596,7 +1604,7 @@ export function setupSocketEvents(): void {
 
         socket.on('exit_game', (data) => {
             try {
-                logger.debug('exit_game received:', data);
+                logger.info('[exit_game] received:', data);
                 const { gameId, playerName } = data;
                 const player = players.get(socket.id);
                 const game = getGameById(gameId);
@@ -1698,7 +1706,7 @@ export function setupSocketEvents(): void {
 
         socket.on('disconnect', () => {
             try {
-                logger.debug('Player disconnected:', socket.id);
+                logger.info('[disconnect] Player disconnected:', socket.id);
                 const player = players.get(socket.id);
                 if (player && player.name) {
                     releasePlayerName(player.name);
