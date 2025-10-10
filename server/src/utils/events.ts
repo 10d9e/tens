@@ -316,7 +316,7 @@ export function setupSocketEvents(): void {
 
         socket.on('start_game', async (data: { tableId: string }) => {
             try {
-                logger.debug('start_game received:', data);
+                logger.info('[start_game] received:', data);
                 const { tableId } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -395,7 +395,7 @@ export function setupSocketEvents(): void {
 
         socket.on('leave_table', (data: { tableId: string; lobbyId?: string }) => {
             try {
-                logger.debug('leave_table received:', data);
+                logger.info('[leave_table] received:', data);
                 const { tableId, lobbyId = 'default' } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -483,7 +483,7 @@ export function setupSocketEvents(): void {
 
         socket.on('join_table', async (data: { tableId: string; lobbyId?: string; tableName?: string; numBots?: number; password?: string }) => {
             try {
-                logger.debug('join_table received:', data);
+                logger.info('[join_table] received:', data);
                 const { tableId, lobbyId = 'default', tableName, numBots = 0, password } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -592,7 +592,7 @@ export function setupSocketEvents(): void {
 
         socket.on('join_as_spectator', async (data) => {
             try {
-                logger.debug('join_as_spectator received:', data);
+                logger.info('[join_as_spectator] received:', data);
                 const { tableId, lobbyId = 'default' } = data;
                 const player = players.get(socket.id);
                 if (!player) {
@@ -675,6 +675,7 @@ export function setupSocketEvents(): void {
 
         socket.on('make_bid', async (data) => {
             try {
+                logger.info('[make_bid] received:', data);
                 const { gameId, points, suit } = data;
                 const game = getGameById(gameId);
 

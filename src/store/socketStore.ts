@@ -70,9 +70,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('game_timeout', (data) => {
+            logger.info('[game_timeout] Game timeout:', data);
             const { message } = data;
-            logger.info('[game_timeout] Game timeout:', message);
-
             toast.error(message);
 
             const gameStore = useGameStore.getState();
@@ -169,6 +168,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('player_joined_table', (data) => {
+            logger.info('[player_joined_table] Player joined table:', data);
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
             logger.info(`[player_joined_table] ${player.name} joined the table`);
@@ -176,6 +176,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('player_left_table', (data) => {
+            logger.info('[player_left_table] Player left table:', data);
             const { table, player } = data;
             useGameStore.getState().setCurrentTable(table);
             logger.info(`[player_left_table] ${player.name} left the table`);
@@ -183,6 +184,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('spectator_joined_table', (data) => {
+            logger.info('[spectator_joined_table] Spectator joined table:', data);
             const { table, spectator } = data;
             useGameStore.getState().setCurrentTable(table);
             logger.info(`[spectator_joined_table] ${spectator.name} is now watching`);
@@ -190,6 +192,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('spectator_left_table', (data) => {
+            logger.info('[spectator_left_table] Spectator left table:', data);
             const { table, spectator } = data;
             useGameStore.getState().setCurrentTable(table);
             logger.info(`[spectator_left_table] ${spectator.name} stopped watching`);
@@ -197,6 +200,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('game_started', (data) => {
+            logger.info('[game_started] Game started:', data);
             const { game } = data;
             const gameStore = useGameStore.getState();
 
@@ -225,6 +229,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('bid_made', (data) => {
+            logger.info('[bid_made] Bid made:', data);
             const { game } = data;
             const gameStore = useGameStore.getState();
             const previousGame = gameStore.currentGame;
@@ -255,6 +260,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('card_played', (data) => {
+            logger.info('[card_played] Card played:', data);
             const { game } = data;
             useGameStore.getState().setCurrentGame(game);
 
@@ -263,6 +269,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('game_updated', (data) => {
+            logger.info('[game_updated] Received game_updated:', data);
             const { game } = data;
             const gameStore = useGameStore.getState();
             logger.info('[game_updated] Received game_updated:', {
@@ -291,6 +298,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('trick_completed', (data) => {
+            logger.info('[trick_completed] Trick completed:', data);
             const { game } = data;
             useGameStore.getState().setCurrentGame(game);
             useGameStore.getState().setLastTrick(game.lastTrick);
@@ -310,6 +318,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('round_completed', (data) => {
+            logger.info('[round_completed] Round completed:', data);
             const { game } = data;
             const gameStore = useGameStore.getState();
 
@@ -375,6 +384,7 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('game_ended', (data) => {
+            logger.info('[game_ended] Game ended:', data);
             const { game, winningTeam, winningTeamName, winningPlayers, finalScores, reason } = data;
 
             // Check if this is a legitimate game end or due to player exit
@@ -431,8 +441,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('player_exited_game', (data) => {
+            logger.info('[player_exited_game] Player exited game:', data);
             const { message } = data;
-            logger.info('[player_exited_game] Player exited game:', message);
             toast(message, { icon: '🚪' });
 
             // Set flag to indicate game ended by exit (prevents winning dialog from showing)
@@ -451,8 +461,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         });
 
         socket.on('game_ended_for_spectator', (data) => {
+            logger.info('[game_ended_for_spectator] Game ended for spectator:', data);
             const { message } = data;
-            logger.info('[game_ended_for_spectator] Game ended for spectator:', message);
             toast(message, { icon: '🏁' });
 
             // Clear spectator game state and return to lobby
