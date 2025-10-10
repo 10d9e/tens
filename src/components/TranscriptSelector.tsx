@@ -30,6 +30,7 @@ const TranscriptSelector: React.FC<TranscriptSelectorProps> = ({ onSelectTranscr
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortBy, setSortBy] = useState<'newest' | 'oldest'>('newest');
+    const [uploadError, setUploadError] = useState<string | null>(null);
 
     useEffect(() => {
         getAllTranscripts((fetchedTranscripts) => {
@@ -54,6 +55,46 @@ const TranscriptSelector: React.FC<TranscriptSelectorProps> = ({ onSelectTranscr
 
     const getPlayerNames = (metadata: TranscriptMetadata['metadata']) => {
         return Object.values(metadata.playerNames).join(', ');
+    };
+
+    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        setUploadError(null);
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const content = e.target?.result as string;
+                const transcript = JSON.parse(content);
+
+                // Validate transcript structure
+                if (!transcript.gameId || !transcript.entries || !transcript.metadata) {
+                    throw new Error('Invalid transcript file format');
+                }
+
+                // Store in sessionStorage for the viewer to access
+                sessionStorage.setItem(`transcript_${transcript.gameId}`, content);
+
+                logger.debug('Loaded transcript from file:', transcript.gameId);
+
+                // Directly open the uploaded transcript
+                onSelectTranscript(transcript.gameId);
+            } catch (error) {
+                logger.error('Error loading transcript file:', error);
+                setUploadError('Invalid transcript file. Please upload a valid JSON transcript.');
+            }
+        };
+
+        reader.onerror = () => {
+            setUploadError('Error reading file. Please try again.');
+        };
+
+        reader.readAsText(file);
+
+        // Reset the input
+        event.target.value = '';
     };
 
     const filteredTranscripts = transcripts
@@ -96,13 +137,31 @@ const TranscriptSelector: React.FC<TranscriptSelectorProps> = ({ onSelectTranscr
                             <h2 className="text-3xl font-bold text-white mb-2">Game Transcripts</h2>
                             <p className="text-green-200">Select a game to view its replay</p>
                         </div>
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
-                        >
-                            ✕ Close
-                        </button>
+                        <div className="flex gap-2">
+                            <label className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-blue-300 hover:text-blue-200 transition-all text-sm font-medium cursor-pointer">
+                                📂 Load File
+                                <input
+                                    type="file"
+                                    accept=".json"
+                                    onChange={handleFileUpload}
+                                    className="hidden"
+                                />
+                            </label>
+                            <button
+                                onClick={onClose}
+                                className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-red-300 hover:text-red-200 transition-all text-sm font-medium"
+                            >
+                                ✕ Close
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Upload Error Message */}
+                    {uploadError && (
+                        <div className="mb-4 p-3 bg-red-500/20 border border-red-400/30 rounded-lg text-red-300 text-sm">
+                            {uploadError}
+                        </div>
+                    )}
 
                     {/* Search and Sort */}
                     <div className="flex gap-4 mb-4">

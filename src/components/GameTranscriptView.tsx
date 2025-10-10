@@ -23,6 +23,21 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
 
     // Fetch transcript on mount
     useEffect(() => {
+        // First check sessionStorage for uploaded transcript
+        const uploadedTranscript = sessionStorage.getItem(`transcript_${gameId}`);
+        if (uploadedTranscript) {
+            try {
+                const parsedTranscript = JSON.parse(uploadedTranscript);
+                setTranscript(parsedTranscript);
+                setLoading(false);
+                return;
+            } catch (error) {
+                console.error('Error parsing uploaded transcript:', error);
+                // Fall through to server fetch
+            }
+        }
+
+        // Otherwise fetch from server
         getGameTranscript(gameId, (fetchedTranscript) => {
             if (fetchedTranscript) {
                 setTranscript(fetchedTranscript);
@@ -118,6 +133,24 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
         setIsPlaying(false);
     };
 
+    const handleDownload = () => {
+        // Create a blob with the transcript JSON
+        const jsonString = JSON.stringify(transcript, null, 2);
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        // Create a download link and trigger it
+        const link = document.createElement('a');
+        link.href = url;
+        const date = new Date(transcript.startTime).toISOString().split('T')[0];
+        const tableName = transcript.tableName?.replace(/[^a-z0-9]/gi, '_') || 'game';
+        link.download = `transcript_${tableName}_${date}_${transcript.gameId.slice(0, 8)}.json`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+
     const formatTimestamp = (timestamp: number) => {
         const date = new Date(timestamp);
         return date.toLocaleTimeString();
@@ -202,6 +235,19 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    {/* Download Button */}
+                    {createPortal(
+                        <button
+                            onClick={handleDownload}
+                            className="fixed top-2 right-44 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-lg text-green-300 hover:text-green-200 transition-all text-sm font-medium"
+                            style={{ zIndex: 10001 }}
+                            title="Download Transcript as JSON"
+                        >
+                            💾 Download
+                        </button>,
+                        document.body
+                    )}
+
                     {/* Back Button */}
                     {createPortal(
                         <button
