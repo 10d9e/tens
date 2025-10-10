@@ -259,23 +259,24 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                             data-position={position}
                             data-player-id={player.id}
                         >
-                            {/* Display actual cards in player's hand - ABOVE for north, BELOW for others */}
-                            {visualPosition === 'top' && player.cards && player.cards.length > 0 && (
+                            {/* Display actual cards in player's hand - Absolutely positioned to overlay */}
+                            {player.cards && player.cards.length > 0 && (
                                 <div
-                                    className="flex justify-center mb-2 gap-0.5 flex-wrap max-w-[320px] mx-auto"
+                                    className="flex justify-center gap-0.5 flex-wrap max-w-[320px] w-[320px]"
                                     style={{
-                                        position: 'relative',
+                                        position: 'absolute',
+                                        [visualPosition === 'top' ? 'bottom' : visualPosition === 'bottom' ? 'top' : visualPosition === 'right' ? 'right' : 'left']: visualPosition === 'right' || visualPosition === 'left' ? '0' : '100%',
+                                        [visualPosition === 'top' || visualPosition === 'bottom' ? 'left' : 'top']: visualPosition === 'top' || visualPosition === 'bottom' ? '50%' : visualPosition === 'right' || visualPosition === 'left' ? 'calc(50% + 90px)' : '100%',
+                                        transform: visualPosition === 'top' || visualPosition === 'bottom' ? 'translateX(-50%)' : 'translateY(-50%)',
+                                        [visualPosition === 'top' ? 'marginBottom' : visualPosition === 'bottom' ? 'marginTop' : visualPosition === 'right' ? 'marginRight' : 'marginLeft']: visualPosition === 'top' ? '-20px' : '8px',
                                         zIndex: 20
                                     }}
                                 >
                                     {player.cards.map((card, index) => (
                                         <div
                                             key={card.id || index}
-                                            className="relative"
+                                            className="relative max-w-[30px] w-[30px]"
                                             style={{
-                                                width: '30px',
-                                                height: '28px',
-                                                margin: '1px',
                                                 zIndex: 20
                                             }}
                                         >
@@ -307,42 +308,6 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                                     </div>
                                 )}
                             </div>
-
-                            {/* Display actual cards in player's hand - BELOW for non-north positions */}
-                            {visualPosition !== 'top' && (
-                                <>
-                                    <div style={{ height: '0.5em' }} />
-                                    <div className="flex justify-center mt-2 gap-0.5 flex-wrap max-w-[320px] mx-auto">
-                                        {player.cards && player.cards.length > 0 ? (
-                                            player.cards.map((card, index) => (
-                                                <div
-                                                    key={card.id || index}
-                                                    className="relative"
-                                                    style={{
-                                                        width: '30px',
-                                                        height: '28px',
-                                                        margin: '1px'
-                                                    }}
-                                                >
-                                                    <Card
-                                                        card={card}
-                                                        isPlayable={true}
-                                                        className="cursor-default pointer-events-none"
-                                                        style={{
-                                                            width: '20px',
-                                                            height: '95px',
-                                                            fontSize: '5px',
-                                                            transform: 'none'
-                                                        }}
-                                                    />
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="text-white/40 text-xs">No cards</div>
-                                        )}
-                                    </div>
-                                </>
-                            )}
                         </div>
                     );
                 })}
@@ -414,8 +379,8 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
             </div>
 
             {/* Timeline Controls */}
-            <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-md border-t border-white/20 p-4">
-                <div className="max-w-6xl mx-auto">
+            <div className="fixed z-50 bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent backdrop-blur-md border-t border-white/20 p-4">
+                <div className=" mx-auto">
                     {/* Action Description */}
                     <div className="text-center text-white text-sm mb-2">
                         <div className="font-semibold">{getActionDescription(currentEntry)}</div>
