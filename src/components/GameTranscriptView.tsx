@@ -4,6 +4,7 @@ import { useSocketStore } from '../store/socketStore';
 import TrickArea from './TrickArea';
 import KittyArea from './KittyArea';
 import GameInfo from './GameInfo';
+import Card from './Card';
 import { Game, GameTranscript, TranscriptEntry } from '../types/game';
 
 interface GameTranscriptViewProps {
@@ -258,6 +259,43 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                             data-position={position}
                             data-player-id={player.id}
                         >
+                            {/* Display actual cards in player's hand - ABOVE for north, BELOW for others */}
+                            {visualPosition === 'top' && player.cards && player.cards.length > 0 && (
+                                <div
+                                    className="flex justify-center mb-2 gap-0.5 flex-wrap max-w-[320px] mx-auto"
+                                    style={{
+                                        position: 'relative',
+                                        zIndex: 20
+                                    }}
+                                >
+                                    {player.cards.map((card, index) => (
+                                        <div
+                                            key={card.id || index}
+                                            className="relative"
+                                            style={{
+                                                width: '30px',
+                                                height: '28px',
+                                                margin: '1px',
+                                                zIndex: 20
+                                            }}
+                                        >
+                                            <Card
+                                                card={card}
+                                                isPlayable={true}
+                                                className="cursor-default pointer-events-none"
+                                                style={{
+                                                    width: '20px',
+                                                    height: '95px',
+                                                    fontSize: '5px',
+                                                    transform: 'none',
+                                                    zIndex: 20
+                                                }}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
                             <div className={`player-info ${position}`}>
                                 <div className="text-white font-medium mb-1">
                                     {player.name} {player.isBot && '🤖'} ({position})
@@ -270,16 +308,41 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                                 )}
                             </div>
 
-                            <div style={{ height: '0.5em' }} />
-
-                            <div className="flex justify-center mt-2 gap-1">
-                                {player.cards.map((_, index) => (
-                                    <div
-                                        key={index}
-                                        className="w-4 h-6 bg-white/20 rounded border border-white/30"
-                                    />
-                                ))}
-                            </div>
+                            {/* Display actual cards in player's hand - BELOW for non-north positions */}
+                            {visualPosition !== 'top' && (
+                                <>
+                                    <div style={{ height: '0.5em' }} />
+                                    <div className="flex justify-center mt-2 gap-0.5 flex-wrap max-w-[320px] mx-auto">
+                                        {player.cards && player.cards.length > 0 ? (
+                                            player.cards.map((card, index) => (
+                                                <div
+                                                    key={card.id || index}
+                                                    className="relative"
+                                                    style={{
+                                                        width: '30px',
+                                                        height: '28px',
+                                                        margin: '1px'
+                                                    }}
+                                                >
+                                                    <Card
+                                                        card={card}
+                                                        isPlayable={true}
+                                                        className="cursor-default pointer-events-none"
+                                                        style={{
+                                                            width: '20px',
+                                                            height: '95px',
+                                                            fontSize: '5px',
+                                                            transform: 'none'
+                                                        }}
+                                                    />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-white/40 text-xs">No cards</div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
                     );
                 })}
