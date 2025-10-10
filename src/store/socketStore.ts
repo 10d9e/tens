@@ -33,6 +33,8 @@ interface SocketStore {
     sendChat: (message: string, tableId: string) => void;
     updateTableTimeout: (tableId: string, timeoutDuration: number) => void;
     exitGame: (gameId: string, playerName: string) => void;
+    getGameTranscript: (gameId: string, callback: (transcript: any) => void) => void;
+    getAllTranscripts: (callback: (transcripts: any[]) => void) => void;
 }
 
 // Store timeout IDs for cleanup
@@ -694,6 +696,42 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
             socket.emit('exit_game', { gameId, playerName });
         } else {
             logger.debug('Socket not connected');
+        }
+    },
+
+    getGameTranscript: (gameId, callback) => {
+        const { socket } = get();
+        if (socket) {
+            logger.debug('Fetching game transcript:', gameId);
+
+            // Set up one-time listener for the response
+            socket.once('game_transcript', (data) => {
+                logger.debug('Received game transcript:', data);
+                callback(data.transcript);
+            });
+
+            // Request the transcript
+            socket.emit('get_game_transcript', { gameId });
+        } else {
+            logger.error('Socket not connected');
+        }
+    },
+
+    getAllTranscripts: (callback) => {
+        const { socket } = get();
+        if (socket) {
+            logger.debug('Fetching all transcripts');
+
+            // Set up one-time listener for the response
+            socket.once('all_transcripts', (data) => {
+                logger.debug('Received all transcripts:', data);
+                callback(data.transcripts);
+            });
+
+            // Request all transcripts
+            socket.emit('get_all_transcripts');
+        } else {
+            logger.error('Socket not connected');
         }
     }
 }));

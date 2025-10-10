@@ -7,6 +7,7 @@ import { emitGameEvent } from './events';
 import { io } from '../index';
 import { defaultLobby, lobbies, deleteGame } from './state';
 import { resetPlayerTimeouts } from "./timeouts";
+import { initializeTranscript, recordGameStart, recordRoundStart, recordTrickComplete, recordCardPlayed, recordBid, recordPass, recordGameComplete } from './transcript';
 
 export function getCardValue(card: Card): number {
     const values: { [key in Rank]: number } = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
@@ -429,6 +430,10 @@ export function startGame(game: Game): Game {
         game.playerTurnStartTime = { [firstPlayer.id]: Date.now() };
     }
 
+    // Initialize and record game start in global transcript storage
+    recordGameStart(game);
+    recordRoundStart(game);
+
     logger.info("Game started successfully.");
 
     // Debug: Print all players' cards at game start
@@ -811,11 +816,17 @@ export async function handleBotTurn(game: Game): Promise<void> {
             game.biddingPasses = 0; // Reset pass counter when someone bids
 
             logger.debug(`Bot ${currentPlayer.name} bid ${bidResult.points} points with ${bestSuit} as trump suit`);
+
+            // Record bot bid in transcript
+            recordBid(game, currentPlayer.id, game.currentBid);
         } else {
             // Bot passed - they cannot bid again until new round
             game.playersWhoHavePassed?.add(currentPlayer.id);
             game.biddingPasses = (game.biddingPasses || 0) + 1;
             logger.debug(`Bot ${currentPlayer.name} passed. Total passes: ${game.biddingPasses}`);
+
+            // Record bot pass in transcript
+            recordPass(game, currentPlayer.id);
         }
 
         // Reset timeout for current bot since they just made a move
@@ -955,6 +966,9 @@ export async function handleBotTurn(game: Game): Promise<void> {
             game.currentTrick.cards.push({ card, playerId: currentPlayer.id });
             logger.debug(`Trick now has ${game.currentTrick.cards.length} cards`);
 
+            // Record card played in transcript (for bot plays)
+            recordCardPlayed(game, currentPlayer.id, card);
+
             // Reset timeout for current bot since they just played a card
             if (game.playerTurnStartTime) {
                 game.playerTurnStartTime[currentPlayer.id] = Date.now();
@@ -1017,6 +1031,9 @@ export async function handleBotTurn(game: Game): Promise<void> {
 
                 // Log trick details for debugging
                 logger.debug(`Trick completed! Winner: ${winnerPlayer.name} (${winner.playerId}), Card: ${winner.card.rank} of ${winner.card.suit}, Points: ${trickPoints}, Trump: ${game.trumpSuit}, Lead: ${leadSuit}`);
+
+                // Record trick complete in transcript (for bot tricks)
+                recordTrickComplete(game, winner.playerId, trickPoints, game.currentTrick);
 
                 // Debug: Print all players' cards after trick completion
                 debugPrintAllPlayerCards(game, `After Trick Won by ${winnerPlayer?.name}`);
@@ -1268,6 +1285,10 @@ export async function handleBotTurn(game: Game): Promise<void> {
                     };
 
                     logger.debug(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
+
+                    // Record game complete in transcript (from bot turn handler)
+                    recordGameComplete(game, winningTeam, winningPlayers.map(p => ({ name: p.name, isBot: p.isBot })));
+
                     emitGameEvent(game, 'game_ended', gameEndInfo);
 
                     // Clean up game room and reset table state after game completion
@@ -1488,6 +1509,9 @@ export function notifyLobbyMembers(lobbyId: string, event: string, data: any): v
 // Helper function to clean up game-specific socket rooms when game ends
 export function cleanupGameRoom(game: Game): void {
     if (game && game.id) {
+        // Note: Transcript is already in global storage, no need to save here
+        logger.debug(`Cleaning up game room for game ${game.id} (transcript remains in global storage)`);
+
         // Reset all player timeouts to prevent bleeding into next game
         resetPlayerTimeouts(game);
 

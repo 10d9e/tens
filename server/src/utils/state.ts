@@ -1,8 +1,12 @@
-import { Game, Table, Player, Lobby } from "../types/game";
+import { Game, Table, Player, Lobby, GameTranscript } from "../types/game";
+import logger from '../logger';
 
 // Game state storage
 export const lobbies = new Map<string, { id: string; name: string; tables: Map<string, Table> }>();
 export const players = new Map<string, Player>();
+
+// Global transcript storage - persists even after games are cleaned up
+export const transcripts = new Map<string, GameTranscript>();
 
 // Initialize a default lobby
 export const defaultLobby: Lobby = {
@@ -67,4 +71,26 @@ export function getAllGames(): Game[] {
         }
     }
     return games;
+}
+
+// Transcript management functions
+export function saveTranscript(transcript: GameTranscript): void {
+    transcripts.set(transcript.gameId, transcript);
+    logger.info(`💾 Transcript saved for game ${transcript.gameId}: ${transcript.entries.length} entries. Total transcripts in storage: ${transcripts.size}`);
+}
+
+export function getTranscript(gameId: string): GameTranscript | undefined {
+    return transcripts.get(gameId);
+}
+
+export function getAllTranscripts(): GameTranscript[] {
+    return Array.from(transcripts.values());
+}
+
+export function deleteTranscript(gameId: string): void {
+    transcripts.delete(gameId);
+}
+
+export function getTranscriptCount(): number {
+    return transcripts.size;
 }

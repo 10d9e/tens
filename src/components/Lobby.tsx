@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
 import { useSocketStore } from '../store/socketStore';
 import UsernameEditor from './UsernameEditor';
+import TranscriptViewer from './TranscriptViewer';
 import { logger } from '../utils/logging';
 
 interface LobbyProps {
@@ -17,6 +18,7 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
     const [passwordPrompt, setPasswordPrompt] = useState<{ tableId: string; tableName: string } | null>(null);
     const [joinPassword, setJoinPassword] = useState('');
     const [showCreateTableDialog, setShowCreateTableDialog] = useState(false);
+    const [showTranscriptViewer, setShowTranscriptViewer] = useState(false);
 
     // Table creation options
     const [timeoutDuration, setTimeoutDuration] = useState(30);
@@ -149,6 +151,13 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                     </div>
                 </div>
                 <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setShowTranscriptViewer(true)}
+                        className="px-2 bg-purple-500/20 hover:bg-purple-500/30 border border-purple-400/30 text-purple-300 hover:text-purple-200 transition-all text-sm font-medium"
+                        title="View Game Replays"
+                    >
+                        📼 Replays
+                    </button>
                     <button
                         onClick={onShowRules}
                         className="px-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 text-blue-300 hover:text-blue-200 transition-all text-sm font-medium"
@@ -576,6 +585,11 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                         </div>
                     </motion.div>
                 </div>
+            )}
+
+            {/* Transcript Viewer Modal */}
+            {showTranscriptViewer && (
+                <TranscriptViewer onClose={() => setShowTranscriptViewer(false)} />
             )}
         </div>
     );
