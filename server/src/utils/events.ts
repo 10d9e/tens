@@ -688,9 +688,13 @@ export function setupSocketEvents(): void {
                 ensurePlayersWhoHavePassedIsSet(game);
 
                 const player = game.players.find(p => p.id === socket.id);
-                if (!player || player.id !== game.currentPlayer) {
-                    // throw new GameError('Player not found or not current player', game);
-                    logger.warn(`Player ${player?.name} not found or not current player ${game.currentPlayer}`);
+                if (!player) {
+                    throw new GameError(`Player id: ${socket.id} not found`, game);
+                }
+
+                if (player.id !== game.currentPlayer) {
+                    // throw new GameError(`Player ${player?.name} not current player ${game.currentPlayer}`, game);
+                    logger.warn(`Player id: ${socket.id} not current player ${game.currentPlayer}`);
                     return;
                 }
 
@@ -949,8 +953,14 @@ export function setupSocketEvents(): void {
                 }
 
                 const player = game.players.find(p => p.id === socket.id);
-                if (!player || player.id !== game.currentPlayer) {
-                    throw new GameError('Player not found or not current player', game);
+                if (!player) {
+                    throw new GameError(`Player id: ${socket.id} not found`, game);
+                }
+
+                if (player.id !== game.currentPlayer) {
+                    // throw new GameError(`Player ${player?.name} not current player ${game.currentPlayer}`, game);
+                    logger.warn(`Player id: ${socket.id} not current player ${game.currentPlayer}`);
+                    return;
                 }
 
                 // Check if player has any cards left
