@@ -1,4 +1,4 @@
-import { Rank, Card, Table, Player, Lobby, Suit, Game } from "../types/game";
+import { Rank, Card, Table, Player, Lobby, Suit, Game, Bid } from "../types/game";
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../logger';
 import { debugPrintAllPlayerCards, debugKittyState } from './debug';
@@ -783,6 +783,27 @@ export async function handleBotTurn(game: Game): Promise<void> {
         logger.debug('Starting first bot turn in playing phase');
         await handleBotTurn(game);
     } else if (game.phase === 'bidding') {
+        // Check if this bot has already passed - if so, skip to next player
+        if (game.playersWhoHavePassed?.has(currentPlayer.id)) {
+            logger.debug(`Bot ${currentPlayer.name} has already passed, moving to next player`);
+            const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+            game.currentPlayer = nextPlayer;
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
+            emitGameEvent(game, 'game_updated', { game });
+
+            // Check if bidding should end
+            await checkBiddingCompletion(game);
+
+            // Recursively handle next player if they're also a bot
+            const nextPlayerObj = game.players.find(p => p.id === nextPlayer);
+            if (nextPlayerObj?.isBot && game.phase === 'bidding') {
+                await handleBotTurn(game);
+            }
+            return;
+        }
+
         // Add 1 second delay for bot bidding to make it feel more natural
         if (!process.env.INTEGRATION_TEST) {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -794,6 +815,10 @@ export async function handleBotTurn(game: Game): Promise<void> {
             : currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players);
 
         logger.debug(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid decision: ${bidResult ? bidResult.points + ' points' : 'pass'}`);
+
+        // Track whether bot bid or passed for transcript recording
+        let botBidData: Bid | null = null;
+        let botPassed = false;
 
         if (bidResult && bidResult.points > 0) {
             // Trump suit selection is required for any bid
@@ -817,17 +842,20 @@ export async function handleBotTurn(game: Game): Promise<void> {
 
             logger.debug(`Bot ${currentPlayer.name} bid ${bidResult.points} points with ${bestSuit} as trump suit`);
 
-            // Record bot bid in transcript
-            recordBid(game, currentPlayer.id, game.currentBid);
+            // Store bid data for transcript recording after moving to next player
+            botBidData = game.currentBid;
         } else {
             // Bot passed - they cannot bid again until new round
             game.playersWhoHavePassed?.add(currentPlayer.id);
             game.biddingPasses = (game.biddingPasses || 0) + 1;
             logger.debug(`Bot ${currentPlayer.name} passed. Total passes: ${game.biddingPasses}`);
 
-            // Record bot pass in transcript
-            recordPass(game, currentPlayer.id);
+            // Mark that bot passed for transcript recording after moving to next player
+            botPassed = true;
         }
+
+        // Store bot ID for transcript recording
+        const botId = currentPlayer.id;
 
         // Reset timeout for current bot since they just made a move
         if (game.playerTurnStartTime) {
@@ -843,6 +871,13 @@ export async function handleBotTurn(game: Game): Promise<void> {
             if (game.playerTurnStartTime) {
                 game.playerTurnStartTime[nextPlayer] = Date.now();
             }
+        }
+
+        // Record bot bid/pass in transcript AFTER moving to next player
+        if (botBidData) {
+            recordBid(game, botId, botBidData);
+        } else if (botPassed) {
+            recordPass(game, botId);
         }
 
         emitGameEvent(game, 'bid_made', { game });

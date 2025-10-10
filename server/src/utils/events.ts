@@ -709,19 +709,21 @@ export function setupSocketEvents(): void {
                     throw new GameError('Player has already passed and cannot make a bid', game);
                 }
 
+                // Track whether this is a pass or bid for transcript recording
+                const isPass = points === 0;
+                const bidData = isPass ? null : { playerId: socket.id, points, suit };
+
                 if (points === 0) {
                     // Player passed - they cannot bid again until new round
                     game.playersWhoHavePassed?.add(socket.id);
                     game.biddingPasses = (game.biddingPasses || 0) + 1;
                     logger.debug(`Player ${player.name} passed. Total passes: ${game.biddingPasses}`);
-                    recordPass(game, socket.id);
                 } else {
                     // Player made a bid - remove them from passed list if they were there
                     game.playersWhoHavePassed?.delete(socket.id);
                     game.currentBid = { playerId: socket.id, points, suit };
                     game.biddingPasses = 0; // Reset pass counter when someone bids
                     logger.debug(`Player ${player.name} bid ${points} points with ${suit} as trump`);
-                    recordBid(game, socket.id, { playerId: socket.id, points, suit });
                 }
 
                 // Reset timeout for current player since they just made a move
@@ -734,6 +736,13 @@ export function setupSocketEvents(): void {
                 game.currentPlayer = nextPlayer;
                 if (game.playerTurnStartTime) {
                     game.playerTurnStartTime[nextPlayer] = Date.now();
+                }
+
+                // Record bid/pass in transcript AFTER moving to next player
+                if (isPass) {
+                    recordPass(game, socket.id);
+                } else if (bidData) {
+                    recordBid(game, socket.id, bidData);
                 }
 
                 emitGameEvent(game, 'bid_made', { game });
