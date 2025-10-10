@@ -89,7 +89,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
                             }}
                             style={{
                                 position: 'absolute',
-                                zIndex: index + 1
+                                zIndex: 100 + index
                             }}
                         >
                             <Card

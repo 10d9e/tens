@@ -247,6 +247,8 @@ input {
 
 .player-info.north {
     background-color: rgba(59, 130, 246, 0.3);
+    position: relative;
+    z-index: -2;
 }
 
 .player-info.east {

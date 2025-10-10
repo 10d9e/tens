@@ -30,6 +30,7 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                 const parsedTranscript = JSON.parse(uploadedTranscript);
                 setTranscript(parsedTranscript);
                 setLoading(false);
+                setIsPlaying(true); // Auto-start playback
                 return;
             } catch (error) {
                 console.error('Error parsing uploaded transcript:', error);
@@ -42,6 +43,7 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
             if (fetchedTranscript) {
                 setTranscript(fetchedTranscript);
                 setLoading(false);
+                setIsPlaying(true); // Auto-start playback
             } else {
                 setError('Failed to load game transcript');
                 setLoading(false);
@@ -93,6 +95,18 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
             </div>
         );
     }
+
+    // Sort cards by suit and rank
+    const sortCards = (cards: any[]) => {
+        const suitOrder: { [key: string]: number } = { 'hearts': 0, 'spades': 1, 'diamonds': 2, 'clubs': 3 };
+        const rankOrder: { [key: string]: number } = { '5': 0, '6': 1, '7': 2, '8': 3, '9': 4, '10': 5, 'J': 6, 'Q': 7, 'K': 8, 'A': 9 };
+
+        return [...cards].sort((a, b) => {
+            const suitDiff = suitOrder[a.suit] - suitOrder[b.suit];
+            if (suitDiff !== 0) return suitDiff;
+            return rankOrder[a.rank] - rankOrder[b.rank];
+        });
+    };
 
     const getPlayerPosition = (player: any) => {
         const positionMap: { [key: number]: string } = {
@@ -294,7 +308,7 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                                 ...appliedStyle,
                                 backgroundColor: isCurrentPlayer ? 'rgba(251, 191, 36, 0.3)' : teamBgColor,
                                 border: isCurrentPlayer ? '2px solid rgba(251, 191, 36, 0.8)' : `2px solid ${teamBorderColor}`,
-                                zIndex: 10,
+                                zIndex: -1,
                                 minWidth: '120px',
                                 padding: '8px',
                                 borderRadius: '8px',
@@ -311,14 +325,14 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                                     className="flex justify-center gap-0.5 flex-wrap max-w-[320px] w-[320px]"
                                     style={{
                                         position: 'absolute',
+                                        zIndex: -1,
                                         [visualPosition === 'top' ? 'bottom' : visualPosition === 'bottom' ? 'top' : visualPosition === 'right' ? 'right' : 'left']: visualPosition === 'right' || visualPosition === 'left' ? '0' : '100%',
                                         [visualPosition === 'top' || visualPosition === 'bottom' ? 'left' : 'top']: visualPosition === 'top' || visualPosition === 'bottom' ? '50%' : visualPosition === 'right' || visualPosition === 'left' ? 'calc(50% + 90px)' : '100%',
                                         transform: visualPosition === 'top' || visualPosition === 'bottom' ? 'translateX(-50%)' : 'translateY(-50%)',
-                                        [visualPosition === 'top' ? 'marginBottom' : visualPosition === 'bottom' ? 'marginTop' : visualPosition === 'right' ? 'marginRight' : 'marginLeft']: visualPosition === 'top' ? '-20px' : '8px',
-                                        zIndex: 20
+                                        [visualPosition === 'top' ? 'marginBottom' : visualPosition === 'bottom' ? 'marginTop' : visualPosition === 'right' ? 'marginRight' : 'marginLeft']: visualPosition === 'top' ? '-140px' : visualPosition === 'left' ? '0px' : '8px',
                                     }}
                                 >
-                                    {player.cards.map((card, index) => (
+                                    {sortCards(player.cards).map((card, index) => (
                                         <div
                                             key={card.id || index}
                                             className="relative max-w-[30px] w-[30px]"
