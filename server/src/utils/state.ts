@@ -6,7 +6,9 @@ export const lobbies = new Map<string, { id: string; name: string; tables: Map<s
 export const players = new Map<string, Player>();
 
 // Global transcript storage - persists even after games are cleaned up
+// Limited to 100 most recent transcripts to conserve memory
 export const transcripts = new Map<string, GameTranscript>();
+const MAX_TRANSCRIPTS = 100;
 
 // Initialize a default lobby
 export const defaultLobby: Lobby = {
@@ -75,8 +77,27 @@ export function getAllGames(): Game[] {
 
 // Transcript management functions
 export function saveTranscript(transcript: GameTranscript): void {
+    // If we've reached the maximum, remove the oldest transcript
+    if (transcripts.size >= MAX_TRANSCRIPTS && !transcripts.has(transcript.gameId)) {
+        // Find the oldest transcript by startTime
+        let oldestGameId: string | null = null;
+        let oldestTime = Infinity;
+
+        for (const [gameId, t] of transcripts.entries()) {
+            if (t.startTime < oldestTime) {
+                oldestTime = t.startTime;
+                oldestGameId = gameId;
+            }
+        }
+
+        if (oldestGameId) {
+            transcripts.delete(oldestGameId);
+            logger.info(`🗑️  Removed oldest transcript ${oldestGameId} to make room (max ${MAX_TRANSCRIPTS} transcripts)`);
+        }
+    }
+
     transcripts.set(transcript.gameId, transcript);
-    logger.info(`💾 Transcript saved for game ${transcript.gameId}: ${transcript.entries.length} entries. Total transcripts in storage: ${transcripts.size}`);
+    logger.info(`💾 Transcript saved for game ${transcript.gameId}: ${transcript.entries.length} entries. Total transcripts in storage: ${transcripts.size}/${MAX_TRANSCRIPTS}`);
 }
 
 export function getTranscript(gameId: string): GameTranscript | undefined {
