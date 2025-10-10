@@ -7,7 +7,7 @@ import { emitGameEvent } from './events';
 import { io } from '../index';
 import { defaultLobby, lobbies, deleteGame } from './state';
 import { resetPlayerTimeouts } from "./timeouts";
-import { initializeTranscript, recordGameStart, recordRoundStart, recordTrickComplete, recordCardPlayed, recordBid, recordPass, recordGameComplete } from './transcript';
+import { initializeTranscript, recordGameStart, recordRoundStart, recordTrickComplete, recordCardPlayed, recordBid, recordPass, recordGameComplete, recordRoundComplete } from './transcript';
 
 export function getCardValue(card: Card): number {
     const values: { [key in Rank]: number } = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
@@ -924,6 +924,12 @@ export async function handleBotTurn(game: Game): Promise<void> {
             }
         }
     } else if (game.phase === 'playing') {
+        // Safety check: if bot has no cards, don't try to play
+        if (currentPlayer.cards.length === 0) {
+            logger.warn(`Bot ${currentPlayer.name} has no cards left, cannot play. Game may be in inconsistent state.`);
+            return;
+        }
+
         // Add 1 second delay for bot card playing to make it feel more natural
         if (!process.env.INTEGRATION_TEST) {
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -1087,6 +1093,9 @@ export async function handleBotTurn(game: Game): Promise<void> {
                         logger.debug(`New scores: Team1 ${game.teamScores.team1}, Team2 ${game.teamScores.team2}`);
                     }
 
+                    // Record round complete in transcript (for bot-completed rounds)
+                    recordRoundComplete(game, game.roundScores);
+
                     // Check for game end before starting a new round
                     if (isGameEnded(game)) {
                         game.phase = 'finished';
@@ -1111,6 +1120,10 @@ export async function handleBotTurn(game: Game): Promise<void> {
                         };
 
                         logger.debug(`Game ended! ${winningTeamName} wins with ${game.teamScores[winningTeam]} points`);
+
+                        // Record game complete in transcript (for bot-completed games)
+                        recordGameComplete(game, winningTeam, winningPlayers.map(p => ({ name: p.name, isBot: p.isBot })));
+
                         emitGameEvent(game, 'game_ended', gameEndInfo);
 
                         // Reset table state after game completion

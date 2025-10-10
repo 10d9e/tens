@@ -981,6 +981,12 @@ export function setupSocketEvents(): void {
                     throw new GameError(`Player id: ${socket.id} not found`, game);
                 }
 
+                // Safety check: if game phase is not playing, reject
+                if (game.phase !== 'playing') {
+                    logger.warn(`Player ${player.name} tried to play card but game phase is ${game.phase}`);
+                    return;
+                }
+
                 if (player.id !== game.currentPlayer) {
                     // throw new GameError(`Player ${player?.name} not current player ${game.currentPlayer}`, game);
                     logger.warn(`Player id: ${socket.id} not current player ${game.currentPlayer}`);
@@ -989,7 +995,7 @@ export function setupSocketEvents(): void {
 
                 // Check if player has any cards left
                 if (player.cards.length === 0) {
-                    logger.debug(`Player ${player.name} has no cards left, cannot play`);
+                    logger.warn(`Player ${player.name} has no cards left, cannot play. Game may be in inconsistent state.`);
                     throw new GameError('Player has no cards left', game);
                 }
 
