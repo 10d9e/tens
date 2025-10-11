@@ -1,4 +1,4 @@
-import { Bid, Player, Card, Suit, Game } from '../types/game';
+import { Bid, Player, Card, Suit, Rank, Game } from '../types/game';
 import { getCardValue, getCardRank } from './gameLogic';
 import logger from '../logger';
 
@@ -121,6 +121,8 @@ class AcadienBotAI {
     skill: 'acadien';
     playedCards: Set<string>; // Track all cards that have been played
     knownCards: Set<string>; // Cards we know about (our hand + played cards)
+    playedCardsByPlayer: Map<string, Card[]>; // Track which player played which cards
+    playerVoids: Map<string, Set<Suit>>; // Track which suits each player is void in
     partnerBehavior: {
         biddingStyle: 'unknown' | 'conservative' | 'aggressive' | 'balanced';
         playingStyle: 'unknown' | 'cautious' | 'bold' | 'calculated';
@@ -134,11 +136,15 @@ class AcadienBotAI {
         biddingHistory: any[];
     };
     cardProbabilities: Map<string, any>; // Track probability of each card being in each player's hand
+    remainingCardsBySuit: Map<Suit, Card[]>; // Track remaining cards by suit
+    highCardsRemaining: Map<Suit, string[]>; // Track high cards (A, K, Q) remaining by suit
 
     constructor() {
         this.skill = 'acadien';
         this.playedCards = new Set(); // Track all cards that have been played
         this.knownCards = new Set(); // Cards we know about (our hand + played cards)
+        this.playedCardsByPlayer = new Map(); // NEW: Track cards by player
+        this.playerVoids = new Map(); // NEW: Track voids
         this.partnerBehavior = {
             biddingStyle: 'unknown', // conservative, aggressive, balanced
             playingStyle: 'unknown', // cautious, bold, calculated
@@ -152,6 +158,8 @@ class AcadienBotAI {
             biddingHistory: []
         };
         this.cardProbabilities = new Map(); // Track probability of each card being in each player's hand
+        this.remainingCardsBySuit = new Map(); // NEW: Track remaining cards
+        this.highCardsRemaining = new Map(); // NEW: Track high cards
     }
 
     // Initialize card tracking at start of round
@@ -163,6 +171,10 @@ class AcadienBotAI {
         this.playedCards.clear();
         this.knownCards.clear();
         this.cardProbabilities.clear();
+        this.playedCardsByPlayer.clear();
+        this.playerVoids.clear();
+        this.remainingCardsBySuit.clear();
+        this.highCardsRemaining.clear();
 
         // Add our own cards to known cards
         myPlayer.cards.forEach(card => {
@@ -171,34 +183,108 @@ class AcadienBotAI {
 
         // Initialize card probabilities for all players
         const allCards = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5'];
-        const allSuits = ['hearts', 'diamonds', 'clubs', 'spades'];
+        const allSuits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
 
+        // Initialize played cards tracking for each player
         game.players.forEach(player => {
+            this.playedCardsByPlayer.set(player.id, []);
+            this.playerVoids.set(player.id, new Set());
+
             this.cardProbabilities.set(player.id, new Map());
             allSuits.forEach(suit => {
                 allCards.forEach(rank => {
                     const cardKey = `${suit}-${rank}`;
                     if (!this.knownCards.has(cardKey)) {
                         // Equal probability for unknown cards
-                        this.cardProbabilities.get(player.id).set(cardKey, 1.0 / (3 * 9)); // 3 other players, 9 cards each
+                        this.cardProbabilities.get(player.id)!.set(cardKey, 1.0 / (3 * 9)); // 3 other players, 9 cards each
                     } else {
-                        this.cardProbabilities.get(player.id).set(cardKey, 0); // We have this card
+                        this.cardProbabilities.get(player.id)!.set(cardKey, 0); // We have this card
                     }
                 });
             });
         });
+
+        // Initialize remaining cards tracking
+        allSuits.forEach(suit => {
+            const suitCards: Card[] = allCards
+                .filter(rank => !this.knownCards.has(`${suit}-${rank}`))
+                .map(rank => ({ suit, rank, id: `${suit}-${rank}` } as Card));
+            this.remainingCardsBySuit.set(suit, suitCards);
+
+            // Track high cards remaining
+            const highRanks = ['A', 'K', 'Q'].filter(rank => !this.knownCards.has(`${suit}-${rank}`));
+            this.highCardsRemaining.set(suit, highRanks);
+        });
+
+        logger.debug(`Card tracking initialized - tracking ${allSuits.length * allCards.length} total cards`);
     }
 
     // Update card tracking when a card is played
-    updateCardTracking(playedCard: Card, playerId: string): void {
+    updateCardTracking(playedCard: Card, playerId: string, leadSuit?: Suit | null): void {
         const cardKey = `${playedCard.suit}-${playedCard.rank}`;
         this.playedCards.add(cardKey);
         this.knownCards.add(cardKey);
+
+        // Track which player played this card
+        const playerCards = this.playedCardsByPlayer.get(playerId) || [];
+        playerCards.push(playedCard);
+        this.playedCardsByPlayer.set(playerId, playerCards);
+
+        // VOID DETECTION: If there's a lead suit and player didn't follow, they're void
+        if (leadSuit && playedCard.suit !== leadSuit) {
+            const playerVoids = this.playerVoids.get(playerId);
+            if (playerVoids) {
+                playerVoids.add(leadSuit);
+                logger.debug(`Detected void: Player ${playerId} is void in ${leadSuit}`);
+            }
+        }
 
         // Update probabilities - the card is no longer in anyone's hand
         this.cardProbabilities.forEach((playerProbs, pid) => {
             playerProbs.set(cardKey, 0);
         });
+
+        // Update remaining cards by suit
+        const suitCards = this.remainingCardsBySuit.get(playedCard.suit);
+        if (suitCards) {
+            const updatedCards = suitCards.filter(c => c.rank !== playedCard.rank);
+            this.remainingCardsBySuit.set(playedCard.suit, updatedCards);
+        }
+
+        // Update high cards remaining
+        if (['A', 'K', 'Q'].includes(playedCard.rank)) {
+            const highCards = this.highCardsRemaining.get(playedCard.suit);
+            if (highCards) {
+                const updatedHighCards = highCards.filter(r => r !== playedCard.rank);
+                this.highCardsRemaining.set(playedCard.suit, updatedHighCards);
+
+                if (playedCard.rank === 'A') {
+                    logger.debug(`Ace of ${playedCard.suit} has been played - suit control changed`);
+                }
+            }
+        }
+    }
+
+    // NEW: Get remaining high cards in a suit
+    getRemainingHighCards(suit: Suit): Rank[] {
+        return (this.highCardsRemaining.get(suit) || []) as Rank[];
+    }
+
+    // NEW: Check if player is likely void in a suit
+    isPlayerVoid(playerId: string, suit: Suit): boolean {
+        const playerVoids = this.playerVoids.get(playerId);
+        return playerVoids ? playerVoids.has(suit) : false;
+    }
+
+    // NEW: Count remaining cards in a suit
+    countRemainingInSuit(suit: Suit): number {
+        const cards = this.remainingCardsBySuit.get(suit);
+        return cards ? cards.length : 0;
+    }
+
+    // NEW: Get cards played by a specific player
+    getCardsPlayedBy(playerId: string): Card[] {
+        return this.playedCardsByPlayer.get(playerId) || [];
     }
 
     // Advanced bidding logic based on hand analysis and game state
@@ -476,9 +562,10 @@ class AcadienBotAI {
                 selectedCard = this.selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis);
         }
 
-        // Update card tracking
+        // Update card tracking for our selected card
+        // Note: Cards already played in trick were tracked in analyzeTrick
         if (selectedCard) {
-            this.updateCardTracking(selectedCard, myPlayerId);
+            this.updateCardTracking(selectedCard, myPlayerId, leadSuit);
         }
 
         return selectedCard || playableCards[0];
@@ -494,24 +581,36 @@ class AcadienBotAI {
         let currentWinningCard: { card: Card; playerId: string } | null = null;
         let currentWinningPlayer: string | null = null;
         let pointsInTrick = 0;
+        let leadSuit: Suit | null = null;
 
         if (cardsPlayed.length > 0 && cardsPlayed[0]) {
-            const leadSuit = cardsPlayed[0].card.suit;
+            leadSuit = cardsPlayed[0].card.suit;
             currentWinningCard = cardsPlayed[0];
             currentWinningPlayer = cardsPlayed[0].playerId;
 
-            cardsPlayed.forEach(play => {
+            cardsPlayed.forEach((play, index) => {
                 const card = play.card;
                 pointsInTrick += getCardValue(card);
 
+                // Track this card for void detection (if not first card)
+                if (index > 0) {
+                    this.updateCardTracking(card, play.playerId, leadSuit);
+                } else {
+                    // First card - no lead suit to check against
+                    this.updateCardTracking(card, play.playerId, null);
+                }
+
                 // Determine if this card wins the trick so far
-                if (currentWinningCard && card.suit === leadSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.card.rank)) {
-                    currentWinningCard = play;
-                    currentWinningPlayer = play.playerId;
-                } else if (currentWinningCard && card.suit === game.trumpSuit && currentWinningCard.card.suit !== game.trumpSuit) {
+                if (currentWinningCard && card.suit === game.trumpSuit && currentWinningCard.card.suit !== game.trumpSuit) {
+                    // Trump beats non-trump
                     currentWinningCard = play;
                     currentWinningPlayer = play.playerId;
                 } else if (currentWinningCard && card.suit === game.trumpSuit && currentWinningCard.card.suit === game.trumpSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.card.rank)) {
+                    // Higher trump beats lower trump
+                    currentWinningCard = play;
+                    currentWinningPlayer = play.playerId;
+                } else if (currentWinningCard && card.suit === leadSuit && currentWinningCard.card.suit === leadSuit && getCardRank(card.rank) > getCardRank(currentWinningCard.card.rank)) {
+                    // Higher lead suit beats lower lead suit  
                     currentWinningCard = play;
                     currentWinningPlayer = play.playerId;
                 }
@@ -520,25 +619,59 @@ class AcadienBotAI {
 
         // Determine if partner is currently winning
         let partnerIsWinning = false;
+        let partnerPosition = -1;
         if (currentWinningPlayer) {
             const winningPlayer = game.players.find(p => p.id === currentWinningPlayer);
             if (winningPlayer) {
                 const isPartner = (winningPlayer.position % 2) === (myPlayer.position % 2) && winningPlayer.id !== myPlayer.id;
                 partnerIsWinning = isPartner;
+                if (isPartner) {
+                    partnerPosition = winningPlayer.position;
+                }
             }
         }
+
+        // NEW: Check if opponents can still beat current winning card
+        const canOpponentsBeat = this.canOpponentsBeatCard(game, myPlayer, currentWinningCard, leadSuit);
 
         return {
             cardsPlayed,
             currentWinningCard,
             currentWinningPlayer,
             pointsInTrick,
-            leadSuit: cardsPlayed.length > 0 && cardsPlayed[0] ? cardsPlayed[0].card.suit : null,
+            leadSuit,
             isContractorTeam,
             trickPosition: cardsPlayed.length, // 0 = first, 1 = second, etc.
             isLastToPlay: cardsPlayed.length === 3,
-            partnerIsWinning
+            partnerIsWinning,
+            partnerPosition,
+            canOpponentsBeat // NEW: Strategic information
         };
+    }
+
+    // NEW: Determine if opponents can potentially beat the current winning card
+    canOpponentsBeatCard(game: Game, myPlayer: Player, winningCard: { card: Card; playerId: string } | null, leadSuit: Suit | null): boolean {
+        if (!winningCard || !game.trumpSuit) return true;
+
+        const trumpSuit = game.trumpSuit;
+        const winningRank = getCardRank(winningCard.card.rank);
+        const isWinningTrump = winningCard.card.suit === trumpSuit;
+
+        // Check remaining high cards
+        if (isWinningTrump) {
+            // Winning with trump - check if higher trump cards remain
+            const remainingHighTrump = this.getRemainingHighCards(trumpSuit);
+            const higherTrumpRemain = remainingHighTrump.some(rank => getCardRank(rank) > winningRank);
+            return higherTrumpRemain;
+        } else if (leadSuit) {
+            // Winning with lead suit - check if higher lead cards or trump remain
+            const remainingHighLeadSuit = this.getRemainingHighCards(leadSuit);
+            const higherLeadRemain = remainingHighLeadSuit.some(rank => getCardRank(rank) > winningRank);
+            const trumpRemains = this.countRemainingInSuit(trumpSuit) > 0;
+            return higherLeadRemain || trumpRemains;
+        }
+
+        return true;
     }
 
     // Determine overall playing strategy
@@ -603,7 +736,7 @@ class AcadienBotAI {
             const nonTrumpCards = playableCards.filter(c => c.suit !== trumpSuit);
             if (nonTrumpCards.length > 0) {
                 logger.debug(`Avoiding cutting partner - playing non-trump card`);
-                // Among non-trump cards, prefer point cards
+                // Among non-trump cards, prefer point cards since partner is already winning
                 const pointCards = nonTrumpCards.filter(c => getCardValue(c) >= 5);
                 if (pointCards.length > 0) {
                     return pointCards.reduce((highest, current) =>
@@ -617,25 +750,74 @@ class AcadienBotAI {
             return this.selectLowCard(trumpCards, leadSuit, trumpSuit);
         }
 
-        // If we have lead suit cards, dump points
+        // If we have lead suit cards, be smart about what we dump
         if (leadSuitCards.length > 0) {
-            // Prefer 10s and 5s (point cards) to give to partner
+            // ENHANCED LOGIC: Check if partner's win is secure using card counting
+            const partnerWinSecure = trickAnalysis.partnerIsWinning &&
+                trickAnalysis.isLastToPlay &&
+                !trickAnalysis.canOpponentsBeat;
+
+            // If partner's win is absolutely secure (we're last and no one can beat them)
+            if (partnerWinSecure) {
+                logger.debug(`Partner's win is SECURE (last to play, opponents can't beat) - conserving high cards`);
+
+                // Priority 1: Play a 5 if we have one (gives partner 5 points without wasting 10 or Ace)
+                const fiveCards = leadSuitCards.filter(c => c.rank === '5');
+                if (fiveCards.length > 0) {
+                    logger.debug(`Playing 5 to give partner 5 points while saving 10s and Aces`);
+                    return fiveCards[0]!;
+                }
+
+                // Priority 2: Play lowest card to conserve all high cards for future tricks
+                logger.debug(`No 5s available - playing lowest card to maximize future winning potential`);
+                return this.selectLowCard(leadSuitCards, leadSuit, trumpSuit);
+            }
+
+            // Partner is winning but win is NOT secure, or we're not last
+            // Use moderate dumping - balance between helping partner and conserving
+            if (trickAnalysis.partnerIsWinning && !trickAnalysis.isLastToPlay) {
+                logger.debug(`Partner winning but not last to play - moderate dump strategy`);
+
+                // Dump 5s or 10s, but prefer 5s over 10s to conserve the 10s
+                const fiveCards = leadSuitCards.filter(c => c.rank === '5');
+                if (fiveCards.length > 0) {
+                    logger.debug(`Dumping 5 to partner (saving 10s for later)`);
+                    return fiveCards[0]!;
+                }
+
+                // Only dump 10s if partner is winning with trump or high card
+                const partnerWinningCard = trickAnalysis.currentWinningCard;
+                const partnerHasStrongCard = partnerWinningCard &&
+                    (partnerWinningCard.card.suit === trumpSuit ||
+                        getCardRank(partnerWinningCard.card.rank) >= 13);
+
+                if (partnerHasStrongCard) {
+                    const tenCards = leadSuitCards.filter(c => c.rank === '10');
+                    if (tenCards.length > 0) {
+                        logger.debug(`Partner has strong card - dumping 10`);
+                        return tenCards[0]!;
+                    }
+                }
+            }
+
+            // Default case: Standard point dumping (original logic for other scenarios)
             const pointCards = leadSuitCards.filter(c => getCardValue(c) >= 5);
             if (pointCards.length > 0) {
-                // Play highest point card (10 over 5)
-                logger.debug(`Dumping point card to partner: ${pointCards.length} point cards available`);
+                logger.debug(`Standard dump: playing highest point card`);
                 return pointCards.reduce((highest, current) =>
                     getCardValue(current) > getCardValue(highest) ? current : highest
                 );
             }
-            // No point cards in lead suit, play highest non-point card to keep partner winning
-            logger.debug(`No point cards in lead suit - playing highest non-point card`);
+
+            // No point cards in lead suit, play highest non-point card
+            logger.debug(`No point cards - playing highest non-point card`);
             return leadSuitCards.reduce((highest, current) =>
                 getCardRank(current.rank) > getCardRank(highest.rank) ? current : highest
             );
         }
 
         // If we don't have lead suit, look for point cards in other suits
+        // Since partner is winning, we can safely dump point cards from other suits
         const pointCards = playableCards.filter(c => getCardValue(c) >= 5 && c.suit !== trumpSuit);
         if (pointCards.length > 0) {
             logger.debug(`Playing point card from different suit`);
