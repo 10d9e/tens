@@ -16,6 +16,22 @@ import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 import { logger } from '../utils/logging';
 
+// Function to play a random cat sound
+function playCatSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
+    // Randomly select one of the 6 cat sounds
+    const randomIndex = Math.floor(Math.random() * 6) + 1;
+    const audio = new Audio(`/audio/kitty/cat-${randomIndex}.mp3`);
+    audio.volume = 0.5; // Set volume to 50% to not be too loud
+
+    // Play the audio and catch any errors
+    audio.play().catch(error => {
+        logger.error('Failed to play cat sound:', error);
+    });
+}
+
 const GameTable: React.FC = () => {
     const {
         currentGame,
@@ -58,6 +74,18 @@ const GameTable: React.FC = () => {
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [showKittyInterface, setShowKittyInterface] = useState(false);
+    const [previousPhase, setPreviousPhase] = useState<string | null>(null);
+
+    // Play cat sound when kitty phase begins (for all players)
+    useEffect(() => {
+        if (currentGame && currentGame.phase === 'kitty' && previousPhase !== 'kitty') {
+            logger.debug('Kitty phase started - playing cat sound');
+            playCatSound();
+        }
+        if (currentGame) {
+            setPreviousPhase(currentGame.phase);
+        }
+    }, [currentGame?.phase, previousPhase]);
 
     // Automatically open bid dialog when it's the player's turn to bid (and they haven't passed)
     useEffect(() => {

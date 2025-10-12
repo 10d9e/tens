@@ -11,6 +11,22 @@ import TrickWinnerAnimation from './TrickWinnerAnimation';
 import GameInfo from './GameInfo';
 import { logger } from '../utils/logging';
 
+// Function to play a random cat sound
+function playCatSound() {
+    // Check if sound is enabled
+    if (!useGameStore.getState().soundEnabled) return;
+
+    // Randomly select one of the 6 cat sounds
+    const randomIndex = Math.floor(Math.random() * 6) + 1;
+    const audio = new Audio(`/audio/kitty/cat-${randomIndex}.mp3`);
+    audio.volume = 0.5; // Set volume to 50% to not be too loud
+
+    // Play the audio and catch any errors
+    audio.play().catch(error => {
+        logger.error('Failed to play cat sound:', error);
+    });
+}
+
 const SpectatorView: React.FC = () => {
     const {
         currentGame,
@@ -29,6 +45,18 @@ const SpectatorView: React.FC = () => {
     const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
+    const [previousPhase, setPreviousPhase] = useState<string | null>(null);
+
+    // Play cat sound when kitty phase begins (for all spectators)
+    useEffect(() => {
+        if (currentGame && currentGame.phase === 'kitty' && previousPhase !== 'kitty') {
+            logger.debug('Kitty phase started - playing cat sound for spectator');
+            playCatSound();
+        }
+        if (currentGame) {
+            setPreviousPhase(currentGame.phase);
+        }
+    }, [currentGame?.phase, previousPhase]);
 
     // Countdown timer effect (same as GameTable)
     useEffect(() => {
