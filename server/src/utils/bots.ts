@@ -768,8 +768,19 @@ class AcadienBotAI {
                     return fiveCards[0]!;
                 }
 
-                // Priority 2: Play lowest card to conserve all high cards for future tricks
-                logger.debug(`No 5s available - playing lowest card to maximize future winning potential`);
+                // Priority 2: If no 5s but we have high point cards (10s, Aces), dump those
+                // Better to give partner 10 points than save them when partner is winning
+                const highPointCards = leadSuitCards.filter(c => c.rank === '10' || c.rank === 'A');
+                if (highPointCards.length > 0) {
+                    logger.debug(`No 5s available, but have high point cards - dumping to partner`);
+                    // Play highest value (10 over A if both, since both are 10 points but 10-rank is lower)
+                    return highPointCards.reduce((highest, current) =>
+                        getCardValue(current) >= getCardValue(highest) ? current : highest
+                    );
+                }
+
+                // Priority 3: No point cards at all - play lowest card
+                logger.debug(`No point cards available - playing lowest card`);
                 return this.selectLowCard(leadSuitCards, leadSuit, trumpSuit);
             }
 
@@ -778,25 +789,19 @@ class AcadienBotAI {
             if (trickAnalysis.partnerIsWinning && !trickAnalysis.isLastToPlay) {
                 logger.debug(`Partner winning but not last to play - moderate dump strategy`);
 
-                // Dump 5s or 10s, but prefer 5s over 10s to conserve the 10s
+                // Priority 1: Prefer 5s (conserve 10s and Aces for later)
                 const fiveCards = leadSuitCards.filter(c => c.rank === '5');
                 if (fiveCards.length > 0) {
                     logger.debug(`Dumping 5 to partner (saving 10s for later)`);
                     return fiveCards[0]!;
                 }
 
-                // Only dump 10s if partner is winning with trump or high card
-                const partnerWinningCard = trickAnalysis.currentWinningCard;
-                const partnerHasStrongCard = partnerWinningCard &&
-                    (partnerWinningCard.card.suit === trumpSuit ||
-                        getCardRank(partnerWinningCard.card.rank) >= 13);
-
-                if (partnerHasStrongCard) {
-                    const tenCards = leadSuitCards.filter(c => c.rank === '10');
-                    if (tenCards.length > 0) {
-                        logger.debug(`Partner has strong card - dumping 10`);
-                        return tenCards[0]!;
-                    }
+                // Priority 2: If no 5s but we have high point cards (10s, Aces), dump those
+                // Always give points to partner when that's all we have
+                const highPointCards = leadSuitCards.filter(c => c.rank === '10' || c.rank === 'A');
+                if (highPointCards.length > 0) {
+                    logger.debug(`No 5s available, dumping high point cards to partner`);
+                    return highPointCards[0]!;
                 }
             }
 
