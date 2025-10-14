@@ -86,11 +86,12 @@ class SimpleBotAI {
     async playCard(playableCards: Card[], leadSuit: Suit | null, trumpSuit: Suit | null): Promise<Card> {
         if (playableCards.length === 0) throw new Error('No playable cards available');
 
-        // Simple strategy: prefer playing high-value cards if we have the lead suit
-        // or low-value cards if we don't
-        const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
+        try {
+            // Simple strategy: prefer playing high-value cards if we have the lead suit
+            // or low-value cards if we don't
+            const values = { 'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5 };
 
-        if (leadSuit) {
+            if (leadSuit) {
             // If we have the lead suit, try to win with a high card
             const leadSuitCards = playableCards.filter(c => c.suit === leadSuit);
             if (leadSuitCards.length > 0) {
@@ -102,16 +103,23 @@ class SimpleBotAI {
                 });
             }
 
-            // If we don't have the lead suit, play a low-value card
-            return playableCards.reduce((lowest, current) => {
-                const currentValue = values[current.rank] || 0;
-                const lowestValue = values[lowest.rank] || 0;
-                return currentValue < lowestValue ? current : lowest;
-            });
-        } else {
-            // First card of trick - play a medium value card
-            const randomIndex = Math.floor(Math.random() * playableCards.length);
-            return playableCards[randomIndex]!;
+                // If we don't have the lead suit, play a low-value card
+                return playableCards.reduce((lowest, current) => {
+                    const currentValue = values[current.rank] || 0;
+                    const lowestValue = values[lowest.rank] || 0;
+                    return currentValue < lowestValue ? current : lowest;
+                });
+            } else {
+                // First card of trick - play a medium value card
+                const randomIndex = Math.floor(Math.random() * playableCards.length);
+                return playableCards[randomIndex]!;
+            }
+        } catch (error) {
+            logger.error('Simple bot error in playCard:', error);
+            // Fallback: return first playable card
+            const fallbackCard = playableCards[0];
+            if (!fallbackCard) throw new Error('No playable cards available after error');
+            return fallbackCard;
         }
     }
 }
@@ -292,20 +300,21 @@ class AcadienBotAI {
         const myPlayer = players.find(p => p.id === myPlayerId);
         if (!myPlayer) return null;
 
-        // Initialize card tracking if not done yet
-        if (this.knownCards.size === 0) {
-            this.initializeCardTracking(game, myPlayerId);
-        }
+        try {
+            // Initialize card tracking if not done yet
+            if (this.knownCards.size === 0) {
+                this.initializeCardTracking(game, myPlayerId);
+            }
 
-        // Advanced hand evaluation
-        const handAnalysis = this.analyzeHand(myPlayer.cards, game.trumpSuit || null);
-        const adjustedHandValue = handAnalysis.totalValue + handAnalysis.trumpValue + handAnalysis.positionBonus;
+            // Advanced hand evaluation
+            const handAnalysis = this.analyzeHand(myPlayer.cards, game.trumpSuit || null);
+            const adjustedHandValue = handAnalysis.totalValue + handAnalysis.trumpValue + handAnalysis.positionBonus;
 
-        // Team dynamics analysis
-        const teamAnalysis = this.analyzeTeamSituation(game, myPlayer, players);
+            // Team dynamics analysis
+            const teamAnalysis = this.analyzeTeamSituation(game, myPlayer, players);
 
-        // Game state analysis
-        const gameStateAnalysis = this.analyzeGame(game, myPlayer);
+            // Game state analysis
+            const gameStateAnalysis = this.analyzeGame(game, myPlayer);
 
         // Calculate theoretical maximum based on comprehensive analysis
         let theoreticalMax = Math.min(adjustedHandValue + 20, 100); // More aggressive than simple bots
@@ -421,8 +430,16 @@ class AcadienBotAI {
             return null;
         }
 
-        logger.debug(`Acadien bot suggests bid: ${finalBid} (hand value: ${adjustedHandValue}, theoretical max: ${theoreticalMax})`);
-        return { playerId: myPlayerId, points: finalBid };
+            logger.debug(`Acadien bot suggests bid: ${finalBid} (hand value: ${adjustedHandValue}, theoretical max: ${theoreticalMax})`);
+            return { playerId: myPlayerId, points: finalBid };
+        } catch (error) {
+            logger.error(`Acadien bot error in makeBid for player ${myPlayerId}:`, error);
+            // Fallback to conservative bidding: only bid if hand is very strong
+            if (handValue >= 50) {
+                return { playerId: myPlayerId, points: 50 };
+            }
+            return null; // Pass if error occurs
+        }
     }
 
     // Analyze hand for advanced bidding decisions
@@ -529,20 +546,21 @@ class AcadienBotAI {
             return firstCard;
         }
 
-        // Initialize tracking if needed
-        if (this.knownCards.size === 0) {
-            this.initializeCardTracking(game, myPlayerId);
-        }
+        try {
+            // Initialize tracking if needed
+            if (this.knownCards.size === 0) {
+                this.initializeCardTracking(game, myPlayerId);
+            }
 
-        // Analyze current trick situation
-        const trickAnalysis = this.analyzeTrick(game, myPlayer);
+            // Analyze current trick situation
+            const trickAnalysis = this.analyzeTrick(game, myPlayer);
 
-        // Determine playing strategy based on game state
-        const strategy = this.determinePlayingStrategy(game, myPlayer, trickAnalysis);
+            // Determine playing strategy based on game state
+            const strategy = this.determinePlayingStrategy(game, myPlayer, trickAnalysis);
 
-        let selectedCard;
+            let selectedCard;
 
-        switch (strategy) {
+            switch (strategy) {
             case 'dump_points_to_partner':
                 selectedCard = this.selectCardToDumpPoints(playableCards, leadSuit, trumpSuit, trickAnalysis, myPlayer, game);
                 break;
@@ -562,13 +580,27 @@ class AcadienBotAI {
                 selectedCard = this.selectCardDefault(playableCards, leadSuit, trumpSuit, trickAnalysis);
         }
 
-        // Update card tracking for our selected card
-        // Note: Cards already played in trick were tracked in analyzeTrick
-        if (selectedCard) {
-            this.updateCardTracking(selectedCard, myPlayerId, leadSuit);
-        }
+            // Update card tracking for our selected card
+            // Note: Cards already played in trick were tracked in analyzeTrick
+            const finalCard = selectedCard || playableCards[0];
+            if (finalCard) {
+                try {
+                    this.updateCardTracking(finalCard, myPlayerId, leadSuit);
+                } catch (error) {
+                    logger.debug(`Error updating card tracking for ${myPlayerId}:`, error);
+                    // Continue anyway - card tracking is for optimization, not critical
+                }
+            }
 
-        return selectedCard || playableCards[0];
+            return finalCard || playableCards[0];
+        } catch (error) {
+            logger.error(`Acadien bot error in playCard for player ${myPlayerId}:`, error);
+            // Fallback: return first playable card
+            const fallbackCard = playableCards[0];
+            if (!fallbackCard) throw new Error('No playable cards available after error');
+            logger.debug(`Using fallback card: ${fallbackCard.rank} of ${fallbackCard.suit}`);
+            return fallbackCard;
+        }
     }
 
     // Analyze current trick for playing decisions

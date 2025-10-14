@@ -21,8 +21,8 @@ function playCatSound() {
     // Check if sound is enabled
     if (!useGameStore.getState().soundEnabled) return;
 
-    // Randomly select one of the 6 cat sounds
-    const randomIndex = Math.floor(Math.random() * 6) + 1;
+    // Randomly select one of the 5 cat sounds
+    const randomIndex = Math.floor(Math.random() * 5) + 1;
     const audio = new Audio(`/audio/kitty/cat-${randomIndex}.mp3`);
     audio.volume = 0.5; // Set volume to 50% to not be too loud
 

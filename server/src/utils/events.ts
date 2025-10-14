@@ -750,11 +750,35 @@ export function setupSocketEvents(): void {
                 // Check if bidding should end
                 await checkBiddingCompletion(game);
 
+                // CRITICAL FIX: Skip any player (bot OR human) who has already passed
+                // This prevents deadlock when turn advances to a player who already passed
+                let currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+                let skippedCount = 0;
+                const maxSkips = 4; // Prevent infinite loop
+
+                while (currentPlayerObj && game.phase === 'bidding' && game.playersWhoHavePassed?.has(game.currentPlayer) && skippedCount < maxSkips) {
+                    logger.debug(`Player ${currentPlayerObj.name} has already passed, skipping to next player`);
+                    const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+                    game.currentPlayer = nextPlayer;
+                    if (game.playerTurnStartTime) {
+                        game.playerTurnStartTime[nextPlayer] = Date.now();
+                    }
+                    currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+                    skippedCount++;
+
+                    // Emit update so UI knows turn changed
+                    emitGameEvent(game, 'game_updated', { game });
+
+                    // Check again if bidding should end after skipping
+                    await checkBiddingCompletion(game);
+                }
+
                 // Handle bot players if bidding continues
-                if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot) {
+                currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+                if (game.phase === 'bidding' && currentPlayerObj?.isBot && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
                     await handleBotTurn(game);
-                } else if (game.phase === 'bidding' && game.players.find(p => p.id === game.currentPlayer)?.isBot && game.playersWhoHavePassed?.has(game.currentPlayer)) {
-                    // Bot has already passed, move to next player
+                } else if (game.phase === 'bidding' && currentPlayerObj?.isBot && game.playersWhoHavePassed?.has(game.currentPlayer)) {
+                    // Bot has already passed, move to next player (shouldn't happen after the while loop above, but kept for safety)
                     const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
                     game.currentPlayer = nextPlayer;
                     if (game.playerTurnStartTime) {

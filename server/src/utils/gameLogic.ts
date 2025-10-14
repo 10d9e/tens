@@ -810,9 +810,17 @@ export async function handleBotTurn(game: Game): Promise<void> {
         }
 
         const handValue = currentPlayer.cards.reduce((total, card) => total + getCardValue(card), 0);
-        const bidResult = currentPlayer.botSkill === 'acadien'
-            ? currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players, game)
-            : currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players);
+        let bidResult: Bid | null = null;
+
+        try {
+            bidResult = currentPlayer.botSkill === 'acadien'
+                ? currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players, game)
+                : currentPlayer.ai.makeBid(handValue, game.currentBid, game.currentBid?.playerId, currentPlayer.id, game.players);
+        } catch (error) {
+            logger.error(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) threw error during makeBid:`, error);
+            // Default to pass if bot AI fails
+            bidResult = null;
+        }
 
         logger.debug(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) making bid decision: ${bidResult ? bidResult.points + ' points' : 'pass'}`);
 
@@ -880,17 +888,43 @@ export async function handleBotTurn(game: Game): Promise<void> {
             recordPass(game, botId);
         }
 
+        // CRITICAL: Always emit bid_made event (even if bot passed) to update UI
+        // The UI depends on this event to know the turn has changed
         emitGameEvent(game, 'bid_made', { game });
+        logger.debug(`Emitted bid_made event - currentPlayer is now ${game.currentPlayer}, phase: ${game.phase}`);
 
         // Check if bidding should end
         await checkBiddingCompletion(game);
 
+        // CRITICAL FIX: Skip any player (bot OR human) who has already passed
+        // This prevents deadlock when turn advances to a player who already passed
+        let currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+        let skippedCount = 0;
+        const maxSkips = 4; // Prevent infinite loop
+
+        while (currentPlayerObj && game.phase === 'bidding' && game.playersWhoHavePassed?.has(game.currentPlayer) && skippedCount < maxSkips) {
+            logger.debug(`Player ${currentPlayerObj.name} has already passed, skipping to next player`);
+            const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
+            game.currentPlayer = nextPlayer;
+            if (game.playerTurnStartTime) {
+                game.playerTurnStartTime[nextPlayer] = Date.now();
+            }
+            currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+            skippedCount++;
+
+            // Emit update so UI knows turn changed
+            emitGameEvent(game, 'game_updated', { game });
+
+            // Check again if bidding should end after skipping
+            await checkBiddingCompletion(game);
+        }
+
         // Handle next bot player if applicable and they haven't passed
-        const currentPlayerForBot = game.players.find(p => p.id === game.currentPlayer);
-        if (currentPlayerForBot?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
+        currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+        if (currentPlayerObj?.isBot && game.phase === 'bidding' && !game.playersWhoHavePassed?.has(game.currentPlayer)) {
             await handleBotTurn(game);
-        } else if (currentPlayerForBot?.isBot && game.phase === 'bidding' && game.playersWhoHavePassed?.has(game.currentPlayer)) {
-            // Bot has already passed, move to next player
+        } else if (currentPlayerObj?.isBot && game.phase === 'bidding' && game.playersWhoHavePassed?.has(game.currentPlayer)) {
+            // Bot has already passed, move to next player (shouldn't happen after the while loop above, but kept for safety)
             const nextPlayer = getNextPlayerByPosition(game.currentPlayer, game.players);
             game.currentPlayer = nextPlayer;
             if (game.playerTurnStartTime) {
@@ -953,7 +987,7 @@ export async function handleBotTurn(game: Game): Promise<void> {
                     logger.debug(`Starting first bot turn in ${game.phase} phase`);
                     await handleBotTurn(game);
                 }
-            } else if (currentPlayerForBot?.isBot && game.phase === 'bidding') {
+            } else if (currentPlayerObj?.isBot && game.phase === 'bidding') {
                 // Continue with next bot
                 await handleBotTurn(game);
             }
@@ -990,9 +1024,23 @@ export async function handleBotTurn(game: Game): Promise<void> {
 
         logger.debug(`Bot ${currentPlayer.name} has ${currentPlayer.cards.length} total cards, ${playableCards.length} playable cards`);
         logger.debug(`Lead suit: ${leadSuit}, Trump suit: ${game.trumpSuit}`);
-        const card = currentPlayer.botSkill === 'acadien'
-            ? await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit, game, currentPlayer.id)
-            : await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit);
+
+        let card: Card | null = null;
+        try {
+            card = currentPlayer.botSkill === 'acadien'
+                ? await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit, game, currentPlayer.id)
+                : await currentPlayer.ai.playCard(playableCards, leadSuit, game.trumpSuit);
+        } catch (error) {
+            logger.error(`Bot ${currentPlayer.name} (${currentPlayer.botSkill}) threw error during playCard:`, error);
+            // Fallback: play first playable card if bot AI fails
+            if (playableCards.length > 0) {
+                card = playableCards[0]!;
+                logger.debug(`Bot ${currentPlayer.name} using fallback card: ${card.rank} of ${card.suit}`);
+            } else {
+                logger.error(`Bot ${currentPlayer.name} has no playable cards - critical error`);
+                card = null;
+            }
+        }
 
         if (card) {
             // Check if bot has any cards left
