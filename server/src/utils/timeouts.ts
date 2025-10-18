@@ -14,7 +14,7 @@ export function startTimeoutCheck(): void {
             if (checkPlayerTimeout(game)) {
                 logger.warn(`Game ${game.id} was cleaned up due to timeout`);
             } else {
-                logger.debug(`Game ${game.id} is not timed out`);
+                // logger.debug(`Game ${game.id} is not timed out`);
             }
         });
     }, 1000); // Check every second
