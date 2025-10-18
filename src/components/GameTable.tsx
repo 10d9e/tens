@@ -16,6 +16,7 @@ import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 import { logger } from '../utils/logging';
 import GameTranscriptView from './GameTranscriptView';
+import LastRoundViewer from './LastRoundViewer';
 
 // Function to play a random cat sound
 function playCatSound() {
@@ -98,6 +99,7 @@ const GameTable: React.FC = () => {
     const [showKittyInterface, setShowKittyInterface] = useState(false);
     const [previousPhase, setPreviousPhase] = useState<string | null>(null);
     const [showTranscriptViewer, setShowTranscriptViewer] = useState(false);
+    const [showLastRoundViewer, setShowLastRoundViewer] = useState(false);
 
     // Play cat sound when kitty phase begins (for all players)
     useEffect(() => {
@@ -376,6 +378,19 @@ const GameTable: React.FC = () => {
                             title={soundEnabled ? "Disable Sound" : "Enable Sound"}
                         >
                             {soundEnabled ? '🔊' : '🔇'} Sound
+                        </button>,
+                        document.body
+                    )}
+
+                    {/* View Last Round Button - rendered in portal to ensure it's above bid interface */}
+                    {currentGame.phase !== 'finished' && currentGame.round > 1 && createPortal(
+                        <button
+                            onClick={() => setShowLastRoundViewer(true)}
+                            className="fixed top-3 right-48 px-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 text-green-300 hover:text-green-200 transition-all text-sm font-medium"
+                            style={{ zIndex: 10001 }}
+                            title="View Last Round (All 9 Tricks)"
+                        >
+                            📋 Last Round
                         </button>,
                         document.body
                     )}
@@ -807,6 +822,14 @@ const GameTable: React.FC = () => {
                 <GameTranscriptView
                     gameId={currentGame.id}
                     onClose={() => setShowTranscriptViewer(false)}
+                />
+            )}
+
+            {/* Last Round Viewer */}
+            {showLastRoundViewer && (
+                <LastRoundViewer
+                    onClose={() => setShowLastRoundViewer(false)}
+                    timeRemaining={timeRemaining}
                 />
             )}
         </div>
