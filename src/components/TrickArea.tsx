@@ -10,9 +10,11 @@ interface TrickAreaProps {
     trumpSuit: string;
     currentPlayerId: string | null;
     children?: React.ReactNode;
+    cardSize?: 'tiny' | 'small' | 'medium' | 'large';
+    compactMode?: boolean;
 }
 
-const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, children }) => {
+const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, children, cardSize = 'medium', compactMode = false }) => {
     // Debug logging
     logger.debug('TrickArea render - trick.cards:', trick.cards);
     logger.debug('TrickArea render - trick.cards.length:', trick.cards.length);
@@ -25,11 +27,12 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
         // If currentPlayerId is null (spectator mode), use fixed orientation
         if (!currentPlayerId) {
             // Fixed spectator orientation: North at top, East at right, South at bottom, West at left
+            const offset = compactMode ? 80 : 120; // Smaller offset for compact mode
             const positions = [
-                { x: 0, y: -120 },    // North (position 0)
-                { x: 120, y: 0 },     // East (position 1)
-                { x: 0, y: 120 },     // South (position 2)
-                { x: -120, y: 0 }     // West (position 3)
+                { x: 0, y: -offset },    // North (position 0)
+                { x: offset, y: 0 },     // East (position 1)
+                { x: 0, y: offset },     // South (position 2)
+                { x: -offset, y: 0 }     // West (position 3)
             ];
             return positions[cardPlayer.position] || { x: 0, y: 0 };
         }
@@ -94,7 +97,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
                         >
                             <Card
                                 card={card}
-                                size="medium"
+                                size={cardSize}
                                 className="shadow-lg"
                             />
                         </motion.div>
@@ -103,7 +106,7 @@ const TrickArea: React.FC<TrickAreaProps> = ({ trick, players, currentPlayerId, 
             </AnimatePresence>
 
             {/* Crest in center of trick area */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: -10 }}>
                 <img
                     src="/crest.png"
                     alt="Crest"

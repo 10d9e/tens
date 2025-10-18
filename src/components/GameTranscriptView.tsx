@@ -329,7 +329,7 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                                         [visualPosition === 'top' ? 'bottom' : visualPosition === 'bottom' ? 'top' : visualPosition === 'right' ? 'right' : 'left']: visualPosition === 'right' || visualPosition === 'left' ? '0' : '100%',
                                         [visualPosition === 'top' || visualPosition === 'bottom' ? 'left' : 'top']: visualPosition === 'top' || visualPosition === 'bottom' ? '50%' : visualPosition === 'right' || visualPosition === 'left' ? 'calc(50% + 90px)' : '100%',
                                         transform: visualPosition === 'top' || visualPosition === 'bottom' ? 'translateX(-50%)' : 'translateY(-50%)',
-                                        [visualPosition === 'top' ? 'marginBottom' : visualPosition === 'bottom' ? 'marginTop' : visualPosition === 'right' ? 'marginRight' : 'marginLeft']: visualPosition === 'top' ? '-140px' : visualPosition === 'left' ? '0px' : '8px',
+                                        [visualPosition === 'top' ? 'marginBottom' : visualPosition === 'bottom' ? 'marginTop' : visualPosition === 'right' ? 'marginRight' : 'marginLeft']: visualPosition === 'top' ? '-140px' : visualPosition === 'bottom' ? '-140px' : visualPosition === 'left' ? '0px' : '8px',
                                     }}
                                 >
                                     {sortCards(player.cards).map((card, index) => (
@@ -342,12 +342,10 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                                         >
                                             <Card
                                                 card={card}
+                                                size="tiny"
                                                 isPlayable={true}
                                                 className="cursor-default pointer-events-none"
                                                 style={{
-                                                    width: '20px',
-                                                    height: '95px',
-                                                    fontSize: '5px',
                                                     transform: 'none',
                                                     zIndex: 20
                                                 }}
@@ -373,14 +371,18 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                 })}
 
                 {/* Trick Area */}
-                <TrickArea
-                    trick={currentGame.currentTrick!}
-                    players={currentGame.players!}
-                    trumpSuit={currentGame.trumpSuit!}
-                    currentPlayerId={null}
-                >
-                    <div />
-                </TrickArea>
+                <div style={{ zIndex: -5 }}>
+                    <TrickArea
+                        trick={currentGame.currentTrick!}
+                        players={currentGame.players!}
+                        trumpSuit={currentGame.trumpSuit!}
+                        currentPlayerId={null}
+                        cardSize="tiny"
+                        compactMode={true}
+                    >
+                        <div />
+                    </TrickArea>
+                </div>
 
                 {/* Center Phase Display */}
                 {currentGame.phase === 'kitty' && (
