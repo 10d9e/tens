@@ -1214,13 +1214,8 @@ export async function handleBotTurn(game: Game): Promise<void> {
                         emitGameEvent(game, 'game_ended', gameEndInfo);
 
                         // Reset table state after game completion
-                        if (!process.env.INTEGRATION_TEST) {
-                            setTimeout(() => {
-                                resetTableAfterGameCompletion(game.tableId);
-                            }, 3000); // Give players 3 seconds to see the game end message
-                        } else {
-                            resetTableAfterGameCompletion(game.tableId);
-                        }
+                        // Note: Automatic redirect removed - players can use the "Exit to Lobby" button
+                        resetTableAfterGameCompletion(game.tableId);
 
                         return;
                     }
@@ -1394,13 +1389,8 @@ export async function handleBotTurn(game: Game): Promise<void> {
                     // Clean up game room and reset table state after game completion
                     cleanupGameRoom(game);
                     emitGameEvent(game, 'game_ended', gameEndInfo);
-                    if (!process.env.INTEGRATION_TEST) {
-                        setTimeout(() => {
-                            resetTableAfterGameCompletion(game.tableId);
-                        }, 3000); // Give players 3 seconds to see the game end message
-                    } else {
-                        resetTableAfterGameCompletion(game.tableId);
-                    }
+                    // Note: Automatic redirect removed - players can use the "Exit to Lobby" button
+                    resetTableAfterGameCompletion(game.tableId);
 
                     return;
                 }
@@ -1519,9 +1509,9 @@ export function resetTableAfterGameCompletion(tableId: string,): void {
     });
     */
 
-    // Remove all spectators and notify them
+    // Notify spectators that the game ended (but don't automatically redirect them)
     if (table.spectators && table.spectators.length > 0) {
-        logger.info(`Removing ${table.spectators.length} spectators from table ${tableId}`);
+        logger.info(`Notifying ${table.spectators.length} spectators that game ended`);
 
         table.spectators.forEach(spectator => {
             // Notify spectator that the game ended
@@ -1530,17 +1520,10 @@ export function resetTableAfterGameCompletion(tableId: string,): void {
                 spectatorSocket.leave(`table-${tableId}`);
                 spectatorSocket.leave(`spectator-${tableId}`);
                 spectatorSocket.emit('game_ended_for_spectator', {
-                    message: 'The game has ended. Returning to lobby.',
+                    message: 'The game has ended. You can return to lobby using the button.',
                     reason: 'Game ended'
                 });
-
-                // Return spectator to lobby
-                if (lobby) {
-                    spectatorSocket.emit('lobby_joined', {
-                        lobby: { ...lobby, tables: Array.from(lobby.tables.values()) },
-                        player: spectator
-                    });
-                }
+                // Note: Automatic redirect removed - spectators can use the "Exit to Lobby" button
             }
         });
 

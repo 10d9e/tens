@@ -232,6 +232,15 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
                 animate={{ scale: 1, y: 0 }}
                 exit={{ scale: 0.9, y: 20 }}
             >
+                {/* Bid Amount - Top Left Corner */}
+                {currentBid && (
+                    <div className="absolute top-4 left-4 z-10">
+                        <div className="flex items-center px-3 py-2 rounded-lg border-2 font-bold text-lg shadow-lg bg-green-800 border-green-400 text-white">
+                            💰 {currentBid.points}
+                        </div>
+                    </div>
+                )}
+
                 {/* Countdown Timer - Top Right Corner */}
                 {timeRemaining !== null && (
                     <div className="absolute top-4 right-4 z-10">

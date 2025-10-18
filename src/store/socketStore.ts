@@ -157,7 +157,10 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
 
             // Check if current player is still in the table
             const currentPlayer = useGameStore.getState().currentPlayer;
-            if (currentPlayer && !table.players.find((p: any) => p.id === currentPlayer.id)) {
+            const currentGame = useGameStore.getState().currentGame;
+
+            // Don't clear game state if the game has finished - let the user see the completion dialog
+            if (currentPlayer && !table.players.find((p: any) => p.id === currentPlayer.id) && currentGame?.phase !== 'finished') {
                 logger.info('[table_updated] Current player no longer in table, clearing game state but preserving player info');
                 const gameStore = useGameStore.getState();
                 gameStore.setCurrentGame(null);
@@ -166,6 +169,8 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
                 gameStore.setIsBidding(false);
                 gameStore.setSelectedCard(null);
                 // toast('You have been returned to the lobby', { icon: 'ℹ️' });
+            } else if (currentGame?.phase === 'finished') {
+                logger.info('[table_updated] Game is finished - keeping game state so user can see completion dialog');
             }
         });
 

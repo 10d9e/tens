@@ -65,27 +65,41 @@ function App() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
-                    <h1>🎴 Two Hundred Card Game</h1>
-                    <p>Enter your name to join the game</p>
-                    <form onSubmit={(e) => {
-                        e.preventDefault();
-                        const formData = new FormData(e.currentTarget);
-                        const name = formData.get('name') as string;
-                        if (name.trim()) {
-                            handleNameSubmit(name.trim());
-                        }
-                    }}>
-                        <input
-                            type="text"
-                            name="name"
-                            placeholder="Your name"
-                            defaultValue={playerName}
-                            maxLength={20}
-                            required
-                            autoFocus
+                    <div className="login-header">
+                        <img
+                            src="/crest.png"
+                            alt="Game Crest"
+                            className="login-crest-logo"
                         />
-                        <button type="submit">Join Game</button>
-                    </form>
+                        <h1>200 Card Game</h1>
+                        <p className="login-subtitle">Enter your name to join the game</p>
+                    </div>
+                    <div className="login-form-container">
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            const formData = new FormData(e.currentTarget);
+                            const name = formData.get('name') as string;
+                            if (name.trim()) {
+                                handleNameSubmit(name.trim());
+                            }
+                        }}>
+                            <div className="input-group">
+                                <input
+                                    type="text"
+                                    name="name"
+                                    placeholder="Your name"
+                                    defaultValue={playerName}
+                                    maxLength={20}
+                                    required
+                                    autoFocus
+                                />
+                                <button type="submit" className="login-button">
+                                    <span>Join Game</span>
+                                    <span className="button-icon">→</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </motion.div>
                 <Toaster position="top-right" />
             </div>

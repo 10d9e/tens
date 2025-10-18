@@ -1196,13 +1196,8 @@ export function setupSocketEvents(): void {
                             // Clean up game room and reset table state after game completion
                             cleanupGameRoom(game);
                             emitGameEvent(game, 'game_ended', gameEndInfo);
-                            if (!process.env.INTEGRATION_TEST) {
-                                setTimeout(() => {
-                                    resetTableAfterGameCompletion(game.tableId);
-                                }, 3000); // Give players 3 seconds to see the game end message
-                            } else {
-                                resetTableAfterGameCompletion(game.tableId);
-                            }
+                            // Note: Automatic redirect removed - players can use the "Exit to Lobby" button
+                            resetTableAfterGameCompletion(game.tableId);
 
                             return;
                         }
@@ -1380,13 +1375,8 @@ export function setupSocketEvents(): void {
                         io.to(`table-${game.tableId}`).emit('game_ended', gameEndInfo);
 
                         // Reset table state after game completion
-                        if (!process.env.INTEGRATION_TEST) {
-                            setTimeout(() => {
-                                resetTableAfterGameCompletion(game.tableId);
-                            }, 3000); // Give players 3 seconds to see the game end message
-                        } else {
-                            resetTableAfterGameCompletion(game.tableId);
-                        }
+                        // Note: Automatic redirect removed - players can use the "Exit to Lobby" button
+                        resetTableAfterGameCompletion(game.tableId);
                     }
                 }
 
