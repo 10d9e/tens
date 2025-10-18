@@ -253,7 +253,7 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                     {createPortal(
                         <button
                             onClick={handleDownload}
-                            className="fixed top-2 right-44 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-lg text-green-300 hover:text-green-200 transition-all text-sm font-medium"
+                            className="fixed top-2 right-24 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-lg text-green-300 hover:text-green-200 transition-all text-sm font-medium"
                             style={{ zIndex: 10001 }}
                             title="Download Transcript as JSON"
                         >
@@ -270,7 +270,7 @@ const GameTranscriptView: React.FC<GameTranscriptViewProps> = ({ gameId, onClose
                             style={{ zIndex: 10001 }}
                             title="Back to Transcript List"
                         >
-                            ← Back to List
+                            ← Back
                         </button>,
                         document.body
                     )}

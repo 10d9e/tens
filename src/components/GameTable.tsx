@@ -15,6 +15,7 @@ import TrickWinnerAnimation from './TrickWinnerAnimation';
 import { Card as CardType } from '../types/game';
 import { canPlayCard } from '../utils/gameLogic';
 import { logger } from '../utils/logging';
+import GameTranscriptView from './GameTranscriptView';
 
 // Function to play a random cat sound
 function playCatSound() {
@@ -96,6 +97,7 @@ const GameTable: React.FC = () => {
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [showKittyInterface, setShowKittyInterface] = useState(false);
     const [previousPhase, setPreviousPhase] = useState<string | null>(null);
+    const [showTranscriptViewer, setShowTranscriptViewer] = useState(false);
 
     // Play cat sound when kitty phase begins (for all players)
     useEffect(() => {
@@ -366,7 +368,7 @@ const GameTable: React.FC = () => {
                 <div className="flex items-center gap-4">
 
                     {/* Sound Toggle Button - rendered in portal to ensure it's above bid interface */}
-                    {createPortal(
+                    {currentGame.phase !== 'finished' && createPortal(
                         <button
                             onClick={() => setSoundEnabled(!soundEnabled)}
                             className="fixed top-3 right-32 px-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 text-blue-300 hover:text-blue-200 transition-all text-sm font-medium"
@@ -379,7 +381,7 @@ const GameTable: React.FC = () => {
                     )}
 
                     {/* Exit Game Button - rendered in portal to ensure it's above bid interface */}
-                    {createPortal(
+                    {currentGame.phase !== 'finished' && createPortal(
                         <button
                             onClick={handleExitGame}
                             className="fixed top-3 right-2 px-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 hover:text-red-200 transition-all text-sm font-medium"
@@ -716,33 +718,42 @@ const GameTable: React.FC = () => {
                             Thanks for playing! 🎉
                         </div>
 
-                        <button
-                            className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
-                            onClick={() => {
-                                // When game is finished, directly clear the game state instead of trying to leave table
-                                // (player might already be removed from table by server)
-                                const gameStore = useGameStore.getState();
-                                const socketStore = useSocketStore.getState();
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                            <button
+                                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                                onClick={() => setShowTranscriptViewer(true)}
+                            >
+                                📼 View Replay
+                            </button>
 
-                                // Store player name before clearing
-                                const playerName = gameStore.currentPlayer?.name;
+                            <button
+                                className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-bold rounded-xl shadow-lg transition-all transform hover:scale-105"
+                                onClick={() => {
+                                    // When game is finished, directly clear the game state instead of trying to leave table
+                                    // (player might already be removed from table by server)
+                                    const gameStore = useGameStore.getState();
+                                    const socketStore = useSocketStore.getState();
 
-                                gameStore.setCurrentGame(null);
-                                gameStore.setCurrentTable(null);
-                                gameStore.setCurrentPlayer(null);
+                                    // Store player name before clearing
+                                    const playerName = gameStore.currentPlayer?.name;
 
-                                // Also clear any bidding state
-                                gameStore.setIsBidding(false);
-                                gameStore.setSelectedCard(null);
+                                    gameStore.setCurrentGame(null);
+                                    gameStore.setCurrentTable(null);
+                                    gameStore.setCurrentPlayer(null);
 
-                                // Request fresh lobby data
-                                if (socketStore.socket && playerName) {
-                                    socketStore.socket.emit('join_lobby', { playerName });
-                                }
-                            }}
-                        >
-                            🏠 Exit to Lobby
-                        </button>
+                                    // Also clear any bidding state
+                                    gameStore.setIsBidding(false);
+                                    gameStore.setSelectedCard(null);
+
+                                    // Request fresh lobby data
+                                    if (socketStore.socket && playerName) {
+                                        socketStore.socket.emit('join_lobby', { playerName });
+                                    }
+                                }}
+                            >
+                                🏠 Exit to Lobby
+                            </button>
+                        </div>
                     </motion.div>
                 </motion.div>
             )}
@@ -789,6 +800,14 @@ const GameTable: React.FC = () => {
                         </div>
                     </motion.div>
                 </motion.div>
+            )}
+
+            {/* Game Transcript Viewer */}
+            {showTranscriptViewer && currentGame && (
+                <GameTranscriptView
+                    gameId={currentGame.id}
+                    onClose={() => setShowTranscriptViewer(false)}
+                />
             )}
         </div>
     );
