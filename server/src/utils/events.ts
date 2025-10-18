@@ -74,10 +74,10 @@ export function setupSocketEvents(): void {
             }
         });
 
-        socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number; deckVariant?: '36' | '40'; scoreTarget?: 200 | 300 | 500 | 1000; hasKitty?: boolean }) => {
+        socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number; deckVariant?: '36' | '40'; scoreTarget?: 200 | 300 | 500 | 1000; hasKitty?: boolean; isPrivate?: boolean; password?: string }) => {
             try {
                 logger.info('[create_table] received:', data);
-                const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false } = data;
+                const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false, isPrivate = false, password } = data;
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
@@ -96,20 +96,25 @@ export function setupSocketEvents(): void {
                     throw new GameError('Table already exists');
                 }
 
-                logger.debug('Creating new table:', tableId, 'with name:', tableName, 'deckVariant:', deckVariant, 'hasKitty:', hasKitty);
+                logger.debug('Creating new table:', tableId, 'with name:', tableName, 'deckVariant:', deckVariant, 'hasKitty:', hasKitty, 'isPrivate:', isPrivate);
                 const table: Table = {
                     id: tableId,
                     name: tableName || `Table ${tableId}`,
                     players: [],
                     gameState: undefined,
                     maxPlayers: 4,
-                    isPrivate: false, // Default to public table
+                    isPrivate: isPrivate,
                     creator: player.name,
                     timeoutDuration: timeoutDuration,
                     deckVariant: deckVariant,
                     scoreTarget: scoreTarget,
                     hasKitty: hasKitty
                 };
+
+                // Only set password if table is private and password is provided
+                if (isPrivate && password) {
+                    table.password = password;
+                }
 
                 // Add the creator as the first player
                 player.position = 0;
