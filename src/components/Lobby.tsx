@@ -189,17 +189,37 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                             lobby.map((table) => (
                                 <motion.div
                                     key={table.id}
-                                    className="bg-white/10 backdrop-blur-md rounded p-8 border border-white/20 hover:border-white/40 transition-all duration-300 shadow-xl hover:shadow-2xl"
+                                    className={`bg-white/10 backdrop-blur-md rounded p-8 border transition-all duration-300 shadow-xl hover:shadow-2xl relative ${table.gameState
+                                        ? 'border-yellow-400/40 hover:border-yellow-400/60 bg-gradient-to-br from-yellow-500/5 to-orange-500/5'
+                                        : table.isPrivate
+                                            ? 'border-red-400/30 hover:border-red-400/50'
+                                            : 'border-white/20 hover:border-white/40'
+                                        }`}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.5 }}
                                 >
+                                    {table.isPrivate && (
+                                        <div className="absolute top-4 right-4 text-red-400 text-xl animate-pulse">
+                                            🔒
+                                        </div>
+                                    )}
+                                    {table.gameState && (
+                                        <div className="absolute top-4 right-4 text-yellow-400 text-xl animate-pulse">
+                                            🎮
+                                        </div>
+                                    )}
                                     <div className="flex justify-between items-start mb-6">
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <h3 className="text-xl font-bold text-white">{table.name}</h3>
+                                                {table.gameState && (
+                                                    <span className="px-2 py-1 bg-yellow-500/20 border border-yellow-400/30 rounded-full text-xs font-medium text-yellow-300 flex items-center gap-1 animate-pulse">
+                                                        🎮 Game Active
+                                                    </span>
+                                                )}
                                                 {table.isPrivate && (
-                                                    <span className="px-2 py-1 bg-red-500/20 border border-red-400/30 rounded text-xs font-medium text-red-300">
+                                                    <span className="px-2 py-1 bg-red-500/20 border border-red-400/30 rounded-full text-xs font-medium text-red-300 flex items-center gap-1 animate-pulse">
                                                         🔒 Private
                                                     </span>
                                                 )}
@@ -264,9 +284,7 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
 
                                     <div className="flex justify-between items-center">
                                         <div className="text-sm">
-                                            {table.gameState ? (
-                                                <span className="text-yellow-400 font-medium">🎮 Game in Progress</span>
-                                            ) : (
+                                            {!table.gameState && (
                                                 <span className="text-white/80 font-medium">⏳ Waiting for Players</span>
                                             )}
                                         </div>

@@ -69,7 +69,7 @@ const WaitingRoom: React.FC = () => {
             </div>
 
             {/* Main Content */}
-            <div className="container mx-auto px-6 py-8 flex justify-center">
+            <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6 py-8">
                 <motion.div
                     className="bg-white/10 backdrop-blur-md rounded p-8 border border-white/20 shadow-2xl max-w-4xl w-full"
                     initial={{ opacity: 0, y: 20 }}
