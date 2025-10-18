@@ -16,15 +16,36 @@ function playCatSound() {
     // Check if sound is enabled
     if (!useGameStore.getState().soundEnabled) return;
 
-    // Randomly select one of the 5 cat sounds
-    const randomIndex = Math.floor(Math.random() * 5) + 1;
-    const audio = new Audio(`/audio/kitty/cat-${randomIndex}.mp3`);
-    audio.volume = 0.5; // Set volume to 50% to not be too loud
+    try {
+        // Randomly select one of the 5 cat sounds (1-5)
+        const randomIndex = Math.floor(Math.random() * 5) + 1;
+        logger.debug(`Playing cat sound: cat-${randomIndex}.mp3`);
 
-    // Play the audio and catch any errors
-    audio.play().catch(error => {
-        logger.error('Failed to play cat sound:', error);
-    });
+        const audio = new Audio(`/audio/kitty/cat-${randomIndex}.mp3`);
+        audio.volume = 0.5; // Set volume to 50% to not be too loud
+
+        // Ensure audio is ready to play
+        audio.preload = 'auto';
+
+        // Play the audio and catch any errors
+        const playPromise = audio.play();
+
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                logger.debug(`Successfully played cat sound: cat-${randomIndex}.mp3`);
+            }).catch(error => {
+                logger.error(`Failed to play cat sound cat-${randomIndex}.mp3:`, error);
+                // Try to play a fallback sound
+                const fallbackAudio = new Audio('/audio/kitty/cat-1.mp3');
+                fallbackAudio.volume = 0.5;
+                fallbackAudio.play().catch(fallbackError => {
+                    logger.error('Failed to play fallback cat sound:', fallbackError);
+                });
+            });
+        }
+    } catch (error) {
+        logger.error('Error in playCatSound function:', error);
+    }
 }
 
 const SpectatorView: React.FC = () => {
@@ -362,11 +383,8 @@ const SpectatorView: React.FC = () => {
                             >
                                 🐱
                             </div>
-                            <div className="text-white text-lg font-semibold mt-2">
+                            <div className="text-white text-xl font-bold mt-2" style={{ textShadow: '2px 2px 4px rgba(0, 0, 0, 0.8)' }}>
                                 Kitty Phase
-                            </div>
-                            <div className="text-green-200 text-sm mt-1">
-                                Waiting for bid winner to handle kitty
                             </div>
                         </div>
                     </div>

@@ -40,82 +40,91 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
                 >
                     <div className="bg-white/10 backdrop-blur-md p-8 shadow-2xl rounded-lg">
                         <div className="prose prose-invert max-w-none text-white/90">
-                            <h2 className="text-3xl font-bold text-white mb-6">Players and Cards</h2>
-                            <p>
-                                200 is generally agreed to be best for four players in partnerships - North and South play against East and West.
-                            </p>
-                            <p>
-                                For the 4-player game without a kitty, a 36-card pack is created by removing all the 2's, 3's, 4's, 6's from a standard 52-card pack without jokers.
-                                The cards in each suit rank from high to low: <strong>A-K-Q-J-10-9-8-7-5</strong>.
-                            </p>
+                            <h2 className="text-3xl font-bold text-white mb-6">How to Play 200 Card Game</h2>
 
-                            <p className="mt-4">In all forms of the game, the cards have point values as follows:</p>
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Getting Started</h3>
+                            <p>
+                                Welcome to the 200 Card Game! This is a partnership trick-taking game for 4 players where North and South play against East and West.
+                            </p>
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Create or Join a Table:</strong> Use the lobby to create a new table or join an existing one</li>
+                                <li><strong>Table Settings:</strong> Choose between 36-card (standard) or 40-card (with kitty) decks</li>
+                                <li><strong>Score Targets:</strong> Set your game to 200, 300, 500, or 1000 points</li>
+                                <li><strong>Private Tables:</strong> Create password-protected tables for private games</li>
+                                <li><strong>Bot Players:</strong> Add AI bots to fill empty seats with different skill levels</li>
+                            </ul>
+
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Card Values and Ranking</h3>
+                            <p>
+                                The game uses either a 36-card deck (A-K-Q-J-10-9-8-7-5) or 40-card deck (A-K-Q-J-10-9-8-7-6-5) depending on your table settings.
+                            </p>
+                            <p className="mt-4">Card point values:</p>
                             <ul className="list-disc pl-6 space-y-1">
                                 <li>each ace: <strong>10 points</strong></li>
                                 <li>each ten: <strong>10 points</strong></li>
                                 <li>each five: <strong>5 points</strong></li>
+                                <li>each six (40-card deck only): <strong>5 points</strong></li>
                                 <li>other cards: <strong>0 points</strong></li>
                             </ul>
-                            <p className="mt-2">So that there are <strong>100 card points</strong> in the deck altogether.</p>
+                            <p className="mt-2">Total points in deck: <strong>100 points (36-card) or 120 points (40-card)</strong></p>
 
-                            <p className="mt-4">The dealing, bidding and play are all clockwise.</p>
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Game Flow</h3>
+                            <p>
+                                The game is fully automated in this interface. The system handles all dealing, shuffling, and turn management automatically.
+                            </p>
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Automatic Dealing:</strong> Cards are dealt automatically to all players</li>
+                                <li><strong>Turn Indicators:</strong> The interface shows whose turn it is with visual cues</li>
+                                <li><strong>Timer System:</strong> Each player has a time limit for their turn (configurable when creating tables)</li>
+                                <li><strong>Card Animation:</strong> Watch cards being played with smooth animations</li>
+                                <li><strong>Real-time Updates:</strong> See all game actions as they happen</li>
+                            </ul>
 
-                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Deal</h3>
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Bidding Interface</h3>
                             <p>
-                                The first dealer is chosen at random. For example, a player can shuffle the deck and deal single cards face up to the players starting with the player on the left.
-                                The first player who receives a jack is the first dealer. After each hand, the turn to deal passes to the left. Before each deal, the cards are shuffled by the dealer
-                                and cut by the opponent to dealer's right. The dealer then deals 9 cards face down to each player, in batches of three, starting with the player to dealer's left.
+                                When it's your turn to bid, you'll see a bidding interface with the following options:
                             </p>
-
-                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Bidding</h3>
-                            <p>
-                                Players now bid for the right to choose which suit will be trumps, each bid representing the number of points the bidder's partnership contracts to take in tricks if not outbid.
-                            </p>
-                            <p>
-                                The player to the left of the dealer speaks first, and the bidding continues clockwise. The minimum bid is 50, all bids must be multiples of 5, and each bid must be higher than the last.
-                                A player who does not wish to bid can pass, but having passed cannot bid again in that auction.
-                            </p>
-                            <p>
-                                If all four players pass, the hands are thrown in without score and the next dealer deals. If there is a bid, the bidding continues for as many circuits as necessary
-                                until three players have passed, or until someone bids 100, the highest possible bid.
-                            </p>
-                            <p>
-                                The final (and highest) bidder becomes the contractor, and announces which suit will be trump for that hand.
-                            </p>
-
-                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Play</h3>
-                            <p>
-                                Having announced the trump suit, the contractor leads to the first trick. Players must follow suit if able to. A player who has no card of the suit led is free to play any card.
-                                The trick is won by the highest trump in it, or, if it contains no trumps, by the highest card of the suit that was led. The winner of each trick leads to the next.
-                            </p>
-                            <p>
-                                The objective is to win tricks that contain card points (Aces, 10's and 5's). Tricks without points have no value.
-                            </p>
-                            <p>
-                                If the contractor fails to announce a trump suit before leading to the first trick, the suit of the first card played by the contractor automatically becomes trump.
-                            </p>
-                            <p>
-                                Playing a trump when you have no card of the non-trump suit that was led is known as "cutting", no doubt from the French "couper", which means to trump in a card game,
-                                but also literally "to cut". There is no obligation to try to win the trick or to cut when you are unable to follow suit - it is legal to discard from another suit.
-                                Indeed if you expect your partner to win the trick you will probably want to discard a ten or five that might otherwise have been lost to the opponents.
-                            </p>
-                            <p>
-                                Completed tricks are stored face down in front of a member of the team that won them and may not be looked at again by anyone until the end of the play.
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Bid Amount:</strong> Use the slider or buttons to select your bid (50-100 points)</li>
+                                <li><strong>Trump Suit:</strong> Choose hearts ♥, diamonds ♦, clubs ♣, or spades ♠</li>
+                                <li><strong>Pass Button:</strong> Click "Pass" if you don't want to bid</li>
+                                <li><strong>Visual Feedback:</strong> See current bids and who has passed</li>
+                                <li><strong>Timer:</strong> Watch the countdown timer for your turn</li>
+                            </ul>
+                            <p className="mt-4">
+                                <strong>Bidding Rules:</strong> Minimum bid is 50, all bids must be multiples of 5, and each bid must be higher than the last.
+                                Once you pass, you cannot bid again in that round.
                             </p>
 
-                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Scoring</h3>
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Playing Cards</h3>
                             <p>
-                                Scores are kept on paper. Each team begins with a score of zero.
+                                When it's your turn to play a card, you'll see your hand at the bottom of the screen. Here's how to play:
                             </p>
-                            <p>
-                                When all the cards have been played, each team counts the value of the point cards in their tricks. If the contractor's team has at least as many card points as the final bid,
-                                the total value of the cards in their tricks is added to their cumulative score. If the number of card points they took is less than the bid, the amount of the bid is subtracted
-                                from their cumulative score.
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Click to Play:</strong> Click on any card in your hand to play it</li>
+                                <li><strong>Follow Suit:</strong> You must play a card of the same suit as the lead card if you have one</li>
+                                <li><strong>Trump or Discard:</strong> If you can't follow suit, you can play any card (trump or discard)</li>
+                                <li><strong>Visual Cues:</strong> The interface highlights valid plays and shows the current trick</li>
+                                <li><strong>Card Values:</strong> Focus on winning tricks with Aces, 10s, 5s, and 6s (in 40-card games)</li>
+                            </ul>
+                            <p className="mt-4">
+                                <strong>Strategy Tip:</strong> Try to win tricks containing point cards while avoiding giving away valuable cards to opponents.
                             </p>
+
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Scoring and Game Interface</h3>
                             <p>
-                                The opposing team add whatever card points they took in tricks to their cumulative score, with one exception: if the contractor's opponents currently have a cumulative score of 100 or more,
-                                then they can score for points in their tricks only if at least one member of their team bid during the auction. If they both passed at their first opportunity to speak,
-                                they score nothing for the points in their tricks.
+                                The game interface automatically tracks all scores and displays them in real-time. You can see:
+                            </p>
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Team Scores:</strong> Current cumulative scores for both teams</li>
+                                <li><strong>Round Scores:</strong> Points earned in the current round</li>
+                                <li><strong>Bid Status:</strong> Whether the contractor made their bid</li>
+                                <li><strong>Card Points:</strong> Value of cards won in each trick</li>
+                                <li><strong>Game Progress:</strong> How close each team is to the target score</li>
+                            </ul>
+                            <p className="mt-4">
+                                <strong>Scoring Rules:</strong> If the contractor's team makes their bid, they add their card points to their score.
+                                If they fail, they subtract the bid amount. The defending team always adds their card points to their score.
                             </p>
 
                             <div className="bg-white/5 border border-white/10 rounded-lg p-4 my-6">
@@ -140,28 +149,39 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
                                 The game also ends if one team reaches a negative score of 200 or worse while the other team's score is positive or zero. In that case the team with minus 200 or worse loses the game.
                             </p>
 
-                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">200 with a Kitty</h3>
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Kitty Feature (40-Card Games)</h3>
                             <p>
-                                If the standard rules are not followed, 200 With a Kitty (Two-Hundred with a Kitty) is one of the most popular variants of 200 currently adhered to.
-                                It slightly increases the normal deck as used for the game 200 by using a 40 card deck. This deck is formed by removing all cards of four and under from a standard deck.
-                                The ranking of the cards in this deck, are as follows (from highest to lowest): <strong>Ace, King, Queen, Jack, 10, 9, 8, 7, 6, 5</strong>.
-                                Similar to the parent game, 200 With a Kitty is also played by four players playing in two partnerships.
+                                When you create a table with the 40-card deck option, you can enable the Kitty feature for an exciting variant of the game.
                             </p>
-
-                            <p className="mt-4">This variant is played identically to the standard game of 200 save the following differences:</p>
                             <ul className="list-disc pl-6 space-y-2">
                                 <li>
-                                    <strong>Dealing Method:</strong> The dealer first deals each player a three card packet. After this the dealer deals two cards to the middle of the table
-                                    for formation of a kitty. The dealer then deals another packet consisting of three cards to each player, and then two more face-down to complete the kitty.
-                                    After this, the dealer then deals a final three card packet to each player. Each player should thus have nine face-down cards and a four card face-down kitty
-                                    is in the middle of the table.
+                                    <strong>Kitty Cards:</strong> 4 cards are dealt face-down in the center of the table
                                 </li>
                                 <li>
-                                    <strong>Bidding and Kitty:</strong> The bidding is as normal, however the winning high bidder is entitled to take the four cards from the kitty into his hand
-                                    upon completion of the bidding. The player then selects any four cards from his hand to discard to form a new face-down kitty in the middle of the table.
-                                    After doing this, he then declares his choice of trump suit for the hand. At the end of the hand any card points found amongst the discarded four card kitty,
-                                    are awarded to the defending team.
+                                    <strong>Kitty Interface:</strong> When you win the bid, you'll see a special kitty interface
                                 </li>
+                                <li>
+                                    <strong>Take Kitty:</strong> Click "Take Kitty" to add the 4 kitty cards to your hand
+                                </li>
+                                <li>
+                                    <strong>Discard Cards:</strong> Select 4 cards from your hand to discard back to the kitty
+                                </li>
+                                <li>
+                                    <strong>Kitty Points:</strong> Any point cards in the discarded kitty go to the defending team
+                                </li>
+                            </ul>
+                            <p className="mt-4">
+                                <strong>Strategy:</strong> The kitty adds an extra layer of strategy - you might get valuable cards, but you must discard 4 cards back,
+                                and any points in those discarded cards help your opponents!
+                            </p>
+
+                            <h3 className="text-2xl font-bold text-white mt-8 mb-4">Additional Features</h3>
+                            <ul className="list-disc pl-6 space-y-2">
+                                <li><strong>Chat System:</strong> Communicate with other players during the game</li>
+                                <li><strong>Game Replays:</strong> View past games in the lobby's replay section</li>
+                                <li><strong>Spectator Mode:</strong> Watch ongoing games without playing</li>
+                                <li><strong>Bot Difficulty:</strong> Choose from Easy, Medium, Hard, or Acadien bot skill levels</li>
+                                <li><strong>Real-time Updates:</strong> See all game actions as they happen with smooth animations</li>
                             </ul>
                         </div>
                     </div>
