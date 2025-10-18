@@ -8,7 +8,7 @@
         "build": "tsc && vite build",
         "preview": "vite preview",
         "server": "node server/dist/index.js",
-        "server:dev": "ts-node server/src/index.ts",
+        "server:dev": "LOG_LEVEL=debug ts-node server/src/index.ts",
         "server:build": "tsc -p server/tsconfig.json",
         "server:watch": "tsc -p server/tsconfig.json --watch",
         "dev:full": "concurrently \"npm run server:dev\" \"npm run dev\"",

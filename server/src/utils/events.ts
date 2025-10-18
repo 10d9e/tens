@@ -753,6 +753,9 @@ export function setupSocketEvents(): void {
                 // CRITICAL FIX: Skip any player (bot OR human) who has already passed
                 // This prevents deadlock when turn advances to a player who already passed
                 let currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
+
+                // jcl
+
                 let skippedCount = 0;
                 const maxSkips = 4; // Prevent infinite loop
 
@@ -772,6 +775,7 @@ export function setupSocketEvents(): void {
                     // Check again if bidding should end after skipping
                     await checkBiddingCompletion(game);
                 }
+
 
                 // Handle bot players if bidding continues
                 currentPlayerObj = game.players.find(p => p.id === game.currentPlayer);
@@ -1187,10 +1191,11 @@ export function setupSocketEvents(): void {
                             // Record game complete in transcript with full details
                             recordGameComplete(game, winningTeam, winningPlayers.map(p => ({ name: p.name, isBot: p.isBot })));
 
-                            emitGameEvent(game, 'game_ended', gameEndInfo);
+
 
                             // Clean up game room and reset table state after game completion
                             cleanupGameRoom(game);
+                            emitGameEvent(game, 'game_ended', gameEndInfo);
                             if (!process.env.INTEGRATION_TEST) {
                                 setTimeout(() => {
                                     resetTableAfterGameCompletion(game.tableId);

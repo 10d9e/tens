@@ -172,32 +172,60 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         socket.on('player_joined_table', (data) => {
             logger.info('[player_joined_table] Player joined table:', data);
             const { table, player } = data;
-            useGameStore.getState().setCurrentTable(table);
-            logger.info(`[player_joined_table] ${player.name} joined the table`);
+
+            // Only update currentTable if the current player is actually in this table
+            const currentPlayer = useGameStore.getState().currentPlayer;
+            if (currentPlayer && table.players.find((p: any) => p.id === currentPlayer.id)) {
+                useGameStore.getState().setCurrentTable(table);
+                logger.info(`[player_joined_table] ${player.name} joined the table - updating currentTable because current player is in this table`);
+            } else {
+                logger.info(`[player_joined_table] ${player.name} joined the table - not updating currentTable because current player is not in this table`);
+            }
             // toast.success(`${player.name} joined the table`);
         });
 
         socket.on('player_left_table', (data) => {
             logger.info('[player_left_table] Player left table:', data);
             const { table, player } = data;
-            useGameStore.getState().setCurrentTable(table);
-            logger.info(`[player_left_table] ${player.name} left the table`);
+
+            // Only update currentTable if the current player is actually in this table
+            const currentPlayer = useGameStore.getState().currentPlayer;
+            if (currentPlayer && table.players.find((p: any) => p.id === currentPlayer.id)) {
+                useGameStore.getState().setCurrentTable(table);
+                logger.info(`[player_left_table] ${player.name} left the table - updating currentTable because current player is in this table`);
+            } else {
+                logger.info(`[player_left_table] ${player.name} left the table - not updating currentTable because current player is not in this table`);
+            }
             // toast(`${player.name} left the table`);
         });
 
         socket.on('spectator_joined_table', (data) => {
             logger.info('[spectator_joined_table] Spectator joined table:', data);
             const { table, spectator } = data;
-            useGameStore.getState().setCurrentTable(table);
-            logger.info(`[spectator_joined_table] ${spectator.name} is now watching`);
+
+            // Only update currentTable if the current player is actually in this table (as player or spectator)
+            const currentPlayer = useGameStore.getState().currentPlayer;
+            if (currentPlayer && (table.players.find((p: any) => p.id === currentPlayer.id) || table.spectators?.find((s: any) => s.id === currentPlayer.id))) {
+                useGameStore.getState().setCurrentTable(table);
+                logger.info(`[spectator_joined_table] ${spectator.name} is now watching - updating currentTable because current player is in this table`);
+            } else {
+                logger.info(`[spectator_joined_table] ${spectator.name} is now watching - not updating currentTable because current player is not in this table`);
+            }
             // toast(`${spectator.name} is now watching`);
         });
 
         socket.on('spectator_left_table', (data) => {
             logger.info('[spectator_left_table] Spectator left table:', data);
             const { table, spectator } = data;
-            useGameStore.getState().setCurrentTable(table);
-            logger.info(`[spectator_left_table] ${spectator.name} stopped watching`);
+
+            // Only update currentTable if the current player is actually in this table (as player or spectator)
+            const currentPlayer = useGameStore.getState().currentPlayer;
+            if (currentPlayer && (table.players.find((p: any) => p.id === currentPlayer.id) || table.spectators?.find((s: any) => s.id === currentPlayer.id))) {
+                useGameStore.getState().setCurrentTable(table);
+                logger.info(`[spectator_left_table] ${spectator.name} stopped watching - updating currentTable because current player is in this table`);
+            } else {
+                logger.info(`[spectator_left_table] ${spectator.name} stopped watching - not updating currentTable because current player is not in this table`);
+            }
             // toast(`${spectator.name} stopped watching`);
         });
 
