@@ -32,14 +32,14 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
 
             {/* Rules Content */}
             <div className="min-h-[calc(100vh-80px)] flex items-center justify-center px-6 py-8">
-                <motion.div
+            <motion.div
                     className="max-w-4xl w-full"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5 }}
-                >
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+            >
                     <div className="bg-white/10 backdrop-blur-md p-8 shadow-2xl rounded-lg">
-                        <div className="prose prose-invert max-w-none text-white/90">
+                    <div className="prose prose-invert max-w-none text-white/90">
                             <h2 className="text-3xl font-bold text-white mb-6">How to Play 200 Card Game</h2>
 
                             <h3 className="text-2xl font-bold text-white mt-8 mb-4">Getting Started</h3>
@@ -59,13 +59,13 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
                                 The game uses either a 36-card deck (A-K-Q-J-10-9-8-7-5) or 40-card deck (A-K-Q-J-10-9-8-7-6-5) depending on your table settings.
                             </p>
                             <p className="mt-4">Card point values:</p>
-                            <ul className="list-disc pl-6 space-y-1">
-                                <li>each ace: <strong>10 points</strong></li>
-                                <li>each ten: <strong>10 points</strong></li>
-                                <li>each five: <strong>5 points</strong></li>
+                        <ul className="list-disc pl-6 space-y-1">
+                            <li>each ace: <strong>10 points</strong></li>
+                            <li>each ten: <strong>10 points</strong></li>
+                            <li>each five: <strong>5 points</strong></li>
                                 <li>each six (40-card deck only): <strong>5 points</strong></li>
-                                <li>other cards: <strong>0 points</strong></li>
-                            </ul>
+                            <li>other cards: <strong>0 points</strong></li>
+                        </ul>
                             <p className="mt-2">Total points in deck: <strong>100 points (36-card) or 120 points (40-card)</strong></p>
 
                             <h3 className="text-2xl font-bold text-white mt-8 mb-4">Game Flow</h3>
@@ -125,36 +125,36 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
                             <p className="mt-4">
                                 <strong>Scoring Rules:</strong> If the contractor's team makes their bid, they add their card points to their score.
                                 If they fail, they subtract the bid amount. The defending team always adds their card points to their score.
-                            </p>
+                        </p>
 
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-4 my-6">
-                                <p className="font-semibold mb-2">Example: Scores are NS:120, EW:100. NS bid 75.</p>
-                                <ul className="space-y-2 text-sm">
-                                    <li>• If NS take 85 card points, their new score is 205 and they win the game.</li>
-                                    <li>• If NS take 75 card points, their new score is 195. If East or West bid they score their 25 points for a cumulative score of 125;
-                                        if they both just passed their score stays at 100.</li>
-                                    <li>• If NS take 70 card points they lose the 75 they bid and their score is now 45. EW can score their 30 points provided that one of them bid
-                                        for a total of 130; if both just passed their score stays at 100.</li>
-                                </ul>
-                            </div>
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-4 my-6">
+                            <p className="font-semibold mb-2">Example: Scores are NS:120, EW:100. NS bid 75.</p>
+                            <ul className="space-y-2 text-sm">
+                                <li>• If NS take 85 card points, their new score is 205 and they win the game.</li>
+                                <li>• If NS take 75 card points, their new score is 195. If East or West bid they score their 25 points for a cumulative score of 125;
+                                    if they both just passed their score stays at 100.</li>
+                                <li>• If NS take 70 card points they lose the 75 they bid and their score is now 45. EW can score their 30 points provided that one of them bid
+                                    for a total of 130; if both just passed their score stays at 100.</li>
+                            </ul>
+                        </div>
 
-                            <p>
-                                A team's cumulative score can be negative. On the score sheet this is usually shown by drawing a box around the number - for example minus 95 is written as ⬜95⬜.
-                                The team is said to be "in the box", or sometimes "in the hole" (shown by a circle rather than a box around the score). Failing in a contract is sometimes known as being "boxed".
-                            </p>
-                            <p>
-                                The first team to achieve a score of <strong>200 points or more wins the game</strong>. If both teams reach 200 or more on the same deal then the bidding team wins.
-                            </p>
-                            <p>
-                                The game also ends if one team reaches a negative score of 200 or worse while the other team's score is positive or zero. In that case the team with minus 200 or worse loses the game.
-                            </p>
+                        <p>
+                            A team's cumulative score can be negative. On the score sheet this is usually shown by drawing a box around the number - for example minus 95 is written as ⬜95⬜.
+                            The team is said to be "in the box", or sometimes "in the hole" (shown by a circle rather than a box around the score). Failing in a contract is sometimes known as being "boxed".
+                        </p>
+                        <p>
+                            The first team to achieve a score of <strong>200 points or more wins the game</strong>. If both teams reach 200 or more on the same deal then the bidding team wins.
+                        </p>
+                        <p>
+                            The game also ends if one team reaches a negative score of 200 or worse while the other team's score is positive or zero. In that case the team with minus 200 or worse loses the game.
+                        </p>
 
                             <h3 className="text-2xl font-bold text-white mt-8 mb-4">Kitty Feature (40-Card Games)</h3>
-                            <p>
+                        <p>
                                 When you create a table with the 40-card deck option, you can enable the Kitty feature for an exciting variant of the game.
-                            </p>
-                            <ul className="list-disc pl-6 space-y-2">
-                                <li>
+                        </p>
+                        <ul className="list-disc pl-6 space-y-2">
+                            <li>
                                     <strong>Kitty Cards:</strong> 4 cards are dealt face-down in the center of the table
                                 </li>
                                 <li>
@@ -165,11 +165,11 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
                                 </li>
                                 <li>
                                     <strong>Discard Cards:</strong> Select 4 cards from your hand to discard back to the kitty
-                                </li>
-                                <li>
+                            </li>
+                            <li>
                                     <strong>Kitty Points:</strong> Any point cards in the discarded kitty go to the defending team
-                                </li>
-                            </ul>
+                            </li>
+                        </ul>
                             <p className="mt-4">
                                 <strong>Strategy:</strong> The kitty adds an extra layer of strategy - you might get valuable cards, but you must discard 4 cards back,
                                 and any points in those discarded cards help your opponents!
@@ -186,7 +186,7 @@ const Rules: React.FC<RulesProps> = ({ onClose }) => {
                         </div>
                     </div>
                 </motion.div>
-            </div>
+                </div>
         </div>
     );
 };

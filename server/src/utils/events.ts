@@ -1102,6 +1102,11 @@ export function setupSocketEvents(): void {
                     game.currentTrick.winner = winner.playerId;
                     game.lastTrick = { ...game.currentTrick };
 
+                    // Append completed trick to currentRound
+                    if (game.currentRound) {
+                        game.currentRound.tricks.push({ ...game.currentTrick });
+                    }
+
                     // Update round scores (not total team scores)
                     const winnerPlayer = game.players.find(p => p.id === winner.playerId);
                     if (!winnerPlayer) {
@@ -1205,6 +1210,15 @@ export function setupSocketEvents(): void {
                             resetTableAfterGameCompletion(game.tableId);
 
                             return;
+                        }
+
+                        // Move completed round to rounds array
+                        if (game.currentRound) {
+                            game.currentRound.contractorTeam = game.contractorTeam;
+                            game.currentRound.trumpSuit = game.trumpSuit;
+                            game.currentRound.bid = game.currentBid;
+                            game.currentRound.roundScores = { ...game.roundScores };
+                            game.rounds.push(game.currentRound);
                         }
 
                         // Start a new round
@@ -1319,6 +1333,16 @@ export function setupSocketEvents(): void {
                         logger.debug('Round reset complete - all bid parameters cleared for new round');
                         debugKittyState(game, 'After round reset');
                         validateKittyState(game, 'After round reset');
+
+                        // Initialize new currentRound
+                        game.currentRound = {
+                            tricks: [],
+                            roundNumber: game.round,
+                            contractorTeam: undefined,
+                            trumpSuit: undefined,
+                            bid: undefined,
+                            roundScores: { team1: 0, team2: 0 }
+                        };
 
                         // Record new round start in transcript
                         recordRoundStart(game);

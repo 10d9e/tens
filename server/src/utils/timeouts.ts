@@ -10,7 +10,7 @@ export function startTimeoutCheck(): void {
     setInterval(() => {
         const games = getAllGames();
         games.forEach((game) => {
-            logger.debug(`Checking player timeout for game ${game.id}`);
+            // logger.debug(`Checking player timeout for game ${game.id}`);
             if (checkPlayerTimeout(game)) {
                 logger.warn(`Game ${game.id} was cleaned up due to timeout`);
             } else {

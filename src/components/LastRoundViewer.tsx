@@ -1,46 +1,62 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { createPortal } from 'react-dom';
 import Card from './Card';
 import { useGameStore } from '../store/gameStore';
-import { useSocketStore } from '../store/socketStore';
-import { GameTranscript } from '../types/game';
+import { Round } from '../types/game';
 
 interface LastRoundViewerProps {
     onClose: () => void;
     timeRemaining?: number | null;
 }
 
-interface RoundTrick {
-    trickNumber: number;
-    cards: { card: any; playerId: string }[];
-    winner: string;
-    points: number;
-    leadSuit?: string;
-    trumpSuit?: string;
-}
-
 const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemaining }) => {
     const { currentGame, currentPlayer } = useGameStore();
-    const { getGameTranscript } = useSocketStore();
-    const [, setTranscript] = useState<GameTranscript | null>(null);
-    const [roundTricks, setRoundTricks] = useState<RoundTrick[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
 
     if (!currentGame) {
         return null;
+    }
+
+    // Get the most recent completed round (exclude current round)
+    const lastCompletedRound: Round | null = currentGame.rounds.length > 0
+        ? currentGame.rounds[currentGame.rounds.length - 1]
+        : null;
+
+    if (!lastCompletedRound) {
+        return createPortal(
+            <motion.div
+                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={onClose}
+            >
+                <motion.div
+                    className="bg-gray-900 rounded-lg border border-gray-700 max-w-md w-full p-6 text-center"
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="text-white text-lg mb-4">
+                        No completed rounds available yet
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                    >
+                        Close
+                    </button>
+                </motion.div>
+            </motion.div>,
+            document.body
+        );
     }
 
     const getPlayerName = (playerId: string) => {
         const player = currentGame.players.find(p => p.id === playerId);
         return player ? player.name : 'Unknown';
     };
-
-    // const getPlayerPosition = (playerId: string) => {
-    //     const player = currentGame.players.find(p => p.id === playerId);
-    //     return player ? player.position : 0;
-    // };
 
     const getPlayerTeam = (playerId: string) => {
         const player = currentGame.players.find(p => p.id === playerId);
@@ -50,13 +66,6 @@ const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemainin
         const playerTeam = player.position % 2 === 0 ? 'team1' : 'team2';
         return playerTeam;
     };
-
-    // const getCardValue = (card: any) => {
-    //     const values: { [key: string]: number } = {
-    //         'A': 11, 'K': 4, 'Q': 3, 'J': 2, '10': 10, '9': 0
-    //     };
-    //     return values[card.rank] || 0;
-    // };
 
     const getTeamColor = (team: string) => {
         if (team === 'team1') {
@@ -90,150 +99,21 @@ const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemainin
         }
     };
 
-    // Extract tricks from the previous round
-    useEffect(() => {
-        if (!currentGame || currentGame.round <= 1) {
-            setLoading(false);
-            setError('No previous round available');
-            return;
-        }
-
-        const previousRound = currentGame.round - 1;
-
-        getGameTranscript(currentGame.id, (fetchedTranscript) => {
-            if (!fetchedTranscript) {
-                setError('Failed to load game transcript');
-                setLoading(false);
-                return;
-            }
-
-            setTranscript(fetchedTranscript);
-
-            // Find all trick_complete entries for the previous round
-            const previousRoundTricks: RoundTrick[] = [];
-            let foundRoundStart = false;
-            let foundNextRoundStart = false;
-
-            // First, try to find tricks using round start markers
-            for (const entry of fetchedTranscript.entries) {
-                if (entry.type === 'round_start' && entry.data.round === previousRound) {
-                    foundRoundStart = true;
-                    continue;
-                }
-
-                if (entry.type === 'round_start' && entry.data.round === currentGame.round) {
-                    foundNextRoundStart = true;
-                    break;
-                }
-
-                if (foundRoundStart && !foundNextRoundStart && entry.type === 'trick_complete') {
-                    const trickData = entry.data;
-                    previousRoundTricks.push({
-                        trickNumber: trickData.trickNumber || previousRoundTricks.length + 1,
-                        cards: trickData.trick.cards,
-                        winner: trickData.winnerId,
-                        points: trickData.points,
-                        leadSuit: trickData.leadSuit,
-                        trumpSuit: trickData.trumpSuit
-                    });
-                }
-            }
-
-            // Fallback: If no tricks found using round markers, try to find the last 9 tricks
-            if (previousRoundTricks.length === 0) {
-                const allTricks = fetchedTranscript.entries
-                    .filter((entry: any) => entry.type === 'trick_complete')
-                    .map((entry: any) => ({
-                        trickNumber: entry.data.trickNumber || 0,
-                        cards: entry.data.trick.cards,
-                        winner: entry.data.winnerId,
-                        points: entry.data.points,
-                        leadSuit: entry.data.leadSuit,
-                        trumpSuit: entry.data.trumpSuit,
-                        timestamp: entry.timestamp
-                    }))
-                    .sort((a: any, b: any) => b.timestamp - a.timestamp); // Sort by newest first
-
-                // Take the last 9 tricks (most recent complete round)
-                const lastRoundTricks = allTricks.slice(0, 9).reverse(); // Reverse to get chronological order
-
-                for (let i = 0; i < lastRoundTricks.length; i++) {
-                    const trick = lastRoundTricks[i];
-                    previousRoundTricks.push({
-                        trickNumber: i + 1,
-                        cards: trick.cards,
-                        winner: trick.winner,
-                        points: trick.points,
-                        leadSuit: trick.leadSuit,
-                        trumpSuit: trick.trumpSuit
-                    });
-                }
-            }
-            setRoundTricks(previousRoundTricks);
-            setLoading(false);
-        });
-    }, [currentGame, getGameTranscript]);
-
-    if (loading) {
-        return createPortal(
-            <motion.div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-            >
-                <motion.div
-                    className="bg-gray-900 rounded-lg border border-gray-700 p-8 text-center"
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                >
-                    <div className="text-white text-lg">Loading last round...</div>
-                </motion.div>
-            </motion.div>,
-            document.body
-        );
-    }
-
-    if (error || roundTricks.length === 0) {
-        return createPortal(
-            <motion.div
-                className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={onClose}
-            >
-                <motion.div
-                    className="bg-gray-900 rounded-lg border border-gray-700 max-w-md w-full p-6 text-center"
-                    initial={{ scale: 0.9, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.9, opacity: 0 }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <div className="text-white text-lg mb-4">
-                        {error || 'No previous round data available'}
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
-                    >
-                        Close
-                    </button>
-                </motion.div>
-            </motion.div>,
-            document.body
-        );
-    }
+    const getCardValue = (card: any) => {
+        const values: { [key: string]: number } = {
+            'A': 10, 'K': 0, 'Q': 0, 'J': 0, '10': 10, '9': 0, '8': 0, '7': 0, '6': 0, '5': 5
+        };
+        return values[card.rank] || 0;
+    };
 
     // Calculate team totals for the round
-    const team1Tricks = roundTricks.filter(trick => {
-        const winnerTeam = getPlayerTeam(trick.winner);
+    const team1Tricks = lastCompletedRound.tricks.filter(trick => {
+        const winnerTeam = getPlayerTeam(trick.winner || '');
         return winnerTeam === 'team1';
     });
 
-    const team2Tricks = roundTricks.filter(trick => {
-        const winnerTeam = getPlayerTeam(trick.winner);
+    const team2Tricks = lastCompletedRound.tricks.filter(trick => {
+        const winnerTeam = getPlayerTeam(trick.winner || '');
         return winnerTeam === 'team2';
     });
 
@@ -257,7 +137,7 @@ const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemainin
             >
                 {/* Header */}
                 <div className="flex justify-between items-center p-4 border-b border-gray-700">
-                    <h2 className="text-xl font-bold text-white">Round {currentGame.round - 1} Summary</h2>
+                    <h2 className="text-xl font-bold text-white">Round {lastCompletedRound.roundNumber} Summary</h2>
                     <div className="flex items-center gap-4">
                         {/* Timer display when it's the player's turn */}
                         {currentPlayer && currentGame.currentPlayer === currentPlayer.id && timeRemaining !== null && timeRemaining !== undefined && (
@@ -281,24 +161,29 @@ const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemainin
                     </div>
                 </div>
 
-                {/* Compact Stats */}
+                {/* Round Stats */}
                 <div className="p-3 border-b border-gray-700">
                     <div className="flex justify-between items-center">
                         <div className="flex items-center gap-4">
                             <div className="text-sm text-gray-300">
-                                <span className="text-gray-400">Round:</span> <span className="font-bold text-white">{currentGame.round - 1}</span>
+                                <span className="text-gray-400">Round:</span> <span className="font-bold text-white">{lastCompletedRound.roundNumber}</span>
                             </div>
                             <div className="text-sm text-gray-300">
-                                <span className="text-gray-400">Tricks:</span> <span className="font-bold text-white">{roundTricks.length}/9</span>
+                                <span className="text-gray-400">Tricks:</span> <span className="font-bold text-white">{lastCompletedRound.tricks.length}/9</span>
                             </div>
                             <div className="text-sm text-gray-300">
                                 <span className="text-gray-400">Trump:</span> <span className="font-bold text-white">
-                                    {roundTricks[0]?.trumpSuit ?
-                                        roundTricks[0].trumpSuit.charAt(0).toUpperCase() + roundTricks[0].trumpSuit.slice(1) :
+                                    {lastCompletedRound.trumpSuit ?
+                                        lastCompletedRound.trumpSuit.charAt(0).toUpperCase() + lastCompletedRound.trumpSuit.slice(1) :
                                         'None'
                                     }
                                 </span>
                             </div>
+                            {lastCompletedRound.bid && (
+                                <div className="text-sm text-gray-300">
+                                    <span className="text-gray-400">Bid:</span> <span className="font-bold text-white">{lastCompletedRound.bid.points} by {getPlayerName(lastCompletedRound.bid.playerId)}</span>
+                                </div>
+                            )}
                         </div>
                         <div className="flex items-center gap-4">
                             <div className={`px-3 py-1 rounded-lg border ${getTeamColor('team1')}`}>
@@ -315,61 +200,88 @@ const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemainin
                     </div>
                 </div>
 
-                {/* All Tricks */}
-                <div className="p-4 pb-6">
-                    <div className="grid grid-cols-3 gap-3">
-                        {roundTricks.map((trick, index) => {
-                            const winnerTeam = getPlayerTeam(trick.winner);
+                {/* Tricks Display - Natural Table Layout */}
+                <div className="p-6">
+                    <div className="grid grid-cols-3 gap-6">
+                        {lastCompletedRound.tricks.map((trick, index) => {
+                            const winnerTeam = getPlayerTeam(trick.winner || '');
 
                             return (
                                 <motion.div
                                     key={index}
-                                    className="p-2 relative"
+                                    className={`relative border-2 rounded-lg p-3 ${winnerTeam === 'team1' ? 'border-red-400/30' : 'border-blue-400/30'}`}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     transition={{ delay: index * 0.05 }}
                                 >
-                                    <div className="flex justify-between items-center mb-2">
-                                        <h4 className="text-sm font-semibold text-white">
-                                            T{trick.trickNumber}
+                                    {/* Trick Header */}
+                                    <div className="mb-3">
+                                        <h4 className="text-lg font-bold">
+                                            <span className={getTeamTextColor(getPlayerTeam(trick.winner || ''))}>Trick {index + 1}</span> <span className="text-sm font-normal text-gray-300">- Won by <span className={`font-bold ${getTeamTextColor(getPlayerTeam(trick.winner || ''))}`}>{getPlayerName(trick.winner || '')}</span></span>
                                         </h4>
                                     </div>
 
-                                    <div className="text-xs text-gray-300 mb-2">
-                                        {getPlayerName(trick.winner)}
+                                    {/* Cards Stack - Natural Table Layout */}
+                                    <div className="relative h-28 flex justify-center items-start pt-2">
+                                        <div className="relative">
+                                            {trick.cards.map(({ card, playerId }, cardIndex) => {
+                                                const isWinningCard = playerId === trick.winner;
+                                                const hasPoints = getCardValue(card) > 0;
+                                                const shouldGlow = hasPoints;
+
+                                                return (
+                                                    <motion.div
+                                                        key={`${card.id}-${playerId}`}
+                                                        className="absolute"
+                                                        initial={{
+                                                            opacity: 0,
+                                                            scale: 0.8,
+                                                            rotate: (cardIndex - 1.5) * 2,
+                                                            x: cardIndex * 36 - 54 - 30,
+                                                            y: 8
+                                                        }}
+                                                        animate={{
+                                                            opacity: 1,
+                                                            scale: 1,
+                                                            rotate: (cardIndex - 1.5) * 2,
+                                                            x: cardIndex * 36 - 54 - 30,
+                                                            y: shouldGlow ? 0 : 8
+                                                        }}
+                                                        transition={{
+                                                            delay: index * 0.05 + cardIndex * 0.1,
+                                                            type: "spring",
+                                                            stiffness: 200,
+                                                            damping: 15
+                                                        }}
+                                                        style={{
+                                                            zIndex: cardIndex + 1,
+                                                            filter: shouldGlow ? 'brightness(1.2)' : 'brightness(0.9)'
+                                                        }}
+                                                    >
+                                                        <Card
+                                                            card={card}
+                                                            size="tiny"
+                                                            className="shadow-lg"
+                                                            style={{
+                                                                boxShadow: shouldGlow ? getTeamGlow(winnerTeam) : '0 4px 8px rgba(0,0,0,0.3)',
+                                                                border: shouldGlow ? `2px solid ${winnerTeam === 'team1' ? '#ef4444' : '#3b82f6'}` : 'none'
+                                                            }}
+                                                        />
+                                                    </motion.div>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
 
-                                    <div className="flex justify-center items-center h-14 relative">
-                                        {trick.cards.map(({ card, playerId }, cardIndex) => (
-                                            <div
-                                                key={`${card.id}-${playerId}`}
-                                                className="relative"
-                                                style={{
-                                                    transform: `rotate(${(cardIndex - 1.5) * 8}deg) translateX(${cardIndex * 8}px)`,
-                                                    zIndex: cardIndex + 1
-                                                }}
-                                            >
-                                                <Card
-                                                    card={card}
-                                                    size="tiny"
-                                                    className="shadow-sm"
-                                                    style={{ boxShadow: getTeamGlow(winnerTeam) }}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    {/* Points indicator in top right of cell */}
+                                    {/* Points Indicator */}
                                     <motion.div
-                                        initial={{ opacity: 0, y: -5 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: index * 0.05 + 0.3 }}
-                                        className={`absolute text-2xl font-extrabold ${getTeamTextColor(winnerTeam)}`}
+                                        initial={{ opacity: 0, scale: 0.5 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ delay: index * 0.05 + 0.5 }}
+                                        className={`absolute -top-2 -right-2 text-2xl font-extrabold ${getTeamTextColor(winnerTeam)}`}
                                         style={{
                                             textShadow: '0 0 12px currentColor, 0 0 24px currentColor, 0 2px 4px rgba(0,0,0,0.8)',
-                                            top: '8px',
-                                            right: '8px',
-                                            zIndex: 10
+                                            zIndex: 20
                                         }}
                                     >
                                         +{trick.points}

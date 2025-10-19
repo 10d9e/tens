@@ -9,7 +9,6 @@ import BellAnimation from './BellAnimation';
 import ShuffleAnimation from './ShuffleAnimation';
 import TrickWinnerAnimation from './TrickWinnerAnimation';
 import GameInfo from './GameInfo';
-import LastRoundViewer from './LastRoundViewer';
 import { logger } from '../utils/logging';
 
 // Function to play a random cat sound
@@ -68,7 +67,6 @@ const SpectatorView: React.FC = () => {
     const [lastPlayedSecond, setLastPlayedSecond] = useState<number | null>(null);
     const [showExitDialog, setShowExitDialog] = useState(false);
     const [previousPhase, setPreviousPhase] = useState<string | null>(null);
-    const [showLastRoundViewer, setShowLastRoundViewer] = useState(false);
 
     // Play cat sound when kitty phase begins (for all spectators)
     useEffect(() => {
@@ -225,19 +223,6 @@ const SpectatorView: React.FC = () => {
                             title={soundEnabled ? "Disable Sound" : "Enable Sound"}
                         >
                             {soundEnabled ? '🔊' : '🔇'} Sound
-                        </button>,
-                        document.body
-                    )}
-
-                    {/* View Last Round Button - rendered in portal */}
-                    {currentGame.round > 1 && createPortal(
-                        <button
-                            onClick={() => setShowLastRoundViewer(true)}
-                            className="fixed top-2 right-60 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-lg text-green-300 hover:text-green-200 transition-all text-sm font-medium"
-                            style={{ zIndex: 10001 }}
-                            title="View Last Round (All 9 Tricks)"
-                        >
-                            📋 Last Round
                         </button>,
                         document.body
                     )}
@@ -504,14 +489,6 @@ const SpectatorView: React.FC = () => {
                         </div>
                     </motion.div>
                 </motion.div>
-            )}
-
-            {/* Last Round Viewer */}
-            {showLastRoundViewer && (
-                <LastRoundViewer
-                    onClose={() => setShowLastRoundViewer(false)}
-                    timeRemaining={null} // Spectators don't have a timer
-                />
             )}
         </div>
     );

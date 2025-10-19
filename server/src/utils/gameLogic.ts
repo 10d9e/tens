@@ -270,7 +270,9 @@ export function createGame(tableId: string, timeoutDuration: number = 30000, dec
         biddingPasses: 0, // Track number of consecutive passes
         playersWhoHavePassed: new Set(), // Track which players have passed and cannot bid again
         playerTurnStartTime: {}, // Track when each player's turn started: {playerId: timestamp}
-        timeoutDuration: timeoutDuration // Custom timeout duration in milliseconds
+        timeoutDuration: timeoutDuration, // Custom timeout duration in milliseconds
+        rounds: [], // Completed rounds
+        currentRound: undefined // Current round being played
     };
 
     return game;
@@ -428,6 +430,16 @@ export function startGame(game: Game): Game {
         game.dealer = firstPlayer.id;
         game.round = 1;
         game.playerTurnStartTime = { [firstPlayer.id]: Date.now() };
+
+        // Initialize first currentRound
+        game.currentRound = {
+            tricks: [],
+            roundNumber: game.round,
+            contractorTeam: undefined,
+            trumpSuit: undefined,
+            bid: undefined,
+            roundScores: { team1: 0, team2: 0 }
+        };
     }
 
     // Initialize and record game start in global transcript storage
@@ -605,6 +617,16 @@ export async function checkBiddingCompletion(game: Game): Promise<void> {
         game.round++;
         game.deck = createDeck(game.deckVariant || '36');
         logger.debug(`Starting new round ${game.round} (all passed) - hasKitty: ${game.hasKitty}, deckVariant: ${game.deckVariant}`);
+
+        // Initialize new currentRound
+        game.currentRound = {
+            tricks: [],
+            roundNumber: game.round,
+            contractorTeam: undefined,
+            trumpSuit: undefined,
+            bid: undefined,
+            roundScores: { team1: 0, team2: 0 }
+        };
 
         // Clear existing cards and deal new ones
         game.players.forEach(player => {
@@ -1111,6 +1133,11 @@ export async function handleBotTurn(game: Game): Promise<void> {
                 game.currentTrick.winner = winner.playerId;
                 game.lastTrick = { ...game.currentTrick };
 
+                // Append completed trick to currentRound
+                if (game.currentRound) {
+                    game.currentRound.tricks.push({ ...game.currentTrick });
+                }
+
                 // Update round scores (not total team scores)
                 // fixes scoring issue
                 const winnerPlayer = game.players.find(p => p.id === winner.playerId);
@@ -1220,11 +1247,30 @@ export async function handleBotTurn(game: Game): Promise<void> {
                         return;
                     }
 
+                    // Move completed round to rounds array
+                    if (game.currentRound) {
+                        game.currentRound.contractorTeam = game.contractorTeam;
+                        game.currentRound.trumpSuit = game.trumpSuit;
+                        game.currentRound.bid = game.currentBid;
+                        game.currentRound.roundScores = { ...game.roundScores };
+                        game.rounds.push(game.currentRound);
+                    }
+
                     // Start a new round
                     game.round++;
                     game.deck = createDeck(game.deckVariant || '36');
                     logger.debug(`Starting new round ${game.round} - hasKitty: ${game.hasKitty}, deckVariant: ${game.deckVariant}`);
                     debugKittyState(game, 'Before new round setup (handleBotTurn)');
+
+                    // Initialize new currentRound
+                    game.currentRound = {
+                        tricks: [],
+                        roundNumber: game.round,
+                        contractorTeam: undefined,
+                        trumpSuit: undefined,
+                        bid: undefined,
+                        roundScores: { team1: 0, team2: 0 }
+                    };
 
                     // Clear existing cards and deal new ones
                     game.players.forEach(player => {
@@ -1438,6 +1484,15 @@ export async function handleBotTurn(game: Game): Promise<void> {
                     logger.debug(`New scores: Team1 ${game.teamScores.team1}, Team2 ${game.teamScores.team2}`);
                 }
 
+                // Move completed round to rounds array
+                if (game.currentRound) {
+                    game.currentRound.contractorTeam = game.contractorTeam;
+                    game.currentRound.trumpSuit = game.trumpSuit;
+                    game.currentRound.bid = game.currentBid;
+                    game.currentRound.roundScores = { ...game.roundScores };
+                    game.rounds.push(game.currentRound);
+                }
+
                 // Move to next round
                 game.round++;
                 game.phase = 'bidding';
@@ -1448,6 +1503,16 @@ export async function handleBotTurn(game: Game): Promise<void> {
                 game.roundScores = { team1: 0, team2: 0 }; // Reset round scores
                 game.biddingPasses = 0; // Reset bidding passes
                 game.biddingRound = 0; // Reset bidding round
+
+                // Initialize new currentRound
+                game.currentRound = {
+                    tricks: [],
+                    roundNumber: game.round,
+                    contractorTeam: undefined,
+                    trumpSuit: undefined,
+                    bid: undefined,
+                    roundScores: { team1: 0, team2: 0 }
+                };
                 if (game.playersWhoHavePassed) {
                     game.playersWhoHavePassed.clear();
                 } // Reset passed players for new round

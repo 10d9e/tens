@@ -32,6 +32,15 @@ export interface Trick {
     points: number;
 }
 
+export interface Round {
+    tricks: Trick[];
+    roundNumber: number;
+    contractorTeam?: 'team1' | 'team2' | undefined;
+    trumpSuit?: Suit | undefined;
+    bid?: Bid | undefined;
+    roundScores: { team1: number; team2: number };
+}
+
 export interface Game {
     id: string;
     tableId: string; // Add tableId property
@@ -63,6 +72,9 @@ export interface Game {
     // Additional game properties
     deck?: Card[]; // The game deck
     opposingTeamBid?: number; // Track opposing team's bid
+    // Round tracking
+    rounds: Round[]; // Completed rounds
+    currentRound?: Round | undefined; // Current round being played
 }
 
 export interface Table {
