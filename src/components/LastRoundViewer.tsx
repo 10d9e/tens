@@ -225,7 +225,6 @@ const LastRoundViewer: React.FC<LastRoundViewerProps> = ({ onClose, timeRemainin
                                     <div className="relative h-28 flex justify-center items-start pt-2">
                                         <div className="relative">
                                             {trick.cards.map(({ card, playerId }, cardIndex) => {
-                                                const isWinningCard = playerId === trick.winner;
                                                 const hasPoints = getCardValue(card) > 0;
                                                 const shouldGlow = hasPoints;
 
