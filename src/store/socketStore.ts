@@ -50,16 +50,47 @@ export const useSocketStore = create<SocketStore>((set, get) => ({
         const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
             ? 'http://localhost:3001'
             : window.location.origin;
-        const socket = io(serverUrl);
+
+        // Configure socket with automatic reconnection
+        const socket = io(serverUrl, {
+            reconnection: true,           // Enable automatic reconnection
+            reconnectionAttempts: Infinity, // Keep trying to reconnect
+            reconnectionDelay: 1000,      // Start with 1 second delay
+            reconnectionDelayMax: 5000,   // Max 5 seconds between attempts
+            timeout: 20000,               // Connection timeout
+        });
 
         socket.on('connect', () => {
             set({ socket, isConnected: true, playerId: socket.id });
             logger.info('[connect] Connected to server with ID:', socket.id);
         });
 
-        socket.on('disconnect', () => {
+        socket.on('disconnect', (reason) => {
             set({ isConnected: false });
-            logger.info('[disconnect] Disconnected from server');
+            logger.info('[disconnect] Disconnected from server. Reason:', reason);
+
+            // Show toast for unexpected disconnections (not manual)
+            if (reason !== 'io client disconnect') {
+                toast.error('Connection lost. Reconnecting...', { duration: 3000 });
+            }
+        });
+
+        socket.on('reconnect_attempt', (attemptNumber) => {
+            logger.info('[reconnect_attempt] Attempting to reconnect...', attemptNumber);
+        });
+
+        socket.on('reconnect', (attemptNumber) => {
+            logger.info('[reconnect] Successfully reconnected after', attemptNumber, 'attempts');
+            toast.success('Reconnected to server!', { duration: 2000 });
+        });
+
+        socket.on('reconnect_error', (error) => {
+            logger.error('[reconnect_error] Reconnection error:', error);
+        });
+
+        socket.on('reconnect_failed', () => {
+            logger.error('[reconnect_failed] Failed to reconnect after all attempts');
+            toast.error('Unable to reconnect. Please refresh the page.', { duration: 10000 });
         });
 
         socket.on('lobby_joined', (data) => {

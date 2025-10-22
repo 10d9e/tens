@@ -1851,6 +1851,13 @@ export function setupSocketEvents(): void {
 
         socket.on('disconnect', () => {
             try {
+                // Guard: Don't process disconnects without a valid socket ID
+                // This can happen with pre-handshake disconnections, health checks, etc.
+                if (!socket.id) {
+                    logger.debug('[disconnect] Connection closed before handshake completed (no socket ID)');
+                    return;
+                }
+
                 logger.info('[disconnect] Player disconnected:', socket.id);
                 const player = players.get(socket.id);
                 if (player && player.name) {
