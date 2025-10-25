@@ -66,12 +66,14 @@ export interface Game {
     scoreTarget?: 200 | 300 | 500 | 1000; // Track the score target for winning
     // Kitty-related fields
     hasKitty?: boolean; // Whether this game uses kitty
+    allowPointCardDiscards?: boolean; // Whether to allow discarding point cards to kitty (default: true)
     kitty?: Card[] | undefined; // The kitty cards
     kittyDiscards?: Card[] | undefined; // Cards discarded to kitty by winning bidder
     kittyPhaseCompleted?: boolean; // Track if kitty phase is completed
     // Additional game properties
     deck?: Card[]; // The game deck
     opposingTeamBid?: number; // Track opposing team's bid
+    enforceOpposingTeamBidRule?: boolean; // Whether to enforce the 100+ points opposing team bid rule (default: true)
     // Round tracking
     rounds: Round[]; // Completed rounds
     currentRound?: Round | undefined; // Current round being played
@@ -90,6 +92,8 @@ export interface Table {
     deckVariant?: '36' | '40';
     scoreTarget?: 200 | 300 | 500 | 1000;
     hasKitty?: boolean; // Whether this table uses kitty (only available with 40-card deck)
+    allowPointCardDiscards?: boolean; // Whether to allow discarding point cards to kitty (default: true)
+    enforceOpposingTeamBidRule?: boolean; // Whether to enforce the 100+ points opposing team bid rule (default: true)
     spectators?: Player[]; // New field to track spectators
 }
 

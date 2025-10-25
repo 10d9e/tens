@@ -14,6 +14,7 @@ interface KittyInterfaceProps {
     currentPlayer: string;
     playerId: string;
     currentBid?: { points: number; suit?: string };
+    allowPointCardDiscards?: boolean;
     gameState?: {
         timeoutDuration?: number;
         playerTurnStartTime?: { [playerId: string]: number };
@@ -30,6 +31,7 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
     currentPlayer,
     playerId,
     currentBid,
+    allowPointCardDiscards = true,
     gameState
 }) => {
     const { takeKitty, discardToKitty } = useSocketStore();
@@ -132,7 +134,16 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
         }
     }, [isOpen, currentPlayer, playerId, gameState?.timeoutDuration, gameState?.playerTurnStartTime, gameState?.currentPlayer]);
 
+    const isPointCard = (card: CardType) => {
+        return card.rank === 'A' || card.rank === '10' || card.rank === '5';
+    };
+
     const handleCardSelect = (card: CardType) => {
+        // Don't allow selecting point cards if allowPointCardDiscards is false
+        if (!allowPointCardDiscards && isPointCard(card)) {
+            return;
+        }
+
         if (selectedCards.length >= 4) {
             if (selectedCards.some(c => c.id === card.id)) {
                 // Deselect card
@@ -304,22 +315,25 @@ const KittyInterface: React.FC<KittyInterfaceProps> = ({
                                         {suitCards.map((card) => {
                                             const isSelected = selectedCards.some(c => c.id === card.id);
                                             const isFromKitty = kittyCardIds.has(card.id);
+                                            const isCardPointCard = isPointCard(card);
+                                            const isDisabled = !allowPointCardDiscards && isCardPointCard;
 
                                             return (
                                                 <motion.div
                                                     key={card.id}
-                                                    className={`relative ${isSelected ? 'z-10' : 'z-0'}`}
+                                                    className={`relative ${isSelected ? 'z-10' : 'z-0'} ${isDisabled ? 'opacity-75 cursor-not-allowed' : ''}`}
                                                     onClick={() => handleCardSelect(card)}
-                                                    whileHover={{ scale: 1.05, y: -4 }}
-                                                    whileTap={{ scale: 0.95 }}
+                                                    whileHover={isDisabled ? {} : { scale: 1.05, y: -4 }}
+                                                    whileTap={isDisabled ? {} : { scale: 0.95 }}
                                                 >
                                                     <Card
                                                         card={card}
                                                         size="tiny"
-                                                        isPlayable={true}
+                                                        isPlayable={!isDisabled}
                                                         className={`
                                                             ${isSelected ? 'ring-2 ring-red-500 ring-opacity-75' : ''}
                                                             ${isFromKitty ? 'ring-1 ring-blue-400 ring-opacity-60' : ''}
+                                                            ${isDisabled ? 'grayscale' : ''}
                                                         `}
                                                     />
                                                     {isSelected && (

@@ -23,7 +23,8 @@ export function createStandardTables(numTables = 1): void {
             isPrivate: false,
             deckVariant: '36', // Default to 36-card deck
             scoreTarget: 200, // Default to 200 points
-            hasKitty: false // Default to no kitty
+            hasKitty: false, // Default to no kitty
+            enforceOpposingTeamBidRule: true // Default to enforcing the rule
         };
 
         // Add 3 bot players
@@ -69,7 +70,9 @@ export function createKittyTables(numTables = 1): void {
             deckVariant: '40',
             scoreTarget: 200,
             hasKitty: true,
-            timeoutDuration: 300000
+            allowPointCardDiscards: false, // Default to not allowing point card discards
+            timeoutDuration: 300000,
+            enforceOpposingTeamBidRule: true // Default to enforcing the rule
         }
 
         const botSkills = ['acadien', 'acadien', 'acadien'];

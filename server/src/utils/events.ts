@@ -74,10 +74,10 @@ export function setupSocketEvents(): void {
             }
         });
 
-        socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number; deckVariant?: '36' | '40'; scoreTarget?: 200 | 300 | 500 | 1000; hasKitty?: boolean; isPrivate?: boolean; password?: string }) => {
+        socket.on('create_table', (data: { tableId: string; lobbyId?: string; tableName: string; timeoutDuration?: number; deckVariant?: '36' | '40'; scoreTarget?: 200 | 300 | 500 | 1000; hasKitty?: boolean; allowPointCardDiscards?: boolean; isPrivate?: boolean; password?: string; enforceOpposingTeamBidRule?: boolean }) => {
             try {
                 logger.info('[create_table] received:', data);
-                const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false, isPrivate = false, password } = data;
+                const { tableId, lobbyId = 'default', tableName, timeoutDuration = 30000, deckVariant = '36', scoreTarget = 200, hasKitty = false, allowPointCardDiscards = true, isPrivate = false, password, enforceOpposingTeamBidRule = true } = data;
                 const player = players.get(socket.id);
                 if (!player) {
                     logger.debug('Player not found for socket:', socket.id);
@@ -108,7 +108,9 @@ export function setupSocketEvents(): void {
                     timeoutDuration: timeoutDuration,
                     deckVariant: deckVariant,
                     scoreTarget: scoreTarget,
-                    hasKitty: hasKitty
+                    hasKitty: hasKitty,
+                    allowPointCardDiscards: allowPointCardDiscards,
+                    enforceOpposingTeamBidRule: enforceOpposingTeamBidRule
                 };
 
                 // Only set password if table is private and password is provided
@@ -726,6 +728,16 @@ export function setupSocketEvents(): void {
                 } else {
                     // Player made a bid - remove them from passed list if they were there
                     game.playersWhoHavePassed?.delete(socket.id);
+
+                    // Track opposing team bids for 100+ points rule BEFORE setting new bid
+                    // Determine which team this player is on
+                    const playerTeam = player.position % 2 === 0 ? 'team1' : 'team2';
+                    // If this is the first bid or if this player is on the opposing team, track it
+                    if (!game.currentBid || game.contractorTeam !== playerTeam) {
+                        game.opposingTeamBid = Math.max(game.opposingTeamBid || 0, points);
+                        logger.debug(`Opposing team bid tracked: ${game.opposingTeamBid} points`);
+                    }
+
                     game.currentBid = { playerId: socket.id, points, suit };
                     game.biddingPasses = 0; // Reset pass counter when someone bids
                     logger.debug(`Player ${player.name} bid ${points} points with ${suit} as trump`);

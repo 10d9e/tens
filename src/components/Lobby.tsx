@@ -25,8 +25,10 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
     const [deckVariant, setDeckVariant] = useState<'36' | '40'>('36');
     const [scoreTarget, setScoreTarget] = useState<200 | 300 | 500 | 1000>(200);
     const [hasKitty, setHasKitty] = useState(false);
+    const [allowPointCardDiscards, setAllowPointCardDiscards] = useState(true);
     const [isPrivate, setIsPrivate] = useState(false);
     const [tablePassword, setTablePassword] = useState('');
+    const [enforceOpposingTeamBidRule, setEnforceOpposingTeamBidRule] = useState(true);
 
     logger.debug('Lobby component render - lobby:', lobby, 'currentPlayer:', currentPlayer);
 
@@ -77,7 +79,9 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                 scoreTarget,
                 hasKitty,
                 isPrivate,
-                isPrivate ? tablePassword : undefined
+                isPrivate ? tablePassword : undefined,
+                enforceOpposingTeamBidRule,
+                allowPointCardDiscards
             );
             // Reset form and close dialog
             resetCreateTableForm();
@@ -92,8 +96,10 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
         setDeckVariant('36');
         setScoreTarget(200);
         setHasKitty(false);
+        setAllowPointCardDiscards(true);
         setIsPrivate(false);
         setTablePassword('');
+        setEnforceOpposingTeamBidRule(true);
         setShowCreateTableDialog(false);
     };
 
@@ -480,6 +486,17 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                                                     />
                                                     <span className="text-white">Enable Kitty</span>
                                                 </label>
+                                                {hasKitty && (
+                                                    <label className="flex items-center space-x-2 cursor-pointer ml-6">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={allowPointCardDiscards}
+                                                            onChange={(e) => setAllowPointCardDiscards(e.target.checked)}
+                                                            className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400 rounded"
+                                                        />
+                                                        <span className="text-white text-sm">Allow discarding point cards</span>
+                                                    </label>
+                                                )}
                                                 <p className="text-white/70 text-xs mt-2">
                                                     Winner takes 4 cards from kitty, discards 4 back. Discards go to defending team.
                                                 </p>
@@ -540,6 +557,25 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                                             </label>
                                             <p className="text-white/70 text-xs mt-2">
                                                 Target score to win the game.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Opposing Team Bid Rule */}
+                                    <div className="pb-4">
+                                        <h4 className="text-lg font-semibold text-white mb-3">📋 Scoring Rules</h4>
+                                        <div className="space-y-2 pl-4">
+                                            <label className="flex items-center space-x-2 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={enforceOpposingTeamBidRule}
+                                                    onChange={(e) => setEnforceOpposingTeamBidRule(e.target.checked)}
+                                                    className="w-4 h-4 text-green-500 bg-white/10 border-white/30 focus:ring-green-400 rounded"
+                                                />
+                                                <span className="text-white">Enforce 100+ points opposing team</span>
+                                            </label>
+                                            <p className="text-white/70 text-xs mt-2">
+                                                If opposing team has 100+ points and didn't bid, they score nothing for their card points.
                                             </p>
                                         </div>
                                     </div>

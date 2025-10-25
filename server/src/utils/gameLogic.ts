@@ -206,11 +206,26 @@ export function calculateRoundScores(game: Game, contractorTeam: 'team1' | 'team
     }
 
     // Opposing team scoring
-    // TODO: Implement proper tracking of opposing team bids per RULES2.md line 45
     // Rule: If opposing team has 100+ points and didn't bid, they score nothing
-    // Currently opposingTeamBid is never tracked, so this rule is disabled
-    // For now, opposing team always gets their card points
-    newOpposingScore += opposingCardPoints;
+    // Check if the rule is enabled (default: true)
+    const ruleEnabled = game.enforceOpposingTeamBidRule !== false; // Default to true if not specified
+
+    if (ruleEnabled) {
+        // Check if opposing team has 100+ points and didn't bid
+        const opposingTeamHas100Plus = opposingScore >= 100;
+        const opposingTeamDidBid = (game.opposingTeamBid || 0) > 0;
+
+        if (opposingTeamHas100Plus && !opposingTeamDidBid) {
+            // Opposing team has 100+ points and didn't bid - they score nothing
+            logger.debug(`Opposing team has ${opposingScore} points and didn't bid - scoring nothing`);
+        } else {
+            // Opposing team gets their card points (either < 100 points or they bid)
+            newOpposingScore += opposingCardPoints;
+        }
+    } else {
+        // Rule is disabled - opposing team always gets their card points
+        newOpposingScore += opposingCardPoints;
+    }
 
     // Add kitty discard points to opposing team (defending team)
     newOpposingScore += kittyDiscardPoints;
@@ -264,9 +279,11 @@ export function createGame(tableId: string, timeoutDuration: number = 30000, dec
         deckVariant: deckVariant, // Store the deck variant in the game
         scoreTarget: scoreTarget, // Store the score target in the game
         hasKitty: table?.hasKitty || false, // Copy kitty setting from table
+        allowPointCardDiscards: table?.allowPointCardDiscards !== false, // Copy setting from table (default: true)
         kittyPhaseCompleted: false, // Track if kitty phase has been completed for current round
         contractorTeam: undefined, // Track which team is the contractor
         opposingTeamBid: 0, // Track if opposing team made any bid
+        enforceOpposingTeamBidRule: table?.enforceOpposingTeamBidRule !== false, // Copy rule setting from table (default: true)
         biddingPasses: 0, // Track number of consecutive passes
         playersWhoHavePassed: new Set(), // Track which players have passed and cannot bid again
         playerTurnStartTime: {}, // Track when each player's turn started: {playerId: timestamp}
@@ -867,6 +884,16 @@ export async function handleBotTurn(game: Game): Promise<void> {
 
             // Bot made a bid - remove them from passed list if they were there
             game.playersWhoHavePassed?.delete(currentPlayer.id);
+
+            // Track opposing team bids for 100+ points rule BEFORE setting new bid
+            // Determine which team this bot is on
+            const botTeam = currentPlayer.position % 2 === 0 ? 'team1' : 'team2';
+            // If this is the first bid or if this bot is on the opposing team, track it
+            if (!game.currentBid || game.contractorTeam !== botTeam) {
+                game.opposingTeamBid = Math.max(game.opposingTeamBid || 0, bidResult.points);
+                logger.debug(`Opposing team bid tracked (bot): ${game.opposingTeamBid} points`);
+            }
+
             game.currentBid = { playerId: currentPlayer.id, points: bidResult.points, suit: bestSuit };
             game.biddingPasses = 0; // Reset pass counter when someone bids
 

@@ -569,6 +569,7 @@ const GameTable: React.FC = () => {
                     currentPlayer={currentGame.currentPlayer}
                     playerId={currentPlayer?.id || ''}
                     currentBid={currentGame.currentBid}
+                    allowPointCardDiscards={currentGame.allowPointCardDiscards !== false}
                     gameState={{
                         timeoutDuration: currentGame.timeoutDuration,
                         playerTurnStartTime: currentGame.playerTurnStartTime,
