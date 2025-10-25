@@ -68,7 +68,7 @@ const Card: React.FC<CardProps> = ({
             style={{
                 filter: !isPlayable ? 'grayscale(80%) brightness(0.6)' : undefined,
                 opacity: !isPlayable ? 0.7 : undefined,
-                boxShadow: isPointCard ? '0 0 12px rgba(255, 193, 7, 0.8), 0 0 24px rgba(255, 193, 7, 0.6), 0 0 36px rgba(255, 193, 7, 0.4)' : undefined,
+                boxShadow: isPointCard ? '0 0 12px rgba(255, 193, 7, 0.8), 0 0 15px rgba(255, 193, 7, 0.9), 0 0 1px rgba(255, 193, 7, 1)' : undefined,
                 border: isPointCard ? '2px solid rgba(255, 193, 7, 0.8)' : undefined,
                 ...style
             }}

@@ -180,7 +180,7 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                 <div>
                     {/* Tables List */}
                     <motion.div
-                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                        className="flex flex-wrap justify-center gap-8"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ duration: 0.5 }}
@@ -189,7 +189,7 @@ const Lobby: React.FC<LobbyProps> = ({ onResetUsername, onShowRules }) => {
                             lobby.map((table) => (
                                 <motion.div
                                     key={table.id}
-                                    className={`bg-white/10 backdrop-blur-md rounded p-8 border transition-all duration-300 shadow-xl hover:shadow-2xl relative ${table.gameState
+                                    className={`bg-white/10 backdrop-blur-md rounded p-8 border transition-all duration-300 shadow-xl hover:shadow-2xl relative w-96 ${table.gameState
                                         ? 'border-yellow-400/40 hover:border-yellow-400/60 bg-gradient-to-br from-yellow-500/5 to-orange-500/5'
                                         : table.isPrivate
                                             ? 'border-red-400/30 hover:border-red-400/50'
